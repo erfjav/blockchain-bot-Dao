@@ -602,12 +602,17 @@ class BotManager:
 
             current_state = context.user_data.get('state', 'main_menu')
 
+            # # ─── Global Exit ─────────────────────────
+            # if text_lower in {'exit', '➡️ exit'}:
+            #     context.user_data.clear()
+            #     msg = await self.translation_manager.translate_for_user("Goodbye!", chat_id)
+            #     return await update.message.reply_text(msg)
+
             # ─── Global Exit ─────────────────────────
             if text_lower in {'exit', '➡️ exit'}:
-                context.user_data.clear()
-                msg = await self.translation_manager.translate_for_user("Goodbye!", chat_id)
-                return await update.message.reply_text(msg)
-
+               # Delegate to the exit_bot handler (clears state, builds and sends farewell)
+                return await self.exit_bot(update, context)
+            
             # ─── Global Back ─────────────────────────
             if text_lower in {'back', '⬅️ back'}:
                 # revert to main menu
@@ -663,6 +668,47 @@ class BotManager:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="handle_private_message")            
             
+    async def exit_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle the 'Exit' button: clear state and send a farewell message.
+        """
+        try:
+            chat_id = update.effective_chat.id
+            first_name = update.effective_user.first_name
+
+            # پاک‌کردن همه‌ی داده‌های جلسۀ کاربر
+            context.user_data.clear()
+            self.logger.info(f"User {chat_id} exited the bot.")
+
+            # تعیین زبان و چیدمان نام برای RTL
+            user_lang = await self.db.get_user_language(chat_id)
+            rtl = {"fa","ar","he","ur"}
+            if user_lang.lower() in rtl:
+                rlm = "\u200F"
+                display_name = f"{rlm}{first_name}{rlm}"
+            else:
+                display_name = first_name
+
+            # پیام خداحافظی
+            template = (
+                "👋 Goodbye, <b>{name}</b>!\n\n"
+                "Thank you for using <b>AskGenieAI</b>. "
+                "Feel free to come back anytime. 😊"
+            )
+            # ترجمهٔ قالب به زبان کاربر
+            translated = await self.translation_manager.translate_for_user(template, chat_id)
+            # جایگذاری نام
+            text = translated.format(name=display_name)
+
+            # ارسال پیام با منوی اصلی (دکمه‌های Back و Exit مجدداً ظاهر می‌شوند)
+            await update.message.reply_text(
+                text,
+                parse_mode="HTML",
+                reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id)
+            )
+
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="exit_bot")
             
 ########################################### show_main_menu ##########################################################
     async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
