@@ -584,7 +584,7 @@ class BotManager:
         except Exception as e:
             self.logger.error(f"Failed to setup telegram handlers: {e}")
             raise
-
+#########################################################################################################
 
     async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Route private text messages based on user input and current state, building keyboards."""
@@ -658,7 +658,7 @@ class BotManager:
                                              
                 await update.message.reply_text(
                     msg_final,
-                    reply_markup=await self.keyboards.build_main_menu_keyboard(chat_id), parse_mode="HTML")
+                    reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), parse_mode="HTML")
                 self.logger.warning(f"User {chat_id} sent an unexpected message: {text} in state: {current_state}")
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="handle_private_message")            
@@ -675,15 +675,14 @@ class BotManager:
             msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)     
             await update.message.reply_text(
                 msg_final,
-                reply_markup=await self.keyboards.build_main_menu_keyboard(chat_id),
+                reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id),
                 parse_mode="HTML"
             )
             self.logger.info(f"User {chat_id} is returning to the main menu.")
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="show_main_menu")          
             
-            
- 
+           
 ############################################## fastapi #########################################################
     async def startup(self):
         """

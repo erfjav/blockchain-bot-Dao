@@ -132,7 +132,7 @@ class ReferralManager:
             code = uuid.uuid4().hex[:8].upper()
             if not await self.users.find_one({"referral_code": code}, {"_id": 1}):
                 return code
-
+    #----------------------------------------------------------------------------------------------
     async def _next_member_no(self) -> int:
         doc = await self.counters.find_one_and_update(
             {"_id": "member_no"},
@@ -141,6 +141,36 @@ class ReferralManager:
             return_document=ReturnDocument.AFTER,
         )
         return int(doc["seq"])
+
+    #----------------------------------------------------------------------------------------------
+    async def _distribute_commission(self, *, new_user_id: int, ancestors: List[int]):
+        # ۱) محاسبه میزان کل پورسانت (۱۰٪ از حق عضویت ۵۰ دلار)
+        commission_pool = self.JOIN_FEE_USD * self.COMMISSION_RATE
+
+        # ۲) اگر کسی کاربر جدید را دعوت کرده (لیست ancestors غیرخالی است)…
+        if ancestors:
+            # سهم هر نفر = پورسانت کلی تقسیم بر تعداد دعوت‌کننده‌ها
+            share = commission_pool / len(ancestors)
+            #  ثبت افزایش پورسانت دلاری آنها در کالکشن users
+            for uid in ancestors:
+                await self.users.update_one(
+                    {"user_id": uid},
+                    {"$inc": {"commission_usd": share}}
+                )
+        else:
+            # اگر دعوت‌کننده‌‌ای نیست، لاگ می‌زند و پورسانت پرداخت نمی‌شود
+            logger.info("User has no inviter; پورسانت تقسیم نشد.")
+
+        # ۳) ثبت پرداخت ۹۰٪ باقیمانده (حق عضویت – پورسانت) به کیف پول استخر
+        await self.payments.insert_one({
+            "from_user": new_user_id,
+            "amount_usd": self.JOIN_FEE_USD - commission_pool,
+            "to": self.pool_wallet,
+            "type": "join_fee_pool",
+            "timestamp": datetime.utcnow(),
+        })
+
+
 
     # (methods _get_direct_downline, _build_tree, _flatten_tree, _distribute_commission remain unchanged)
 
