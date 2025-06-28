@@ -5,12 +5,13 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from price_provider import PriceProvider
 from language_Manager import TranslationManager
+from config import ADMIN_USER_IDS
 
 class AdminHandler:
-    def __init__(self, price_provider:PriceProvider, translation_manager: TranslationManager, admin_ids):
+    def __init__(self, price_provider:PriceProvider, translation_manager: TranslationManager):
         self.price_provider = price_provider
         self.translation_manager = translation_manager
-        self.admin_ids = admin_ids
+        self.admin_ids = ADMIN_USER_IDS
 
     async def set_price_cmd(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id

@@ -23,6 +23,8 @@ from pymongo import ReturnDocument
 
 from myproject_database import Database
 
+from config import POOL_WALLET_ADDRESS
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +47,7 @@ class ReferralManager:
         self.users = db.collection_users
         self.payments = db.db["payments"]
         self.counters = db.db["counters"]
-        self.pool_wallet = pool_wallet or os.getenv("POOL_WALLET_ADDRESS", "POOL_NOT_SET")
+        self.pool_wallet = POOL_WALLET_ADDRESS
 
     # ------------------------------------------------------------------
     async def ensure_user(

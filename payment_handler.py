@@ -21,6 +21,8 @@ from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 
+from config import PAYMENT_WALLET_ADDRESS
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,7 @@ class PaymentHandler:
         self.keyboards = keyboards
         self.t = translation_manager
         self.eh = error_handler
-        self.wallet_address = os.getenv("PAYMENT_WALLET_ADDRESS", self.PLACEHOLDER_ADDRESS)
+        self.wallet_address = PAYMENT_WALLET_ADDRESS
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def show_payment_instructions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -42,6 +42,8 @@ from earn_money_handler import EarnMoneyHandler
 from payment_handler import PaymentHandler
 from support_handler import SupportHandler
 
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
+
 class BotManager:
     def __init__(self, app: FastAPI):
         self.app = app
@@ -193,23 +195,27 @@ class BotManager:
                 translation_manager=self.translation_manager,
                 error_handler=self.error_handler,
             )
-            self.logger.info("PaymentHandler initialized (wallet=%s)", self.payment_handler.wallet_address)
+            self.logger.info("PaymentHandler initialized (wallet=%s)", PAYMENT_WALLET_ADDRESS)
 
             self.support_handler = SupportHandler(
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
                 error_handler=self.error_handler,
             )
-            self.logger.info("SupportHandler initialized (username=%s)", self.support_handler.support_username)            
+            self.logger.info("SupportHandler initialized (username=%s)", SUPPORT_USER_USERNAME)            
             
-            
-            # فرض: admin_ids را از env یا config خوانده‌اید
             self.admin_handler = AdminHandler(
-                price_provider=self.price_provider,
-                translation_manager=self.translation_manager,
-                admin_ids=self.config.ADMIN_IDS  # یا هر لیست عددی
-            )
-            self.logger.info("AdminHandler initialized (admins=%s)", self.config.ADMIN_IDS)
+                        price_provider=self.price_provider,
+                        translation_manager=self.translation_manager
+                    )            
+            
+            # # فرض: admin_ids را از env یا config خوانده‌اید
+            # self.admin_handler = AdminHandler(
+            #     price_provider=self.price_provider,
+            #     translation_manager=self.translation_manager,
+            #     admin_ids=ADMIN_USER_IDS  # یا هر لیست عددی
+            # )
+            # self.logger.info("AdminHandler initialized (admins=%s)", ADMIN_USER_IDS)
 
 
             self.logger.info("✅ Translation & Keyboard modules initialized.")
@@ -484,6 +490,10 @@ class BotManager:
                 pattern=r'^profile_page_\\d+$'
             ), group=0)
 
+            self.application.add_handler(
+                CommandHandler("set_price", self.admin_handler.set_price_cmd),
+                group=0
+            )
 
             # … سایر هندلرها
             self.application.add_handler(
