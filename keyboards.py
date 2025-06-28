@@ -7,11 +7,11 @@ from typing import List, TYPE_CHECKING
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 
 # اگر از config مرکزی استفاده می‌کنی:
-from core.config import ADMIN_USER_ID
+from config import ADMIN_USER_IDS
 
 if TYPE_CHECKING:
     from translation import SimpleTranslator
-    from myproject_Database import Database
+    from myproject_database import Database
 
 
 ADMIN_USER_ID = int(os.environ.get("ADMIN_USER_ID"))
