@@ -171,6 +171,53 @@ class ReferralManager:
         })
 
 
+    # ------------------------------------------------------------------
+    async def get_profile(self, user_id: int) -> Dict[str, Any]:
+        """
+        برمی‌گرداند:
+         - referral_code
+         - member_no
+         - tokens
+         - commission_usd
+         - total downline count
+        """
+        # سند کاربر
+        user = await self.users.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "referral_code": 1, "member_no": 1, "tokens": 1, "commission_usd": 1}
+        )
+        if not user:
+            return {}
+
+        # تعداد زیرمجموعه‌ها (بدون صفحه‌بندی)
+        total = await self.users.count_documents({"inviter_id": user_id})
+        # مقادیر برگشتی
+        return {
+            **user,
+            "total": total
+        }
+
+    # ------------------------------------------------------------------
+    async def get_downline_paginated(
+        self,
+        user_id: int,
+        page: int = 1,
+        page_size: int = 30
+    ) -> Dict[str, Any]:
+        """
+        لیست زیرمجموعه‌ها با صفحه‌بندی:
+         - members: لیست دیکشنری {'first_name', 'referral_code'}
+         - total: تعداد کل زیرمجموعه‌ها
+        """
+        skip = (page - 1) * page_size
+        cursor = self.users.find(
+            {"inviter_id": user_id},
+            {"_id": 0, "first_name": 1, "referral_code": 1}
+        ).skip(skip).limit(page_size)
+        members = await cursor.to_list(length=page_size)
+        total = await self.users.count_documents({"inviter_id": user_id})
+        return {"members": members, "total": total}
+
 
     # (methods _get_direct_downline, _build_tree, _flatten_tree, _distribute_commission remain unchanged)
 

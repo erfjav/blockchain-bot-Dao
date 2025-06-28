@@ -692,7 +692,7 @@ class BotManager:
             # پیام خداحافظی
             template = (
                 "👋 Goodbye, <b>{name}</b>!\n\n"
-                "Thank you for using <b>AskGenieAI</b>. "
+                "Thank you for using <b>blockchain-bot</b>. "
                 "Feel free to come back anytime. 😊"
             )
             # ترجمهٔ قالب به زبان کاربر
