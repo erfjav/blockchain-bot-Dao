@@ -268,7 +268,7 @@ class Database:
             {"txid": txid},
             {"$set": {
                 "status": status,
-                "updated_at": datetime.utcnow()
+                "updated_at": datetime.datetime.utcnow(),
             }}
         )
         
