@@ -106,6 +106,7 @@ class ProfileHandler:
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
             
+            # ساخت پیام HTML-safe
             placeholder = "—"
             msg_en = (
                 f"<b>Member No:</b> {html.escape(str(member_no))}\n"
