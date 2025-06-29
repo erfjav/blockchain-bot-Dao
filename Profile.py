@@ -106,23 +106,6 @@ class ProfileHandler:
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
             
-            # # 5) ساخت کل پیام به انگلیسی
-            # placeholder = "—"
-            # msg_en = (
-            #     f"<b>Member No:</b> {member_no}\n"
-            #     f"<b>Referral Code:</b> <code>{referral_code}</code>\n"
-            #     "─────────────\n"
-            #     f"<b>Tokens:</b> {tokens if joined else placeholder}\n"
-            #     f"<b>Pending Commission:</b> {commission if joined else placeholder}\n"
-            #     f"<b>Down-line Count:</b> {downline_count if joined else placeholder}"
-            # )
-
-            # if not joined:
-            #     msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
-
-            # # 4) Translator shortcut
-            # msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
-            
             # 5) Compose message body
             placeholder = "—"
             lines: List[str] = [
@@ -139,11 +122,25 @@ class ProfileHandler:
 
             # 6) Inline keyboard – share link always first
             bot_username: str = context.bot.username  # e.g. AskGenieAIbot
-            referral_link: str = f"https://t.me/{bot_username}?start={referral_code}"
-            
+            deep_link: str   = f"https://t.me/{bot_username}?start={referral_code}"
+
+            # لینک «Share» بومی تلگرام؛ کاربر لیست مخاطبان را می‌بیند و می‌تواند لینک را مستقیماً بفرستد
+            share_url: str = (
+                "https://t.me/share/url"
+                f"?url={deep_link}"
+                "&text=🚀 Join me on Bot!"
+            )
+
             rows: List[List[InlineKeyboardButton]] = [
-                [InlineKeyboardButton(("🔗 Share Referral Link"), url=referral_link)]
+                [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
             ]
+            # # 6) Inline keyboard – share link always first
+            # bot_username: str = context.bot.username  # e.g. AskGenieAIbot
+            # referral_link: str = f"https://t.me/{bot_username}?start={referral_code}"
+            
+            # rows: List[List[InlineKeyboardButton]] = [
+            #     [InlineKeyboardButton(("🔗 Share Referral Link"), url=referral_link)]
+            # ]
 
             # 7) Down‑line list (only if joined & has referrals)
             if joined and downline_count:
