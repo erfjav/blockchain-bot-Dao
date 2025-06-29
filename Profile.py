@@ -25,14 +25,14 @@ from typing import Any, Dict, Final, List
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from language_Manager import TranslationManager
+# from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
 from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
-import html
+
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
@@ -47,7 +47,7 @@ class ProfileHandler:
         db: Database,
         referral_manager: ReferralManager,
         keyboards: TranslatedKeyboards,
-        translation_manager: TranslationManager,
+        # translation_manager: TranslationManager,
         inline_translator: TranslatedInlineKeyboards,
         error_handler: ErrorHandler,
         
@@ -55,7 +55,7 @@ class ProfileHandler:
         self.db = db
         self.referral_manager = referral_manager
         self.keyboards = keyboards
-        self.translation_manager = translation_manager
+        # self.translation_manager = translation_manager
         self.inline_translator = inline_translator
         self.error_handler = error_handler
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -106,21 +106,6 @@ class ProfileHandler:
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
             
-            # ساخت پیام HTML-safe
-            placeholder = "—"
-            msg_en = (
-                f"<b>Member No:</b> {html.escape(str(member_no))}\n"
-                f"<b>Referral Code:</b> <code>{html.escape(referral_code)}</code>\n"
-                "─────────────\n"
-                f"<b>Tokens:</b> {html.escape(str(tokens)) if joined else placeholder}\n"
-                f"<b>Pending Commission:</b> {html.escape(str(commission)) if joined else placeholder}\n"
-                f"<b>Down-line Count:</b> {html.escape(str(downline_count)) if joined else placeholder}"
-            )
-
-            if not joined:
-                msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
-
-
             # # 5) ساخت کل پیام به انگلیسی
             # placeholder = "—"
             # msg_en = (
@@ -135,22 +120,22 @@ class ProfileHandler:
             # if not joined:
             #     msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
 
-            # 4) Translator shortcut
-            msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
+            # # 4) Translator shortcut
+            # msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
             
-            # # 5) Compose message body
-            # placeholder = "—"
-            # lines: List[str] = [
-            #     f"<b>{tr('Member No')}:</b> {member_no}",
-            #     f"<b>{tr('Referral Code')}:</b> <code>{referral_code}</code>",
-            #     "─────────────",
-            #     f"<b>{tr('Tokens')}:</b> {tokens if joined else placeholder}",
-            #     f"<b>{tr('Pending Commission')}:</b> {commission if joined else placeholder}",
-            #     f"<b>{tr('Down‑line Count')}:</b> {downline_count if joined else placeholder}",
-            # ]
+            # 5) Compose message body
+            placeholder = "—"
+            lines: List[str] = [
+                f"<b>{('Member No')}:</b> {member_no}",
+                f"<b>{('Referral Code')}:</b> <code>{referral_code}</code>",
+                "─────────────",
+                f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
+                f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
+                f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}",
+            ]
 
-            # if not joined:
-            #     lines += ["", tr("You don’t have a profile yet. Please join the plan first.")]
+            if not joined:
+                lines += ["", ("You don’t have a profile yet. Please join the plan first.")]
 
             # 6) Inline keyboard – share link always first
             bot_username: str = context.bot.username  # e.g. AskGenieAIbot
@@ -198,7 +183,7 @@ class ProfileHandler:
             
             # 9) Send / edit
             await reply_func(
-                "\n".join(msg_final),
+                "\n".join(lines),
                 parse_mode="HTML",
                 reply_markup=reply_markup,
             )

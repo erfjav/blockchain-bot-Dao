@@ -150,7 +150,7 @@ class BotManager:
                 inline_translator=self.inline_translator,
                 referral_manager=self.referral_manager,
                 keyboards=self.keyboards,
-                translation_manager=self.translation_manager,
+                # translation_manager=self.translation_manager,
                 error_handler=self.error_handler,
             )
             self.logger.info( "ProfileHandler initialized with ReferralManager and dependencies")
