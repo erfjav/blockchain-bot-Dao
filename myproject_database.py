@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
-# import datetime
+from pymongo import ReturnDocument
 
 class Database:
     def __init__(self):
@@ -31,6 +31,8 @@ class Database:
             self.collection_languages = self.db["user_languages"]
             self.collection_translation_cache = self.db["translation_cache"]
             self.collection_payments           = self.db["payments"]
+            
+            self.collection_counters = self.db["counters"]      # NEW
 
             self.logger.info("✅ Database connected successfully.")
 
@@ -53,6 +55,14 @@ class Database:
         try:
             # Check main database connection
             await self.check_connection()
+            
+            # ➋ مقداردهی اولیه کانتر member_no (فقط بارِ اول ایجاد می‌شود)
+            await self.collection_counters.update_one(
+                {"_id": "member_no"},
+                {"$setOnInsert": {"seq": 1000}},   # یا 1؛ هر عددی که می‌خواهید شروع شود
+                upsert=True
+            )            
+            
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
@@ -190,9 +200,9 @@ class Database:
     
         
 
-    async def get_user_balance(self, user_id: int) -> int:
-        doc = await self.collection_users.find_one({"user_id": user_id}, {"tokens": 1})
-        return doc.get("tokens", 0) if doc else 0
+    # async def get_user_balance(self, user_id: int) -> int:
+    #     doc = await self.collection_users.find_one({"user_id": user_id}, {"tokens": 1})
+    #     return doc.get("tokens", 0) if doc else 0
         
         
 # myproject_database.py  ← داخل class Database
@@ -271,37 +281,78 @@ class Database:
                 "updated_at": datetime.utcnow()
             }}
         )
-        
+
+    # ------------------------------------------------------------------
+    async def _generate_member_no(self) -> int:
+        """
+        یک شمارهٔ عضویت یکتا و افزایشی برمی‌گرداند.
+        از کالکشنی به نام 'counters' استفاده می‌کند.
+        """
+        counter = await self.collection_counters.find_one_and_update(
+            {"_id": "member_no"},             # این سند فقط یک رکورد است
+            {"$inc": {"seq": 1}},             # مقدار seq را +۱ می‌کند
+            upsert=True,                      # اگر وجود نداشت می‌سازد
+            return_document=ReturnDocument.AFTER,
+        )
+        return counter["seq"]
+       
     # ------------------- Profile & Referral helpers -----------------------
 
     async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-        """
-        برگرداندن پروفایل کامل کاربر + تعداد زیرمجموعه‌ها.
-        None اگر کاربر یافت نشود.
-        """
-        try:
-            user = await self.collection_users.find_one(
-                {"user_id": user_id},
-                {
-                    "_id": 0,
-                    "user_id": 1,
-                    "first_name": 1,
-                    "member_no": 1,
-                    "referral_code": 1,
-                    "tokens": 1,
-                    "commission_usd": 1,
-                    "joined": 1,              # فیلدی که هنگام پرداخت true می‌شود
-                },
-            )
-            if not user:
-                return None
+        user = await self.collection_users.find_one(
+            {"user_id": user_id},
+            {
+                "_id": 0,
+                "referral_code": 1,
+                "member_no": 1,
+                "tokens": 1,
+                "commission_usd": 1,
+                "joined": 1,
+            },
+        )
+        if not user:
+            # ➊ اگر کاربر وجود ندارد، None برگردانید
+            return None
 
-            downline_count = await self.collection_users.count_documents({"inviter_id": user_id})
-            user["downline_count"] = downline_count
-            return user
-        except Exception as e:
-            self.logger.error(f"❌ get_profile({user_id}) failed: {e}")
-            raise
+        # ➋ همیشه member_no داشته باشیم؛ اگر قبلی‌ها نداشتند، مقداردهی کنیم
+        if "member_no" not in user:
+            user["member_no"] = await self._generate_member_no()
+            await self.collection_users.update_one(
+                {"user_id": user_id}, {"$set": {"member_no": user["member_no"]}}
+            )
+
+        # ➌ downline_count
+        user["downline_count"] = await self.collection_users.count_documents({"inviter_id": user_id})
+        return user
+
+    # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
+    #     """
+    #     برگرداندن پروفایل کامل کاربر + تعداد زیرمجموعه‌ها.
+    #     None اگر کاربر یافت نشود.
+    #     """
+    #     try:
+    #         user = await self.collection_users.find_one(
+    #             {"user_id": user_id},
+    #             {
+    #                 "_id": 0,
+    #                 "user_id": 1,
+    #                 "first_name": 1,
+    #                 "member_no": 1,
+    #                 "referral_code": 1,
+    #                 "tokens": 1,
+    #                 "commission_usd": 1,
+    #                 "joined": 1,              # فیلدی که هنگام پرداخت true می‌شود
+    #             },
+    #         )
+    #         if not user:
+    #             return None
+
+    #         downline_count = await self.collection_users.count_documents({"inviter_id": user_id})
+    #         user["downline_count"] = downline_count
+    #         return user
+    #     except Exception as e:
+    #         self.logger.error(f"❌ get_profile({user_id}) failed: {e}")
+    #         raise
 
 
     async def get_downline(
