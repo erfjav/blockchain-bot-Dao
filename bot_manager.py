@@ -378,7 +378,8 @@ class BotManager:
                 )
                 if member.status in ("left", "kicked"):
                     join_kb = InlineKeyboardMarkup([[
-                        InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
+                        # InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
+                        InlineKeyboardButton("➕ عضویت در کانال", url="tg://resolve?domain=BlockchainBotTrades"),
                         InlineKeyboardButton("✅ ادامه", callback_data="check_join")
                     ]])
                     text = "🔒 لطفاً ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
