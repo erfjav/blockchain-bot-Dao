@@ -606,10 +606,10 @@ class BotManager:
             )
 
             # … سایر هندلرها
-            self.application.add_handler(
-                self.trade_handler.get_conversation_handler(),
-                group=1   # یا هر گروهی که منطقی است
-            )
+            # self.application.add_handler(
+            #     self.trade_handler.get_conversation_handler(),
+            #     group=1   # یا هر گروهی که منطقی است
+            # )
 
             # # بعد از اضافه کردن CommandHandlerها:
             # self.application.add_handler(
