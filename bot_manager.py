@@ -147,6 +147,7 @@ class BotManager:
             # 2️⃣ ProfileHandler
             self.profile_handler = ProfileHandler(
                 db=self.db,
+                inline_translator=self.inline_translator,
                 referral_manager=self.referral_manager,
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,

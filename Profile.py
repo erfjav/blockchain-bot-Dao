@@ -30,6 +30,7 @@ from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
+from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
@@ -46,12 +47,15 @@ class ProfileHandler:
         referral_manager: ReferralManager,
         keyboards: TranslatedKeyboards,
         translation_manager: TranslationManager,
+        inline_translator: TranslatedInlineKeyboards,
         error_handler: ErrorHandler,
+        
     ) -> None:
         self.db = db
         self.referral_manager = referral_manager
         self.keyboards = keyboards
         self.translation_manager = translation_manager
+        self.inline_translator = inline_translator
         self.error_handler = error_handler
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -87,13 +91,8 @@ class ProfileHandler:
             # 2) Persist FSM state (optional)
             push_state(context, "showing_profile")
             context.user_data["state"] = "showing_profile"
-
-            # # 3) Fetch or create minimal profile skeleton
-            # profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
-            # if profile is None:
-            #     profile = await self.referral_manager.ensure_user(chat_id, first_name)
-            # 3) fetch profile – second fetch after ensure_user guarantees completeness
             
+            # 3) fetch profile – second fetch after ensure_user guarantees completeness
             profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
             if profile is None or "member_no" not in profile or "referral_code" not in profile:
                 await self.referral_manager.ensure_user(chat_id, first_name)
@@ -105,29 +104,44 @@ class ProfileHandler:
             tokens: int | None = profile.get("tokens")
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
-
+            
             # 4) Translator shortcut
-            tr = self.translation_manager.translate_for_user
+            msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
 
-            # 5) Compose message body
+            # 5) ساخت کل پیام به انگلیسی
             placeholder = "—"
-            lines: List[str] = [
-                f"<b>{tr('Member No')}:</b> {member_no}",
-                f"<b>{tr('Referral Code')}:</b> <code>{referral_code}</code>",
-                "─────────────",
-                f"<b>{tr('Tokens')}:</b> {tokens if joined else placeholder}",
-                f"<b>{tr('Pending Commission')}:</b> {commission if joined else placeholder}",
-                f"<b>{tr('Down‑line Count')}:</b> {downline_count if joined else placeholder}",
-            ]
+            msg_en = (
+                f"<b>Member No:</b> {member_no}\n"
+                f"<b>Referral Code:</b> <code>{referral_code}</code>\n"
+                "─────────────\n"
+                f"<b>Tokens:</b> {tokens if joined else placeholder}\n"
+                f"<b>Pending Commission:</b> {commission if joined else placeholder}\n"
+                f"<b>Down-line Count:</b> {downline_count if joined else placeholder}"
+            )
 
             if not joined:
-                lines += ["", tr("You don’t have a profile yet. Please join the plan first.")]
+                msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
+
+            # # 5) Compose message body
+            # placeholder = "—"
+            # lines: List[str] = [
+            #     f"<b>{tr('Member No')}:</b> {member_no}",
+            #     f"<b>{tr('Referral Code')}:</b> <code>{referral_code}</code>",
+            #     "─────────────",
+            #     f"<b>{tr('Tokens')}:</b> {tokens if joined else placeholder}",
+            #     f"<b>{tr('Pending Commission')}:</b> {commission if joined else placeholder}",
+            #     f"<b>{tr('Down‑line Count')}:</b> {downline_count if joined else placeholder}",
+            # ]
+
+            # if not joined:
+            #     lines += ["", tr("You don’t have a profile yet. Please join the plan first.")]
 
             # 6) Inline keyboard – share link always first
             bot_username: str = context.bot.username  # e.g. AskGenieAIbot
             referral_link: str = f"https://t.me/{bot_username}?start={referral_code}"
+            
             rows: List[List[InlineKeyboardButton]] = [
-                [InlineKeyboardButton(tr("🔗 Share Referral Link"), url=referral_link)]
+                [InlineKeyboardButton(("🔗 Share Referral Link"), url=referral_link)]
             ]
 
             # 7) Down‑line list (only if joined & has referrals)
@@ -135,6 +149,7 @@ class ProfileHandler:
                 downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
                 start_idx: int = (page - 1) * PAGE_SIZE + 1
                 for idx, member in enumerate(downline, start=start_idx):
+                    
                     rows.append([
                         InlineKeyboardButton(
                             f"{idx}. {member['first_name']} — <code>{member['referral_code']}</code>",
@@ -158,15 +173,18 @@ class ProfileHandler:
 
             # 8) Back & Exit (always)
             rows.append([
-                InlineKeyboardButton(tr("Back"), callback_data="back"),
-                InlineKeyboardButton(tr("Exit"), callback_data="exit"),
+                InlineKeyboardButton(("Back"), callback_data="back"),
+                InlineKeyboardButton(("Exit"), callback_data="exit"),
             ])
 
+            # حالا فقط همین یک خط:
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
+            
             # 9) Send / edit
             await reply_func(
-                "\n".join(lines),
+                "\n".join(msg_final),
                 parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup(rows),
+                reply_markup=reply_markup,
             )
 
         except Exception as exc:
@@ -189,7 +207,7 @@ class ProfileHandler:
 
         prev_state = pop_state(context)          # state جدید پس از pop
         if prev_state == "showing_profile":
-            await self.profile_handler.show_profile(update, context)
+            await self.show_profile(update, context)
         else:
             await query.edit_message_text("◀️", reply_markup=None)
 
