@@ -114,18 +114,16 @@ class ProfileHandler:
                 "─────────────",
                 f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
                 f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
-                f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}",
+                f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}\n\n",
 
                 # ✦ Explanation of referral link
                 f"To invite friends and grow your <b>Down-line</b>, simply tap on \n\n "
-                f"<b>🔗 Share&nbsp;Referral&nbsp;Link</b>.\n "
+                f"<b>🔗 Share&nbsp;Referral&nbsp;Link</b>.\n\n "
                 f"Your personal referral link will be automatically sent to the selected contact. 🚀",                
                             
             ]
 
             if not joined:
-                # lines += ["", ("You don’t have a profile yet. Please join the plan first.")]
-
                 lines += [
                     "",
                     (
@@ -149,7 +147,6 @@ class ProfileHandler:
             rows: List[List[InlineKeyboardButton]] = [
                 [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
             ]
-
 
             # 7) Down‑line list (only if joined & has referrals)
             if joined and downline_count:
@@ -192,6 +189,13 @@ class ProfileHandler:
                 "\n".join(lines),
                 parse_mode="HTML",
                 reply_markup=inline_kb,
+            )
+
+            # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit) — همیشه پایین صفحه بماند
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=" ",  # متن می‌تواند خالی یا یک نیم‌فاصله باشد
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as exc:
