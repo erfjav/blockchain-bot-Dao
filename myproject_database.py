@@ -4,12 +4,12 @@
 
 import logging
 import os
-# from datetime import datetime
+from datetime import datetime
 from typing import Optional, Dict, Any
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
-import datetime
+# import datetime
 
 class Database:
     def __init__(self):
@@ -252,7 +252,7 @@ class Database:
         await self.collection_payments.insert_one({
             "user_id":    user_id,
             "txid":       txid,
-            "timestamp":  datetime.datetime.utcnow(),
+            "timestamp":  datetime.utcnow(),
             "status":     "pending"
         })        
         
@@ -268,7 +268,7 @@ class Database:
             {"txid": txid},
             {"$set": {
                 "status": status,
-                "updated_at": datetime.datetime.utcnow(),
+                "updated_at": datetime.utcnow()
             }}
         )
         
