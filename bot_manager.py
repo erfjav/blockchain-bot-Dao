@@ -44,7 +44,7 @@ from support_handler import SupportHandler
 
 from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
 
-from state_manager import pop_state, push_state, get_current_state
+from state_manager import pop_state, push_state
 
 class BotManager:
     def __init__(self, app: FastAPI):
@@ -611,11 +611,11 @@ class BotManager:
                 group=1   # یا هر گروهی که منطقی است
             )
 
-            # بعد از اضافه کردن CommandHandlerها:
-            self.application.add_handler(
-                MessageHandler(filters.TEXT & ~filters.COMMAND, self._text_router),
-                group=1
-            )
+            # # بعد از اضافه کردن CommandHandlerها:
+            # self.application.add_handler(
+            #     MessageHandler(filters.TEXT & ~filters.COMMAND, self._text_router),
+            #     group=1
+            # )
 
             self.application.add_handler(
                 CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"),
@@ -641,12 +641,12 @@ class BotManager:
             self.logger.error(f"Failed to setup telegram handlers: {e}")
             raise
 ##########################################################################################################
-    # و در BotManager:
-    async def _text_router(self, update, context):
-        state = get_current_state(context)
-        if state == "awaiting_txid":
-            return await self.payment_handler.handle_txid(update, context)
-        return await self.handle_text(update, context)       
+    # # و در BotManager:
+    # async def _text_router(self, update, context):
+    #     state = get_current_state(context)
+    #     if state == "awaiting_txid":
+    #         return await self.payment_handler.handle_txid(update, context)
+    #     return await self.handle_text(update, context)       
 #########################################################################################################
 
     async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
