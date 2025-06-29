@@ -126,3 +126,21 @@ class TranslatedKeyboards:
         """
         raw_buttons = self.back_exit_keyboard()
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
+
+    def show_payment_keyboard(self) -> List[List[str]]:
+        """
+        کیبورد ساده شامل فقط دکمه‌های Back و Exit.
+        """
+        return [
+            ["TxID (transaction hash)"],
+            ["⬅️ Back", "➡️ Exit"]
+        ]
+
+    async def build_show_payment_keyboard(
+        self, chat_id: int, resize: bool = True, one_time: bool = False
+    ) -> ReplyKeyboardMarkup:
+        """
+        ساخت کیبورد ترجمه‌شده فقط با دکمه‌های Back و Exit.
+        """
+        raw_buttons = self.show_payment_keyboard()
+        return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)

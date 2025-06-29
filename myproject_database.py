@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
-
+import datetime
 
 class Database:
     def __init__(self):
@@ -30,6 +30,7 @@ class Database:
             self.collection_users = self.db["users"]
             self.collection_languages = self.db["user_languages"]
             self.collection_translation_cache = self.db["translation_cache"]
+            self.collection_payments           = self.db["payments"]
 
             self.logger.info("✅ Database connected successfully.")
 
@@ -232,5 +233,42 @@ class Database:
             {"user_id": user_id},
             {"$set": {"tokens": max(0, new_balance)}},
             upsert=True
+        )
+        
+    async def store_payment_txid(self, user_id: int, txid: str) -> None:
+        """
+        ذخیره‌ی Hash تراکنش (TxID) برای پرداخت join fee.
+
+        این تابع:
+         1) یک سند جدید در کالکشن "payments" درج می‌کند
+            با فیلدهای:
+              - user_id: شناسه‌ی تلگرام کاربر
+              - txid:     رشته‌ی هش تراکنش
+              - timestamp: تاریخ و ساعت درج (UTC)
+              - status:   "pending"  (برای پیگیری وضعیت تأیید)
+         2) اجازه می‌دهد بعداً در webhook یا مانیتور کریپتو،
+            همین سند را با وضعیت "confirmed" یا "failed" به‌روز کنید.
+        """
+        await self.collection_payments.insert_one({
+            "user_id":    user_id,
+            "txid":       txid,
+            "timestamp":  datetime.datetime.utcnow(),
+            "status":     "pending"
+        })        
+        
+# در کلاس Database ...
+
+    async def update_payment_status(self, txid: str, status: str) -> None:
+        """
+        به‌روزرسانی وضعیت سند پرداخت:
+        - txid: Hash تراکنش
+        - status: 'confirmed' یا 'failed'
+        """
+        await self.collection_payments.update_one(
+            {"txid": txid},
+            {"$set": {
+                "status": status,
+                "updated_at": datetime.utcnow()
+            }}
         )
         

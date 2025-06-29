@@ -635,6 +635,7 @@ class BotManager:
         except Exception as e:
             self.logger.error(f"Failed to setup telegram handlers: {e}")
             raise
+        
 #########################################################################################################
 
     async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -675,7 +676,11 @@ class BotManager:
                 
             elif text_lower == '💳 payment':
                 await self.payment_handler.show_payment_instructions(update, context)
-
+                
+            elif text_lower == 'txid (transaction hash)':
+                # این متد خودش state=awaiting_txid را ست می‌کند
+                await self.payment_handler.prompt_for_txid(update, context)                
+                
             elif text_lower == '🎧 support':
                 await self.support_handler.show_support_info(update, context)
 
@@ -819,15 +824,24 @@ class BotManager:
             "awaiting_buy_amount":             self.trade_handler.buy_start,
             "awaiting_buy_price":              self.trade_handler.buy_price,
 
-            "showing_payment":                 self.payment_handler.show_payment_instructions,
+            # ───── payment ─────────────────────────────────────────────────────────────────      
+
+            # پرداخت
+            "showing_payment":   self.payment_handler.show_payment_instructions,
+            "prompt_txid":       self.payment_handler.prompt_for_txid,
+            "awaiting_txid":     self.payment_handler.handle_txid,
+            "txid_received":     self.payment_handler.handle_txid,
+
+            # ───── support_menu ─────────────────────────────────────────────────────────────────      
+
             "support_menu":                    self.support_handler.show_support_info,
             
             # ───── showing_payment ─────────────────────────────────────────────────────────────────      
                     
             "showing_payment":                 self.payment_handler.show_payment_instructions,
             
-            "support_menu":                    self.support_handler.show_support_info,
-            
+            # ───── awaiting_language_detection ─────────────────────────────────────────────────────────────────      
+
             "awaiting_language_detection":     self.handle_language_button,
             
             # ───── showing_profile ─────────────────────────────────────────────────────────────────      
@@ -862,6 +876,8 @@ class BotManager:
             "📊 token price":   "showing_token_price",
             "🔄 convert token": "convert_token",
             "💼 earn money":    "earn_money_menu",
+                        # دکمه‌ی جدیدِ TxID
+            "txid (transaction hash)": "prompt_txid",
         }
         state = menu_map.get(text)
         if state:
