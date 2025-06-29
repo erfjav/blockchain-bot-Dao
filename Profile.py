@@ -30,7 +30,7 @@ from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
-from state_manager import push_state
+from state_manager import push_state, pop_state
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
@@ -88,10 +88,16 @@ class ProfileHandler:
             push_state(context, "showing_profile")
             context.user_data["state"] = "showing_profile"
 
-            # 3) Fetch or create minimal profile skeleton
+            # # 3) Fetch or create minimal profile skeleton
+            # profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
+            # if profile is None:
+            #     profile = await self.referral_manager.ensure_user(chat_id, first_name)
+            # 3) fetch profile – second fetch after ensure_user guarantees completeness
+            
             profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
-            if profile is None:
-                profile = await self.referral_manager.ensure_user(chat_id, first_name)
+            if profile is None or "member_no" not in profile or "referral_code" not in profile:
+                await self.referral_manager.ensure_user(chat_id, first_name)
+                profile = await self.db.get_profile(chat_id)  # now assured to be complete               
 
             joined: bool = bool(profile.get("joined", False))
             member_no: int = profile["member_no"]
@@ -166,6 +172,52 @@ class ProfileHandler:
         except Exception as exc:
             await self.error_handler.handle(update, context, exc, context_name="show_profile")
 
+
+
+
+    # ------------------------------------------------------------------
+    async def back_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        ⬅️ Back  – صرفاً یک «Undo» سطحی:
+        • آخرین state را از استک حذف می‌کند.
+        • اگر state جدید 'showing_profile' باشد، پروفایل را رفرش می‌کند.
+        • در غیر این‌صورت، فقط آیکون ⬅️ را روی پیام می‌گذارد تا
+            کاربر بداند به مرحلهٔ قبل بازگشته است.
+        """
+        query = update.callback_query
+        await query.answer()
+
+        prev_state = pop_state(context)          # state جدید پس از pop
+        if prev_state == "showing_profile":
+            await self.profile_handler.show_profile(update, context)
+        else:
+            await query.edit_message_text("◀️", reply_markup=None)
+
+
+    # ------------------------------------------------------------------
+    async def exit_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        ❌ Exit – پایان فلوی جاری:
+        • پیام اینلاین را پاک می‌کند (یا متن «Done» می‌گذارد).
+        • تمام داده‌های موقتی کاربر را از user_data پاک می‌کند.
+        """
+        query = update.callback_query
+        await query.answer()
+
+        try:
+            await query.message.delete()
+        except Exception:
+            await query.edit_message_text("✅ Done.")
+        context.user_data.clear()
+
+
+    # ------------------------------------------------------------------
+    async def noop_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        دکمه‌های purely-informational (مانند لیست زیرمجموعه‌ها) را از حالت
+        «loading…» خارج می‌کند تا تجربهٔ UX روان بماند.
+        """
+        await update.callback_query.answer()
 
 
 

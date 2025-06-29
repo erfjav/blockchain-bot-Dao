@@ -325,36 +325,6 @@ class Database:
         user["downline_count"] = await self.collection_users.count_documents({"inviter_id": user_id})
         return user
 
-    # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-    #     """
-    #     برگرداندن پروفایل کامل کاربر + تعداد زیرمجموعه‌ها.
-    #     None اگر کاربر یافت نشود.
-    #     """
-    #     try:
-    #         user = await self.collection_users.find_one(
-    #             {"user_id": user_id},
-    #             {
-    #                 "_id": 0,
-    #                 "user_id": 1,
-    #                 "first_name": 1,
-    #                 "member_no": 1,
-    #                 "referral_code": 1,
-    #                 "tokens": 1,
-    #                 "commission_usd": 1,
-    #                 "joined": 1,              # فیلدی که هنگام پرداخت true می‌شود
-    #             },
-    #         )
-    #         if not user:
-    #             return None
-
-    #         downline_count = await self.collection_users.count_documents({"inviter_id": user_id})
-    #         user["downline_count"] = downline_count
-    #         return user
-    #     except Exception as e:
-    #         self.logger.error(f"❌ get_profile({user_id}) failed: {e}")
-    #         raise
-
-
     async def get_downline(
         self,
         user_id: int,

@@ -49,40 +49,108 @@ class ReferralManager:
         self.counters = db.db["counters"]
         self.pool_wallet = POOL_WALLET_ADDRESS
 
+
     # ------------------------------------------------------------------
     async def ensure_user(
-        self, chat_id: int, first_name: str, inviter_code: Optional[str] = None
+        self,
+        chat_id: int,
+        first_name: str,
+        inviter_code: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Register user, allocate tokens, distribute commissions."""
-        # Return if exists
-        doc = await self.users.find_one({"user_id": chat_id}, {"_id": 0})
+        """
+        اطمینان از وجود پروفایل کامل کاربر:
+        • اگر کاربر قبلاً ثبت شده اما فیلدهای کلیدی ناقص‌اند، آن‌ها را تکمیل می‌کند.
+        • در غیر این‌صورت، کاربر جدید می‌سازد و توکن/کمیسیون تخصیص می‌دهد.
+        برمی‌گرداند: دیکشنری کامل پروفایل (بدون _id)
+        """
+        # ── ➊ جستجوی سند موجود
+        doc: Dict[str, Any] | None = await self.users.find_one(
+            {"user_id": chat_id},
+            {"_id": 0},
+        )
+
+        # ───────────── حالت الف: سند موجود ولی ناقص ─────────────
         if doc:
+            updates: Dict[str, Any] = {}
+
+            # member_no و referral_code را در صورت نبود ایجاد می‌کنیم
+            if "member_no" not in doc:
+                updates["member_no"] = await self._next_member_no()
+            if "referral_code" not in doc:
+                updates["referral_code"] = await self._generate_unique_code()
+
+            # first_name را هم اگر خالی بود به‌روزرسانی می‌کنیم
+            if not doc.get("first_name") and first_name:
+                updates["first_name"] = first_name
+
+            if updates:
+                await self.users.update_one({"user_id": chat_id}, {"$set": updates})
+                doc |= updates  # ادغام دیکشنری‌ها در پایتون 3.9+
+
             return doc
 
-        referral_code = await self._generate_unique_code()
-        member_no = await self._next_member_no()
+        # ───────────── حالت ب: کاربر جدید ─────────────
+        referral_code: str = await self._generate_unique_code()
+        member_no: int = await self._next_member_no()
 
         inviter_id, ancestors = await self._resolve_inviter_chain(inviter_code)
 
-        # Allocate tokens – may raise TokensDepletedError
-        tokens_allocated = await self._allocate_tokens()
+        # ممکن است TokensDepletedError بیندازد
+        tokens_allocated: int = await self._allocate_tokens()
 
-        await self.users.insert_one(
-            {
-                "user_id": chat_id,
-                "member_no": member_no,
-                "first_name": first_name,
-                "created_at": datetime.utcnow(),
-                "referral_code": referral_code,
-                "inviter_id": inviter_id,
-                "tokens": tokens_allocated,
-                "commission_usd": 0.0,
-            }
-        )
+        doc = {
+            "user_id": chat_id,
+            "member_no": member_no,
+            "first_name": first_name,
+            "created_at": datetime.utcnow(),
+            "referral_code": referral_code,
+            "inviter_id": inviter_id,
+            "tokens": tokens_allocated,
+            "commission_usd": 0.0,
+            "joined": False,            # بعد از پرداخت True می‌شود
+        }
 
+        await self.users.insert_one(doc)
+
+        # کمیسیون به زنجیرهٔ والدین
         await self._distribute_commission(new_user_id=chat_id, ancestors=ancestors)
 
-        return await self.users.find_one({"user_id": chat_id}, {"_id": 0})
+        return {k: v for k, v in doc.items() if k != "_id"}
+        
+    
+    # async def ensure_user(
+    #     self, chat_id: int, first_name: str, inviter_code: Optional[str] = None
+    # ) -> Dict[str, Any]:
+    #     """Register user, allocate tokens, distribute commissions."""
+    #     # Return if exists
+    #     doc = await self.users.find_one({"user_id": chat_id}, {"_id": 0})
+    #     if doc:
+    #         return doc
+
+    #     referral_code = await self._generate_unique_code()
+    #     member_no = await self._next_member_no()
+
+    #     inviter_id, ancestors = await self._resolve_inviter_chain(inviter_code)
+
+    #     # Allocate tokens – may raise TokensDepletedError
+    #     tokens_allocated = await self._allocate_tokens()
+
+    #     await self.users.insert_one(
+    #         {
+    #             "user_id": chat_id,
+    #             "member_no": member_no,
+    #             "first_name": first_name,
+    #             "created_at": datetime.utcnow(),
+    #             "referral_code": referral_code,
+    #             "inviter_id": inviter_id,
+    #             "tokens": tokens_allocated,
+    #             "commission_usd": 0.0,
+    #         }
+    #     )
+
+    #     await self._distribute_commission(new_user_id=chat_id, ancestors=ancestors)
+
+    #     return await self.users.find_one({"user_id": chat_id}, {"_id": 0})
 
     # ------------------------------------------------------------------
     async def _resolve_inviter_chain(self, inviter_code: Optional[str]):

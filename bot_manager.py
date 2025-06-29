@@ -524,6 +524,22 @@ class BotManager:
                 group=1
             )
 
+            self.application.add_handler(
+                CallbackQueryHandler(self.profile_handler.back_callback, pattern="^back$"),
+                group=1
+            )
+
+            self.application.add_handler(
+                CallbackQueryHandler(self.profile_handler.exit_callback, pattern="^exit$"),
+                group=1
+            )
+
+            # اختیاری: جلوگیری از انتظار طولانی روی دکمه‌های نمایشی
+            self.application.add_handler(
+                CallbackQueryHandler(self.profile_handler.noop_callback, pattern="^noop$"),
+                group=1
+            )
+
             # 3️⃣ Message Handler for private text
             private_text_filter = filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND
             self.application.add_handler(
