@@ -32,6 +32,7 @@ from myproject_database import Database
 from Referral_logic_code import ReferralManager
 from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
+import html
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
@@ -105,21 +106,33 @@ class ProfileHandler:
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
             
-
-
-            # 5) ساخت کل پیام به انگلیسی
             placeholder = "—"
             msg_en = (
-                f"<b>Member No:</b> {member_no}\n"
-                f"<b>Referral Code:</b> <code>{referral_code}</code>\n"
+                f"<b>Member No:</b> {html.escape(str(member_no))}\n"
+                f"<b>Referral Code:</b> <code>{html.escape(referral_code)}</code>\n"
                 "─────────────\n"
-                f"<b>Tokens:</b> {tokens if joined else placeholder}\n"
-                f"<b>Pending Commission:</b> {commission if joined else placeholder}\n"
-                f"<b>Down-line Count:</b> {downline_count if joined else placeholder}"
+                f"<b>Tokens:</b> {html.escape(str(tokens)) if joined else placeholder}\n"
+                f"<b>Pending Commission:</b> {html.escape(str(commission)) if joined else placeholder}\n"
+                f"<b>Down-line Count:</b> {html.escape(str(downline_count)) if joined else placeholder}"
             )
 
             if not joined:
                 msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
+
+
+            # # 5) ساخت کل پیام به انگلیسی
+            # placeholder = "—"
+            # msg_en = (
+            #     f"<b>Member No:</b> {member_no}\n"
+            #     f"<b>Referral Code:</b> <code>{referral_code}</code>\n"
+            #     "─────────────\n"
+            #     f"<b>Tokens:</b> {tokens if joined else placeholder}\n"
+            #     f"<b>Pending Commission:</b> {commission if joined else placeholder}\n"
+            #     f"<b>Down-line Count:</b> {downline_count if joined else placeholder}"
+            # )
+
+            # if not joined:
+            #     msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
 
             # 4) Translator shortcut
             msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
