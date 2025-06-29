@@ -147,7 +147,7 @@ class BotManager:
             # 2️⃣ ProfileHandler
             self.profile_handler = ProfileHandler(
                 db=self.db,
-                inline_translator=self.inline_translator,
+                # inline_translator=self.inline_translator,
                 referral_manager=self.referral_manager,
                 keyboards=self.keyboards,
                 # translation_manager=self.translation_manager,
@@ -496,8 +496,7 @@ class BotManager:
             self.application.add_handler(CommandHandler('guide', self.help_handler.show_Guide), group=0)
             self.application.add_handler(CommandHandler('language', self.handle_language_button), group=0)
             self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
-
-            # پیام /profile یا دکمه 👤
+            self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
 
             # درون متد setup_telegram_handlers، در بخشی که سایر CallbackQueryHandler ها را اضافه کرده‌اید:

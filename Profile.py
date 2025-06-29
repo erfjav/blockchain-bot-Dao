@@ -56,7 +56,7 @@ class ProfileHandler:
         self.referral_manager = referral_manager
         self.keyboards = keyboards
         # self.translation_manager = translation_manager
-        self.inline_translator = inline_translator
+        # self.inline_translator = inline_translator
         self.error_handler = error_handler
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -178,14 +178,14 @@ class ProfileHandler:
                 InlineKeyboardButton(("Exit"), callback_data="exit"),
             ])
 
-            # حالا فقط همین یک خط:
-            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
-            
+            # # حالا فقط همین یک خط:
+            # reply_markup = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
+            inline_kb = InlineKeyboardMarkup(rows)
             # 9) Send / edit
             await reply_func(
                 "\n".join(lines),
                 parse_mode="HTML",
-                reply_markup=reply_markup,
+                reply_markup=inline_kb,
             )
 
         except Exception as exc:
