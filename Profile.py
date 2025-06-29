@@ -105,8 +105,7 @@ class ProfileHandler:
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
             
-            # 4) Translator shortcut
-            msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
+
 
             # 5) ساخت کل پیام به انگلیسی
             placeholder = "—"
@@ -122,6 +121,9 @@ class ProfileHandler:
             if not joined:
                 msg_en += "\n\nYou don’t have a profile yet. Please join the plan first."
 
+            # 4) Translator shortcut
+            msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
+            
             # # 5) Compose message body
             # placeholder = "—"
             # lines: List[str] = [
