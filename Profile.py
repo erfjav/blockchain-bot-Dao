@@ -30,7 +30,7 @@ from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
-from Translated_Inline_Keyboards import TranslatedInlineKeyboards
+# from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
 
 
@@ -48,7 +48,7 @@ class ProfileHandler:
         referral_manager: ReferralManager,
         keyboards: TranslatedKeyboards,
         # translation_manager: TranslationManager,
-        inline_translator: TranslatedInlineKeyboards,
+        # inline_translator: TranslatedInlineKeyboards,
         error_handler: ErrorHandler,
         
     ) -> None:
