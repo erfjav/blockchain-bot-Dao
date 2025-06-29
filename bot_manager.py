@@ -421,11 +421,13 @@ class BotManager:
                     push_state(context, "awaiting_join_check")
                     context.user_data['state'] = "awaiting_join_check"
 
-                    join_kb = InlineKeyboardMarkup([[
-                        InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
-                        InlineKeyboardButton("✅ ادامه",       callback_data="check_join")
+                    join_kb = InlineKeyboardMarkup([[ 
+                        InlineKeyboardButton("➕ Join Channel", url="https://t.me/BlockchainBotTrades"),
+                        InlineKeyboardButton("✅ Continue",     callback_data="check_join")
                     ]])
-                    text = "🔒 لطفاً ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
+                    text = "🔒 Please join our official channel first, then click \"✅ Continue\"."
+
+                    
                     if update.message:
                         await update.message.reply_text(text, reply_markup=join_kb)
                     else:
@@ -643,8 +645,9 @@ class BotManager:
                     reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), parse_mode="HTML")
                 self.logger.warning(f"User {chat_id} sent an unexpected message: {text} in state: {current_state}")
         except Exception as e:
-            await self.error_handler.handle(update, context, e, context_name="handle_private_message")            
-            
+            await self.error_handler.handle(update, context, e, context_name="handle_private_message")     
+                   
+####################################################################################################################           
     async def exit_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Handle the 'Exit' button: clear state and send a farewell message.
@@ -810,7 +813,7 @@ class BotManager:
             "📊 token price":   "showing_token_price",
             "🔄 convert token": "convert_token",
             "💼 earn money":    "earn_money_menu",
-                        # دکمه‌ی جدیدِ TxID
+            # دکمه‌ی جدیدِ TxID
             "txid (transaction hash)": "prompt_txid",
         }
         state = menu_map.get(text)
