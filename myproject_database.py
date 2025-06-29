@@ -5,7 +5,7 @@
 import logging
 import os
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
@@ -272,3 +272,67 @@ class Database:
             }}
         )
         
+    # ------------------- Profile & Referral helpers -----------------------
+
+    async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        برگرداندن پروفایل کامل کاربر + تعداد زیرمجموعه‌ها.
+        None اگر کاربر یافت نشود.
+        """
+        try:
+            user = await self.collection_users.find_one(
+                {"user_id": user_id},
+                {
+                    "_id": 0,
+                    "user_id": 1,
+                    "first_name": 1,
+                    "member_no": 1,
+                    "referral_code": 1,
+                    "tokens": 1,
+                    "commission_usd": 1,
+                    "joined": 1,              # فیلدی که هنگام پرداخت true می‌شود
+                },
+            )
+            if not user:
+                return None
+
+            downline_count = await self.collection_users.count_documents({"inviter_id": user_id})
+            user["downline_count"] = downline_count
+            return user
+        except Exception as e:
+            self.logger.error(f"❌ get_profile({user_id}) failed: {e}")
+            raise
+
+
+    async def get_downline(
+        self,
+        user_id: int,
+        page: int = 1,
+        page_size: int = 30,
+    ) -> List[Dict[str, Any]]:
+        """
+        فهرست زیرمجموعه‌های مستقیم کاربر، به‌صورت صفحه‌بندی.
+        """
+        try:
+            skip = max(0, (page - 1) * page_size)
+            cursor = (
+                self.collection_users.find(
+                    {"inviter_id": user_id},
+                    {"_id": 0, "first_name": 1, "referral_code": 1},
+                )
+                .skip(skip)
+                .limit(page_size)
+            )
+            return await cursor.to_list(length=page_size)
+        except Exception as e:
+            self.logger.error(f"❌ get_downline({user_id}) failed: {e}")
+            raise
+        
+    async def close(self):
+            """
+            بستن اتصال به MongoDB هنگام خاموشی بات
+            """
+            # متد closeِ خود MongoClient همگام‌نشده است،
+            # اما می‌توانیم آن را داخل متد async فراخوانی کنیم.
+            self.client.close()
+            self.logger.info("✅ Database connection closed.")        

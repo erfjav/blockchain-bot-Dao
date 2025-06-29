@@ -45,6 +45,7 @@ from support_handler import SupportHandler
 from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
 
 from state_manager import pop_state, push_state
+import inspect
 
 class BotManager:
     def __init__(self, app: FastAPI):
@@ -395,7 +396,6 @@ class BotManager:
             await self.start_command(update, context)  
     
     ###########################################  start_command  ####################################################
-    ###########################################  start_command  ####################################################
 
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -519,18 +519,6 @@ class BotManager:
                 group=0
             )
 
-            # … سایر هندلرها
-            # self.application.add_handler(
-            #     self.trade_handler.get_conversation_handler(),
-            #     group=1   # یا هر گروهی که منطقی است
-            # )
-
-            # # بعد از اضافه کردن CommandHandlerها:
-            # self.application.add_handler(
-            #     MessageHandler(filters.TEXT & ~filters.COMMAND, self._text_router),
-            #     group=1
-            # )
-
             self.application.add_handler(
                 CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"),
                 group=1
@@ -553,14 +541,7 @@ class BotManager:
             self.logger.info("Telegram handlers setup completed.")
         except Exception as e:
             self.logger.error(f"Failed to setup telegram handlers: {e}")
-            raise
-##########################################################################################################
-    # # و در BotManager:
-    # async def _text_router(self, update, context):
-    #     state = get_current_state(context)
-    #     if state == "awaiting_txid":
-    #         return await self.payment_handler.handle_txid(update, context)
-    #     return await self.handle_text(update, context)       
+            raise  
 #########################################################################################################
 
     async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -626,29 +607,10 @@ class BotManager:
 
             # ─── Trade Menu Sub-Options ──────────────────────
             elif text_lower == '🛒 buy':
-                # # وقتی کاربر Buy را زد، وارد مرحله‌ی دریافت مقدار خرید شو
-                # push_state(context, 'awaiting_buy_amount')
-                # context.user_data['state'] = 'awaiting_buy_amount'
                 return await self.trade_handler.buy_start(update, context)
 
             elif text_lower == '💸 sell':
-                # # وقتی کاربر Sell را زد، وارد مرحله‌ی دریافت مقدار فروش شو
-                # push_state(context, 'awaiting_sell_amount')
-                # context.user_data['state'] = 'awaiting_sell_amount'
                 return await self.trade_handler.sell_start(update, context)
-
-            # # ─── Handle numeric input inside Trade flow ─────────
-            # if current_state == 'awaiting_buy_amount':
-            #     # دریافت عدد خرید
-            #     return await self.trade_handler.buy_amount(update, context)
-
-            # if current_state == 'awaiting_buy_price':
-            #     # دریافت قیمت پیشنهادی
-            #     return await self.trade_handler.buy_price(update, context)
-
-            # if current_state == 'awaiting_sell_amount':
-            #     # دریافت عدد فروش
-            #     return await self.trade_handler.sell_amount(update, context)
 
                 #--------------------------------------------------------------------------------
             else:
@@ -886,29 +848,64 @@ class BotManager:
             raise
 
 #---------------------------------------------------------------------------------------------------------
+
     async def shutdown(self):
         """پاکسازی منابع هنگام shutdown."""
         try:
-            # توقف برنامه تلگرام
+            # ─── توقف برنامه تلگرام
             if self.application:
                 self.logger.info("Shutting down Telegram application...")
                 await self.application.stop()
                 await self.application.shutdown()
                 self.logger.info("Telegram application stopped successfully.")
 
-            # بستن اتصال به دیتابیس
+            # ─── بستن اتصال به دیتابیس
             if self.db:
                 self.logger.info("Closing database connection...")
-                await self.db.close()
+                # اگر کلاس Database متدی به‌نام close داشت، آن را فراخوانی کن
+                close_method = getattr(self.db, 'close', None)
+                if callable(close_method):
+                    # تشخیص async vs sync
+                    if inspect.iscoroutinefunction(close_method):
+                        await close_method()
+                    else:
+                        close_method()
+                # در غیر این صورت، مستقیم کانکشن MongoClient را ببند
+                elif hasattr(self.db, 'client') and hasattr(self.db.client, 'close'):
+                    self.db.client.close()
                 self.logger.info("Database connection closed.")
 
-            # به‌روزرسانی وضعیت برنامه
+            # ─── به‌روزرسانی وضعیت برنامه
             self.is_running = False
             self.logger.info("BotManager shutdown completed successfully.")
 
         except Exception as e:
             self.logger.error(f"Error during shutdown: {e}", exc_info=True)
             raise
+        
+    # async def shutdown(self):
+    #     """پاکسازی منابع هنگام shutdown."""
+    #     try:
+    #         # توقف برنامه تلگرام
+    #         if self.application:
+    #             self.logger.info("Shutting down Telegram application...")
+    #             await self.application.stop()
+    #             await self.application.shutdown()
+    #             self.logger.info("Telegram application stopped successfully.")
+
+    #         # بستن اتصال به دیتابیس
+    #         if self.db:
+    #             self.logger.info("Closing database connection...")
+    #             await self.db.close()
+    #             self.logger.info("Database connection closed.")
+
+    #         # به‌روزرسانی وضعیت برنامه
+    #         self.is_running = False
+    #         self.logger.info("BotManager shutdown completed successfully.")
+
+    #     except Exception as e:
+    #         self.logger.error(f"Error during shutdown: {e}", exc_info=True)
+    #         raise
         
     #---------------------------------------------------------------------------------------------------------        
     async def process_update(self, update: Update):
