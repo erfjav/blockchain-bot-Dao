@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 
 from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
+from state_manager import push_state
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,10 @@ class EarnMoneyHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def coming_soon(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+                # ───➤ ست‌کردن state برای «Earn Money»
+        push_state(context, "earn_money_menu")
+        context.user_data['state'] = "earn_money_menu"
+        
         chat_id = update.effective_chat.id
         msg_en = "🚧 This feature is coming soon."
         await update.message.reply_text(

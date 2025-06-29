@@ -19,6 +19,7 @@ from telegram.ext import ContextTypes
 from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
+from state_manager import push_state
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,11 @@ class SupportHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def show_support_info(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        
+                # ───➤ ست‌کردن state برای بخش Support
+        push_state(context, "support_menu")
+        context.user_data['state'] = "support_menu"
+        
         chat_id = update.effective_chat.id
         try:
             msg_en = (

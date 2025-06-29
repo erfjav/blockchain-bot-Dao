@@ -17,6 +17,7 @@ from price_provider import PriceProvider
 from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
+from state_manager import push_state
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,11 @@ class TokenPriceHandler:
 
     async def show_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Send current token price to the user."""
+        
+                # ───➤ ست‌کردن state برای نمایش قیمت توکن
+        push_state(context, "showing_token_price")
+        context.user_data['state'] = "showing_token_price"
+        
         chat_id = update.effective_chat.id
         try:
             price = await self.price_provider.get_price()

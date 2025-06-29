@@ -16,6 +16,7 @@ from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
+from state_manager import push_state
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,11 @@ class ProfileHandler:
     async def show_profile(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handles both /profile messages and pagination callback queries."""
         try:
+            
+            # ───➤ ست‌کردن state برای نمایش پروفایل
+            push_state(context, "showing_profile")
+            context.user_data['state'] = "showing_profile"            
+            
             # Detect whether this is an initial message or a callback
             if update.callback_query:
                 query = update.callback_query
@@ -137,99 +143,4 @@ class ProfileHandler:
 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="show_profile")
-
-
-
-
-# from __future__ import annotations
-
-# """
-# Profile.py – نمایش پروفایل کاربر متکی بر ReferralManager
-# -------------------------------------------------------
-# • /profile یا دکمهٔ «👤 Profile» پروفایل را نشان می‌دهد
-# • اطلاعات: کد معرف، تعداد توکن، پورسانت، تعداد زیرمجموعه‌ها
-# • دکمهٔ اشتراک‌گذاری لینک معرف درون‌خطی (Inline)
-# """
-
-# import logging
-# from typing import Dict, Any, List
-
-# from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-# from telegram.ext import ContextTypes
-
-# from language_Manager import TranslationManager
-# from keyboards import TranslatedKeyboards
-# from error_handler import ErrorHandler
-# from myproject_database import Database
-# from Referral_logic_code import ReferralManager
-
-# logger = logging.getLogger(__name__)
-
-
-# class ProfileHandler:
-#     """هندلر نمایش پروفایل کاربر."""
-
-#     def __init__(
-#         self,
-#         db: Database,
-#         referral_manager: ReferralManager,
-#         keyboards: TranslatedKeyboards,
-#         translation_manager: TranslationManager,
-#         error_handler: ErrorHandler,
-#     ) -> None:
-#         self.db = db
-#         self.referral_manager = referral_manager
-#         self.keyboards = keyboards
-#         self.translation_manager = translation_manager
-#         self.error_handler = error_handler
-#         self.logger = logging.getLogger(self.__class__.__name__)
-
-#     # ─────────────────────────────────────────── Telegram entry ─
-
-#     async def show_profile(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-#         try:
-#             chat_id = update.effective_chat.id
-#             profile: Dict[str, Any] = await self.referral_manager.get_profile(chat_id)
-#             if not profile:
-#                 msg_en = "You don’t have a profile yet. Please join the plan first."
-#                 await update.message.reply_text(
-#                     await self.translation_manager.translate_for_user(msg_en, chat_id),
-#                     reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-#                 )
-#                 return
-
-#             ref_code: str = profile["referral_code"]
-#             tokens: int = profile.get("tokens", 0)
-#             commission: float = profile.get("commission_usd", 0.0)
-#             downline: List[Dict[str, Any]] = profile.get("downline", [])
-
-#             lines = [
-#                 "<b>Your Profile</b>",
-#                 f"• ID: <code>{ref_code}</code>",
-#                 f"• Tokens: <b>{tokens}</b>",
-#                 f"• Pending Commission: <b>${commission:.2f}</b>",
-#                 f"• Down-line Count: <b>{len(downline)}</b>",
-#             ]
-#             if downline:
-#                 lines.append("\n<b>Your Direct Referrals:</b>")
-#                 for i, member in enumerate(downline, 1):
-#                     lines.append(f"{i}. {member['first_name']} — <code>{member['referral_code']}</code>")
-
-#             msg_en = "\n".join(lines)
-#             msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
-
-#             bot_username = context.bot.username
-#             referral_link = f"https://t.me/{bot_username}?start={ref_code}"
-#             inline_kb = InlineKeyboardMarkup(
-#                 [[InlineKeyboardButton("🔗 Share Referral Link", url=referral_link)]]
-#             )
-
-#             await update.message.reply_text(
-#                 msg_final,
-#                 parse_mode="HTML",
-#                 reply_markup=inline_kb,
-#             )
-
-#         except Exception as e:
-#             await self.error_handler.handle(update, context, e, context_name="show_profile")
 

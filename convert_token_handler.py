@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 
 from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
+from state_manager import push_state
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,13 @@ class ConvertTokenHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def coming_soon(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        
+                # ───➤ ست‌کردن state برای «Convert Token»
+        push_state(context, "convert_token")
+        context.user_data['state'] = "convert_token"
+        
         chat_id = update.effective_chat.id
+        
         msg_en = "🚧 This feature is coming soon."
         await update.message.reply_text(
             await self.t.translate_for_user(msg_en, chat_id),

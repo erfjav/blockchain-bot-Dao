@@ -53,6 +53,7 @@ from error_handler import ErrorHandler
 from Referral_logic_code import ReferralManager
 
 from myproject_database import Database  # Async wrapper
+from state_manager import push_state
 
 TRADE_CHANNEL_ID = int(os.getenv("TRADE_CHANNEL_ID", "0"))
 SUPPORT_USER_USERNAME = os.getenv("SUPPORT_USER_USERNAME", "YourSupportUser")
@@ -102,6 +103,10 @@ class TradeHandler:
 
     async def trade_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Shows translated trade menu."""
+                # ───➤ ست‌کردن state برای نمایش منوی Trade
+        push_state(context, "trade_menu")
+        context.user_data['state'] = "trade_menu"
+        
         chat_id = update.effective_chat.id
         kb: ReplyKeyboardMarkup = await self.keyboards.build_trade_menu_keyboard(chat_id)
         await update.message.reply_text(
@@ -113,6 +118,12 @@ class TradeHandler:
     # ───────────────────────────────────────── SELL FLOW ──────────────────
 
     async def sell_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        
+        
+                # ───➤ ست‌کردن state برای انتظار مقدار فروش
+        push_state(context, "awaiting_sell_amount")
+        context.user_data['state'] = "awaiting_sell_amount"
+        
         chat_id = update.effective_chat.id
         balance = await self.db.get_user_balance(chat_id)  # ← implement in Database
         price = await self.price_provider.get_price()
@@ -127,11 +138,15 @@ class TradeHandler:
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
         )
         return SELL_AMOUNT
-
+    #-------------------------------------------------------------------------------------------------
     async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = update.effective_chat.id
         txt = update.message.text.strip()
         if not txt.isdigit() or int(txt) <= 0:
+
+            push_state(context, "awaiting_sell_amount")
+            context.user_data['state'] = "awaiting_sell_amount"            
+            
             await update.message.reply_text(
                 await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
             )
@@ -165,6 +180,11 @@ class TradeHandler:
     # ───────────────────────────────────────── BUY FLOW ───────────────────
 
     async def buy_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    
+                # ───➤ ست‌کردن state برای انتظار مقدار خرید
+        push_state(context, "awaiting_buy_amount")
+        context.user_data['state'] = "awaiting_buy_amount"
+        
         chat_id = update.effective_chat.id
         price = await self.price_provider.get_price()
         msg_en = (
@@ -176,11 +196,18 @@ class TradeHandler:
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
         )
         return BUY_AMOUNT
-
+    
+    #-------------------------------------------------------------------------------------------------
     async def buy_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        
         chat_id = update.effective_chat.id
         txt = update.message.text.strip()
+        
         if not txt.isdigit() or int(txt) <= 0:
+            # اگر عدد نامعتبر بود، همان state را نگه دار
+            push_state(context, "awaiting_buy_amount")
+            context.user_data['state'] = "awaiting_buy_amount"
+            
             await update.message.reply_text(
                 await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
             )
@@ -193,15 +220,22 @@ class TradeHandler:
             )
         )
         return BUY_PRICE
-
+    
+    #-------------------------------------------------------------------------------------------------
     async def buy_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        
         chat_id = update.effective_chat.id
         txt = update.message.text.strip()
         try:
             price_per_token = float(txt)
             if price_per_token <= 0:
                 raise ValueError
+            
         except ValueError:
+            # اگر قیمت نامعتبر بود، همان state را ست کن
+            push_state(context, "awaiting_buy_price")
+            context.user_data['state'] = "awaiting_buy_price"
+            
             await update.message.reply_text(
                 await self.translation_manager.translate_for_user("Please send a valid price.", chat_id)
             )
@@ -235,6 +269,7 @@ class TradeHandler:
     # ───────────────────────────────────────── cancel / fallback ───────────
 
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        
         chat_id = update.effective_chat.id
         await update.message.reply_text(
             await self.translation_manager.translate_for_user("Operation cancelled.", chat_id),

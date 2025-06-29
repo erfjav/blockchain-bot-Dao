@@ -8,6 +8,7 @@ from language_Manager import TranslationManager
 from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from keyboards import TranslatedKeyboards
 from myproject_database import Database
+from state_manager import pop_state, push_state, reset_state
 
 class HelpHandler:
     """
@@ -32,6 +33,12 @@ class HelpHandler:
 
     async def show_Guide(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
+            
+            # ───➤ ست‌کردن state برای این مرحله
+            push_state(context, "showing_guide")
+            # (اختیاری برای backward-compatibility)
+            context.user_data['state'] = "showing_guide"            
+            
             chat_id = update.effective_chat.id
 
             help_text = (
