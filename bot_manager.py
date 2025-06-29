@@ -44,7 +44,7 @@ from support_handler import SupportHandler
 
 from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
 
-from state_manager import pop_state, push_state, reset_state
+from state_manager import pop_state, push_state, get_current_state
 
 class BotManager:
     def __init__(self, app: FastAPI):
@@ -193,10 +193,13 @@ class BotManager:
             #######################
             
             self.payment_handler = PaymentHandler(
+                db=self.db,                             # اضافه کن
+                referral_manager=self.referral_manager,  # اضافه کن
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
                 error_handler=self.error_handler,
             )
+            
             self.logger.info("PaymentHandler initialized (wallet=%s)", PAYMENT_WALLET_ADDRESS)
 
             self.support_handler = SupportHandler(
@@ -210,14 +213,6 @@ class BotManager:
                         price_provider=self.price_provider,
                         translation_manager=self.translation_manager
                     )            
-            
-            # # فرض: admin_ids را از env یا config خوانده‌اید
-            # self.admin_handler = AdminHandler(
-            #     price_provider=self.price_provider,
-            #     translation_manager=self.translation_manager,
-            #     admin_ids=ADMIN_USER_IDS  # یا هر لیست عددی
-            # )
-            # self.logger.info("AdminHandler initialized (admins=%s)", ADMIN_USER_IDS)
 
             # ⬇️  این دو خط را دقیقاً همین‌جا اضافه کنید  ⬇️
             self._state_router = self._build_state_router()
@@ -485,79 +480,6 @@ class BotManager:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="start_command")
 
-    # async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     ابتدا بررسی می‌کند که کاربر عضو کانال @BlockchainBotTrades شده یا نه.
-    #     اگر عضو نباشد، پیام عضویت با دو دکمه ارسال می‌شود:
-    #       1) لینک عضویت
-    #       2) دکمه «✅ ادامه» برای چک مجدد عضویت
-    #     در صورت عضویت، ادامهٔ منطق معمول /start اجرا می‌شود.
-    #     """
-    #     try:
-    #         chat_id    = update.effective_chat.id
-    #         first_name = update.effective_user.first_name
-
-    #         # ───➤ بررسی عضویت در کانال
-    #         try:
-    #             member = await context.bot.get_chat_member(
-    #                 chat_id="@BlockchainBotTrades",
-    #                 user_id=chat_id
-    #             )
-    #             if member.status in ("left", "kicked"):
-    #                 join_kb = InlineKeyboardMarkup([[
-    #                     InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
-    #                     InlineKeyboardButton("✅ ادامه", callback_data="check_join")
-    #                 ]])
-    #                 text = "🔒 لطفاً ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
-    #                 if update.message:
-    #                     await update.message.reply_text(text, reply_markup=join_kb)
-    #                 else:
-    #                     await context.bot.send_message(chat_id, text, reply_markup=join_kb)
-    #                 return
-    #         except Exception:
-    #             # در صورت خطا در بررسی عضویت (مثلاً دسترسی نداشتن ربات)، عبور می‌کنیم
-    #             pass
-
-    #         # ───➤ ➊ مطمئن شو رکورد کاربر وجود دارد
-    #         await self.db.insert_user_if_not_exists(chat_id, first_name)
-
-    #         # ───➤ ➋ اگر هنوز پرسش زبان نمایش داده نشده، فقط همان را بفرست
-    #         if not await self.db.is_language_prompt_done(chat_id):
-    #             keyboard = [[
-    #                 InlineKeyboardButton("🌐 Change Language", callback_data="choose_language"),
-    #                 InlineKeyboardButton("⏭️ Skip",           callback_data="skip_language"),
-    #             ]]
-    #             msg = (
-    #                 "🛠️ <b>The default language of this bot is English.</b>\n\n"
-    #                 "If you'd like to use the bot in another language, tap <b>🌐 Change Language</b>.\n"
-    #                 "Otherwise, tap <b>⏭️ Skip</b> to continue in English.\n\n"
-    #                 "You can always change later with /language."
-    #             )
-    #             markup = InlineKeyboardMarkup(keyboard)
-    #             if update.message:
-    #                 await update.message.reply_text(msg, parse_mode="HTML", reply_markup=markup)
-    #             else:
-    #                 await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=markup)
-    #             return
-
-    #         # ───➤ ➌ نمایش منوی اصلی
-    #         context.user_data['state'] = 'main_menu'
-    #         main_kb = await self.keyboards.build_main_menu_keyboard_v2(chat_id)
-
-    #         tpl = (
-    #             "Hello <b>{name}</b>!! Welcome to <b>Bot</b>. "
-    #             "I'm here to assist you — just choose an option from the menu below to begin. 👇"
-    #         )
-    #         msg = (await self.translation_manager.translate_for_user(tpl, chat_id)).format(name=first_name)
-
-    #         if update.message:
-    #             await update.message.reply_text(msg, parse_mode="HTML", reply_markup=main_kb)
-    #         else:
-    #             await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=main_kb)
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="start_command")
-            
     #-------------------------------------------------------------------------------------------------------
     async def check_join_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -612,6 +534,12 @@ class BotManager:
                 group=1   # یا هر گروهی که منطقی است
             )
 
+            # بعد از اضافه کردن CommandHandlerها:
+            self.application.add_handler(
+                MessageHandler(filters.TEXT & ~filters.COMMAND, self._text_router),
+                group=1
+            )
+
             self.application.add_handler(
                 CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"),
                 group=1
@@ -635,7 +563,13 @@ class BotManager:
         except Exception as e:
             self.logger.error(f"Failed to setup telegram handlers: {e}")
             raise
-        
+##########################################################################################################
+    # و در BotManager:
+    async def _text_router(self, update, context):
+        state = get_current_state(context)
+        if state == "awaiting_txid":
+            return await self.payment_handler.handle_txid(update, context)
+        return await self.handle_text(update, context)       
 #########################################################################################################
 
     async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
