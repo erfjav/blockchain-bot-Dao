@@ -102,18 +102,57 @@ class TradeHandler:
     # ───────────────────────────────────────── entry points ────────────────
 
     async def trade_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Shows translated trade menu."""
-                # ───➤ ست‌کردن state برای نمایش منوی Trade
-        push_state(context, "trade_menu")
-        context.user_data['state'] = "trade_menu"
+        """
+        نمایش منوی معامله (خرید/فروش)
+        • کاربر را وارد بخش Trading می‌کند
+        • توضیح مختصر دربارهٔ امکانات این بخش
+        • نمایش دکمه‌های Buy و Sell
+        """
+        try:
+            # ───➤ ست‌کردن state برای نمایش منوی Trade
+            push_state(context, "trade_menu")
+            context.user_data['state'] = "trade_menu"
+
+            chat_id = update.effective_chat.id
+            kb: ReplyKeyboardMarkup = await self.keyboards.build_trade_menu_keyboard(chat_id)
+
+            # ───➤ متن خوش‌آمدگویی و راهنمایی
+            msg_en = (
+                "<b>🪙 Welcome to the Trade Menu!</b>\n\n"
+                "You are now in the <b>Trading Section</b> of the bot. Here you can:\n"
+                "• <b>🛒 Buy</b> tokens at the current market price\n"
+                "• <b>💸 Sell</b> tokens from your balance\n\n"
+                "Please tap one of the buttons below to proceed with your trade."
+            )
+
+            await update.message.reply_text(
+                await self.translation_manager.translate_for_user(msg_en, chat_id),
+                parse_mode="HTML",
+                reply_markup=kb,
+            )
+
+            # این منو فقط گزینه‌ها را نشان می‌دهد؛ برای ورود
+            # به فرایند خرید/فروش از ConversationHandler استفاده نمی‌کند
+            return ConversationHandler.END
+
+        except Exception as e:
+            # در صورت بروز خطا، به ErrorHandler ارجاع بده
+            await self.error_handler.handle( update, context, e, context_name="trade_menu")
+
+
+    # async def trade_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """Shows translated trade menu."""
+    #             # ───➤ ست‌کردن state برای نمایش منوی Trade
+    #     push_state(context, "trade_menu")
+    #     context.user_data['state'] = "trade_menu"
         
-        chat_id = update.effective_chat.id
-        kb: ReplyKeyboardMarkup = await self.keyboards.build_trade_menu_keyboard(chat_id)
-        await update.message.reply_text(
-            await self.translation_manager.translate_for_user("Select an option:", chat_id),
-            reply_markup=kb,
-        )
-        return ConversationHandler.END  # just menu – not entering conversation yet
+    #     chat_id = update.effective_chat.id
+    #     kb: ReplyKeyboardMarkup = await self.keyboards.build_trade_menu_keyboard(chat_id)
+    #     await update.message.reply_text(
+    #         await self.translation_manager.translate_for_user("Select an option:", chat_id),
+    #         reply_markup=kb,
+    #     )
+    #     return ConversationHandler.END  # just menu – not entering conversation yet
 
     # ───────────────────────────────────────── SELL FLOW ──────────────────
 
@@ -266,32 +305,32 @@ class TradeHandler:
         )
         return ConversationHandler.END
 
-    # ───────────────────────────────────────── cancel / fallback ───────────
+    # # ───────────────────────────────────────── cancel / fallback ───────────
 
-    async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         
-        chat_id = update.effective_chat.id
-        await update.message.reply_text(
-            await self.translation_manager.translate_for_user("Operation cancelled.", chat_id),
-            reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id),
-        )
-        return ConversationHandler.END
+    #     chat_id = update.effective_chat.id
+    #     await update.message.reply_text(
+    #         await self.translation_manager.translate_for_user("Operation cancelled.", chat_id),
+    #         reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id),
+    #     )
+    #     return ConversationHandler.END
 
-    # ───────────────────────────────────────── registration helper ─────────
+    # # ───────────────────────────────────────── registration helper ─────────
 
-    def get_conversation_handler(self) -> ConversationHandler:
-        """Return a fully wired ConversationHandler to add to application."""
+    # def get_conversation_handler(self) -> ConversationHandler:
+    #     """Return a fully wired ConversationHandler to add to application."""
 
-        return ConversationHandler(
-            entry_points=[
-                MessageHandler(filters.Regex(r"^💸 Sell$"), self.sell_start),
-                MessageHandler(filters.Regex(r"^🛒 Buy$"), self.buy_start),
-            ],
-            states={
-                SELL_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.sell_amount)],
-                BUY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.buy_amount)],
-                BUY_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.buy_price)],
-            },
-            fallbacks=[MessageHandler(filters.Regex(r"^(⬅️ Back|➡️ Exit)$"), self.cancel)],
-            allow_reentry=True,
-        )
+    #     return ConversationHandler(
+    #         entry_points=[
+    #             MessageHandler(filters.Regex(r"^💸 Sell$"), self.sell_start),
+    #             MessageHandler(filters.Regex(r"^🛒 Buy$"), self.buy_start),
+    #         ],
+    #         states={
+    #             SELL_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.sell_amount)],
+    #             BUY_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.buy_amount)],
+    #             BUY_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.buy_price)],
+    #         },
+    #         fallbacks=[MessageHandler(filters.Regex(r"^(⬅️ Back|➡️ Exit)$"), self.cancel)],
+    #         allow_reentry=True,
+    #     )

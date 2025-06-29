@@ -110,7 +110,7 @@ class PaymentHandler:
         chat_id = update.effective_chat.id
 
         # ➊ رفتن به فاز دریافت TxID
-        push_state(context, "awaiting_txid")
+        # push_state(context, "awaiting_txid")
         context.user_data["state"] = "awaiting_txid"
 
         await update.message.reply_text(
