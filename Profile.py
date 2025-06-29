@@ -115,11 +115,26 @@ class ProfileHandler:
                 f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
                 f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
                 f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}",
+
+                # ✦ Explanation of referral link
+                f"To invite friends and grow your <b>Down-line</b>, simply tap on \n\n "
+                f"<b>🔗 Share&nbsp;Referral&nbsp;Link</b>.\n "
+                f"Your personal referral link will be automatically sent to the selected contact. 🚀",                
+                            
             ]
 
             if not joined:
-                lines += ["", ("You don’t have a profile yet. Please join the plan first.")]
+                # lines += ["", ("You don’t have a profile yet. Please join the plan first.")]
 
+                lines += [
+                    "",
+                    (
+                        "<b>You don’t have a profile yet.</b> To view your full profile details — "
+                        "including your <b>tokens</b>, <b>commissions</b>, and <b>down-line statistics</b> — "
+                        "please <b>join a plan</b> first."
+                    )
+                ]
+       
             # 6) Inline keyboard – share link always first
             bot_username: str = context.bot.username  # e.g. AskGenieAIbot
             deep_link: str   = f"https://t.me/{bot_username}?start={referral_code}"
@@ -134,13 +149,7 @@ class ProfileHandler:
             rows: List[List[InlineKeyboardButton]] = [
                 [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
             ]
-            # # 6) Inline keyboard – share link always first
-            # bot_username: str = context.bot.username  # e.g. AskGenieAIbot
-            # referral_link: str = f"https://t.me/{bot_username}?start={referral_code}"
-            
-            # rows: List[List[InlineKeyboardButton]] = [
-            #     [InlineKeyboardButton(("🔗 Share Referral Link"), url=referral_link)]
-            # ]
+
 
             # 7) Down‑line list (only if joined & has referrals)
             if joined and downline_count:
@@ -188,10 +197,7 @@ class ProfileHandler:
         except Exception as exc:
             await self.error_handler.handle(update, context, exc, context_name="show_profile")
 
-
-
-
-    # ------------------------------------------------------------------
+    # -----------------------------------------------------------------
     async def back_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         ⬅️ Back  – صرفاً یک «Undo» سطحی:
