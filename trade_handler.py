@@ -60,7 +60,7 @@ TRADE_CHANNEL_ID = int(os.getenv("TRADE_CHANNEL_ID", "0"))
 SUPPORT_USER_USERNAME = os.getenv("SUPPORT_USER_USERNAME", "YourSupportUser")
 
 # Conversation states
-SELL_AMOUNT, SELL_PRICE , BUY_AMOUNT, BUY_PRICE = range(3)
+SELL_AMOUNT, SELL_PRICE , BUY_AMOUNT, BUY_PRICE = range(4)
 
 logger = logging.getLogger(__name__)
 
