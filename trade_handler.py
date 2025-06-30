@@ -30,9 +30,9 @@ trade_handler.py – 💰 Trade module (Buy / Sell) for your Telegram bot
 """
 
 import logging
-import os
+import os, re
 from typing import Tuple, List
-
+from datetime import datetime
 from telegram import (
     Update,
     InlineKeyboardMarkup,
@@ -55,6 +55,9 @@ from price_provider import PriceProvider          # ← NEW
 
 from myproject_database import Database  # Async wrapper
 from state_manager import push_state, pop_state
+from blockchain_client import BlockchainClient
+
+from config import TRADE_WALLET_ADDRESS as TRON_WALLET
 
 TRADE_CHANNEL_ID = int(os.getenv("TRADE_CHANNEL_ID", "0"))
 SUPPORT_USER_USERNAME = os.getenv("SUPPORT_USER_USERNAME", "YourSupportUser")
@@ -75,6 +78,7 @@ class TradeHandler:
         translation_manager: TranslationManager,
         price_provider: PriceProvider,
         referral_manager: ReferralManager,
+        blockchain : BlockchainClient,
         error_handler: ErrorHandler,
         
     ) -> None:
@@ -84,6 +88,7 @@ class TradeHandler:
         self.translation_manager = translation_manager
         self.price_provider = price_provider
         self.referral_manager = referral_manager
+        self.blockchain= blockchain
         self.error_handler = error_handler
         
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -193,25 +198,34 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_amount")
             
-    #-------------------------------------------------------------------------
+    # #-------------------------------------------------------------------------
+    
+    # -----------------------------------------------------------------
     async def sell_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        گام دومِ فروش: دریافت قیمت از فروشنده، ثبت Order، ارسال پیام کانال
+        """
         try:
             chat_id = update.effective_chat.id
             txt     = update.message.text.strip()
 
+            # ── اعتبارسنجی قیمت ───────────────────────────────────────
             try:
                 price_per_token = float(txt)
                 if price_per_token <= 0:
                     raise ValueError
             except ValueError:
                 await update.message.reply_text(
-                    await self.translation_manager.translate_for_user("Please send a valid price.", chat_id)
+                    await self.translation_manager.translate_for_user(
+                        "Please send a valid price.", chat_id
+                    )
                 )
                 return  # در همان state می‌مانیم
 
             amount     = context.user_data.get("sell_amount", 0)
             identifier = await self._get_user_identifier(chat_id)
 
+            # ── پیام کانال + دکمهٔ Buy ────────────────────────────────
             text_channel = (
                 f"🚨 SELL Request\n"
                 f"ID: {identifier}\n"
@@ -219,12 +233,36 @@ class TradeHandler:
                 f"Price: ${price_per_token:.4f} per token\n\n"
                 "Contact support to proceed:"
             )
-            await update.get_bot().send_message(
+            msg = await update.get_bot().send_message(      # ← msg برای message_id
                 chat_id=TRADE_CHANNEL_ID,
                 text=text_channel,
                 reply_markup=self._support_inline_keyboard(),
             )
 
+            # ── ذخیرهٔ سفارش در دیتابیس ───────────────────────────────
+            order_id = await self.db.create_sell_order(
+                {
+                    "seller_id":      chat_id,
+                    "amount":         amount,
+                    "price":          price_per_token,
+                    "channel_msg_id": msg.message_id,
+                }
+            )
+
+            # ── افزودن دکمهٔ «🛒 Buy» به پیام کانال ───────────────────
+            buy_kb = InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("🛒 Buy", callback_data=f"buy_order_{order_id}")],
+                    [
+                        InlineKeyboardButton(
+                            "SOS Support", url=f"https://t.me/{SUPPORT_USER_USERNAME}"
+                        )
+                    ],
+                ]
+            )
+            await msg.edit_reply_markup(buy_kb)
+
+            # ── تأیید برای فروشنده ───────────────────────────────────
             await update.message.reply_text(
                 await self.translation_manager.translate_for_user(
                     "Your sell request has been submitted to support.", chat_id
@@ -232,13 +270,51 @@ class TradeHandler:
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
             )
 
-            # پاک‌سازی state و داده‌ها
+            # ── پاک‌سازی state ───────────────────────────────────────
             pop_state(context)
             context.user_data.clear()
 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_price")
+    
+    # trade_handler.py  ───────────────────────────────────────────────
+    async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        buyer_id = query.from_user.id
 
+        order_id = int(query.data.split("_")[-1])
+        order = await self.db.collection_orders.find_one({"order_id": order_id})
+        if not order or order["status"] != "open":
+            return await query.edit_message_reply_markup(None)   # Order closed
+
+        if buyer_id == order["seller_id"]:
+            return await query.answer("You cannot buy your own order.", show_alert=True)
+
+        total = order["amount"] * order["price"]
+        context.user_data["pending_order"] = order_id
+        context.user_data["state"] = "awaiting_trade_txid"
+
+        text_en = (
+            f"Total to pay: <b>${total:.2f}</b>\n"
+            f"Send USDT-TRC20 to:\n<code>{TRON_WALLET}</code>\n\n"
+            "After sending, press <b>I Paid</b> and submit the TXID."
+        )
+        kb = InlineKeyboardMarkup(
+            [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
+        )
+        await context.bot.send_message(
+            chat_id=buyer_id,
+            text=text_en,
+            reply_markup=kb,
+            parse_mode="HTML",
+        )
+
+        # وضعیت سفارش ← در انتظار پرداخت
+        await self.db.collection_orders.update_one(
+            {"order_id": order_id}, {"$set": {"status": "pending_payment"}}
+        )
+ 
     # ─────────────────────────── BUY FLOW ─────────────────────────────────
     async def buy_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     
@@ -280,102 +356,203 @@ class TradeHandler:
         context.user_data['state'] = 'awaiting_buy_price'
         push_state(context, 'awaiting_buy_price')
 
-    #------------------------------------------------------------------------------------------------------
+
+    # ---------------------------------------------------------------------------
     async def buy_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        chat_id = update.effective_chat.id
-        txt = update.message.text.strip()
-
+        """
+        گام دوم خرید: دریافت قیمت هر توکن، ایجاد BUY-Order و افزودن دکمه «💸 Sell».
+        """
         try:
-            price_per_token = float(txt)
-            if price_per_token <= 0:
-                raise ValueError
-        except ValueError:
-            await update.message.reply_text(
-                await self.translation_manager.translate_for_user("Please send a valid price.", chat_id)
+            chat_id = update.effective_chat.id
+            txt     = update.message.text.strip()
+
+            # ─── اعتبارسنجی قیمت ───────────────────────────────────────────
+            try:
+                price_per_token = float(txt)
+                if price_per_token <= 0:
+                    raise ValueError
+            except ValueError:
+                await update.message.reply_text(
+                    await self.translation_manager.translate_for_user("Please send a valid price.", chat_id)
+                )
+                return  # همان state می‌مانیم
+
+            amount     = context.user_data.get("buy_amount", 0)
+            identifier = await self._get_user_identifier(chat_id)
+
+            # ─── ارسال پیام به کانال ترید ─────────────────────────────────
+            text_channel = (
+                f"🚨 BUY Request\n"
+                f"ID: {identifier}\n"
+                f"Amount: {amount} tokens\n"
+                f"Price: ${price_per_token:.4f} per token\n\n"
+                "First seller to accept will receive USDT from escrow."
             )
-            return  # همان state می‌ماند
+            msg = await update.get_bot().send_message(
+                chat_id=TRADE_CHANNEL_ID,
+                text=text_channel,
+                reply_markup=self._support_inline_keyboard(),
+            )
 
-        amount = context.user_data.get("buy_amount", 0)
-        identifier = await self._get_user_identifier(chat_id)
+            # ─── ایجاد رکورد Order در DB ─────────────────────────────────
+            order_id = await self.db.create_buy_order(
+                {
+                    "buyer_id":      chat_id,
+                    "amount":        amount,
+                    "price":         price_per_token,
+                    "channel_msg_id": msg.message_id,
+                }
+            )
 
-        # ارسال به کانال ترید
-        text_channel = (
-            f"🚨 BUY Request\n"
-            f"ID: {identifier}\n"
-            f"Amount: {amount} tokens\n"
-            f"Price: ${price_per_token:.4f} per token\n\n"
-            "Contact support to proceed:"
+            # ─── افزودن دکمه «💸 Sell» به پیام کانال ─────────────────────
+            sell_kb = InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("💸 Sell", callback_data=f"sell_order_{order_id}")],
+                    [
+                        InlineKeyboardButton(
+                            "SOS Support", url=f"https://t.me/{SUPPORT_USER_USERNAME}"
+                        )
+                    ],
+                ]
+            )
+            await msg.edit_reply_markup(sell_kb)
+
+            # ─── تأیید برای خریدار ───────────────────────────────────────
+            await update.message.reply_text(
+                await self.translation_manager.translate_for_user(
+                    "Your buy request has been submitted to the trade channel.", chat_id
+                ),
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
+            )
+
+            # ─── پاک‌سازی state ─────────────────────────────────────────
+            context.user_data.clear()
+            pop_state(context)
+
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="buy_price")
+
+    #---------------------------------------------------------------------------------------------------
+    async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
+        seller_id = query.from_user.id
+
+        order_id = int(query.data.split("_")[-1])
+        order = await self.db.collection_orders.find_one({"buy_order_id": order_id})
+        if not order or order["status"] != "open":
+            return await query.edit_message_reply_markup(None)
+
+        if seller_id == order["buyer_id"]:
+            return await query.answer("You cannot sell to yourself.", show_alert=True)
+
+        # check token balance
+        balance = await self.db.get_user_balance(seller_id)
+        if balance < order["amount"]:
+            return await query.answer("Insufficient token balance.", show_alert=True)
+
+        # انتقال توکن در DB
+        await self.db.transfer_tokens(seller_id, order["buyer_id"], order["amount"])
+        await self.db.collection_orders.update_one(
+            {"buy_order_id": order_id},
+            {"$set": {"status": "completed", "seller_id": seller_id, "updated_at": datetime.utcnow()}},
         )
+
+        # پیام‌ها
+        await query.edit_message_text("✅ FILLED by seller.")
+        await context.bot.send_message(
+            order["buyer_id"], "🎉 Your buy order was filled! Tokens credited."
+        )
+        await context.bot.send_message(
+            seller_id,
+            "✅ You sold your tokens. Admin will send USDT to your withdraw balance soon.",
+        )
+
+        # اعتبار دلاری برای خریدار کم نمی‌کنیم؛ او از قبل پول نداده است.
+        await self.db.credit_fiat_balance(seller_id, order["amount"] * order["price"])
+
+    # =========================================================================
+    #  ب) دریافت و تأیید TxID خریدار
+    # =========================================================================
+    async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        پس از زدن «💳 I Paid»:
+        1) انتظار دریافت TXID
+        2) تأیید در بلاک‌چین (مثال ساده)
+        3) انتقال توکن در DB و بستن Order
+        """
+        buyer_id  = update.effective_chat.id
+        order_id  = context.user_data.get("pending_order")
+        if not order_id:
+            return  # سفارشی در انتظار نیست
+
+        txid = update.message.text.strip()
+        if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
+            return await update.message.reply_text("Invalid TXID, try again.")
+
+        # ─── تأیید تراکنش در بلاک‌چین (Pseudo) ───────────────────
+        order = await self.db.collection_orders.find_one({"order_id": order_id})
+        expected_amount = order["amount"] * order["price"]
+        confirmed = await self.blockchain.verify_txid(txid, TRON_WALLET, expected_amount)
+
+        if not confirmed:
+            return await update.message.reply_text("Payment not confirmed yet.")
+
+        # ─── انتقال توکن در DB (اتمیک) ───────────────────────────
+        await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
+        await self.db.collection_orders.update_one(
+            {"order_id": order_id},
+            {"$set": {
+                "status":     "completed",
+                "buyer_id":   buyer_id,
+                "txid":       txid,
+                "updated_at": datetime.utcnow(),
+            }}
+        )
+
+        # ─── ویرایش پیام کانال ──────────────────────────────────
+        try:
+            await update.get_bot().edit_message_text(
+                chat_id=TRADE_CHANNEL_ID,
+                message_id=order["channel_msg_id"],
+                text=(
+                    f"✅ SOLD\n"
+                    f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>"
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass  # اگر پیام حذف یا ویرایش شده بود نادیده بگیر
+
+        # ─── اعلان به طرفین ─────────────────────────────────────
         await update.get_bot().send_message(
-            chat_id=TRADE_CHANNEL_ID,
-            text=text_channel,
-            reply_markup=self._support_inline_keyboard(),
+            order["seller_id"], "🎉 Your tokens were sold! ✅"
         )
-
-        # تأیید برای کاربر
-        await update.message.reply_text(
-            await self.translation_manager.translate_for_user(
-                "Your buy request has been submitted to support.", chat_id
-            ),
-            reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-        )
+        await update.message.reply_text("Payment confirmed, tokens credited. ✅")
 
         # پاک‌سازی state
-        context.user_data.clear()
-        pop_state(context)
-    
-    
-    
+        context.user_data.clear()  
 ##############################################################################################################
-    
-    # #-------------------------------------------------------------------------------------------------
-    # async def buy_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        
-    #     chat_id = update.effective_chat.id
-    #     txt = update.message.text.strip()
-        
-    #     if not txt.isdigit() or int(txt) <= 0:
-    #         # اگر عدد نامعتبر بود، همان state را نگه دار
-    #         push_state(context, "awaiting_buy_amount")
-    #         context.user_data['state'] = "awaiting_buy_amount"
-            
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
-    #         )
-    #         return BUY_AMOUNT
 
-    #     context.user_data["buy_amount"] = int(txt)
-    #     await update.message.reply_text(
-    #         await self.translation_manager.translate_for_user(
-    #             "At what price (USD) per token are you willing to buy?", chat_id
-    #         )
-    #     )
-    #     return BUY_PRICE
-    
-    # #-------------------------------------------------------------------------------------------------
+    # #------------------------------------------------------------------------------------------------------
     # async def buy_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        
     #     chat_id = update.effective_chat.id
     #     txt = update.message.text.strip()
+
     #     try:
     #         price_per_token = float(txt)
     #         if price_per_token <= 0:
     #             raise ValueError
-            
     #     except ValueError:
-    #         # اگر قیمت نامعتبر بود، همان state را ست کن
-    #         push_state(context, "awaiting_buy_price")
-    #         context.user_data['state'] = "awaiting_buy_price"
-            
     #         await update.message.reply_text(
     #             await self.translation_manager.translate_for_user("Please send a valid price.", chat_id)
     #         )
-    #         return BUY_PRICE
+    #         return  # همان state می‌ماند
 
     #     amount = context.user_data.get("buy_amount", 0)
     #     identifier = await self._get_user_identifier(chat_id)
 
-    #     # Send to trade channel
+    #     # ارسال به کانال ترید
     #     text_channel = (
     #         f"🚨 BUY Request\n"
     #         f"ID: {identifier}\n"
@@ -389,74 +566,14 @@ class TradeHandler:
     #         reply_markup=self._support_inline_keyboard(),
     #     )
 
+    #     # تأیید برای کاربر
     #     await update.message.reply_text(
     #         await self.translation_manager.translate_for_user(
     #             "Your buy request has been submitted to support.", chat_id
     #         ),
     #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
     #     )
-    #     return ConversationHandler.END
 
-
-
-    # async def sell_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        
-        
-    #             # ───➤ ست‌کردن state برای انتظار مقدار فروش
-    #     push_state(context, "awaiting_sell_amount")
-    #     context.user_data['state'] = "awaiting_sell_amount"
-        
-    #     chat_id = update.effective_chat.id
-    #     balance = await self.db.get_user_balance(chat_id)  # ← implement in Database
-    #     price = await self.price_provider.get_price()
-
-    #     msg_en = (
-    #         f"Current token price: ${price:.4f}\n"
-    #         f"Your balance: {balance} tokens\n\n"
-    #         "How many tokens do you want to sell?"
-    #     )
-    #     await update.message.reply_text(
-    #         await self.translation_manager.translate_for_user(msg_en, chat_id),
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #     )
-    #     return SELL_AMOUNT
-    
-    
-        
-    # async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     chat_id = update.effective_chat.id
-    #     txt = update.message.text.strip()
-    #     if not txt.isdigit() or int(txt) <= 0:
-
-    #         push_state(context, "awaiting_sell_amount")
-    #         context.user_data['state'] = "awaiting_sell_amount"            
-            
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
-    #         )
-    #         return SELL_AMOUNT
-
-    #     amount = int(txt)
-    #     identifier = await self._get_user_identifier(chat_id)
-
-    #     # Send to trade channel
-    #     text_channel = (
-    #         f"🚨 SELL Request\n"
-    #         f"ID: {identifier}\n"
-    #         f"Amount: {amount} tokens\n\n"
-    #         "Contact support to proceed:"
-    #     )
-    #     await update.get_bot().send_message(
-    #         chat_id=TRADE_CHANNEL_ID,
-    #         text=text_channel,
-    #         reply_markup=self._support_inline_keyboard(),
-    #     )
-
-    #     # Acknowledge user
-    #     await update.message.reply_text(
-    #         await self.translation_manager.translate_for_user(
-    #             "Your sell request has been submitted to support.", chat_id
-    #         ),
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #     )
-    #     return ConversationHandler.END
+    #     # پاک‌سازی state
+    #     context.user_data.clear()
+    #     pop_state(context)

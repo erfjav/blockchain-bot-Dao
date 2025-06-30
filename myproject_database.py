@@ -27,12 +27,13 @@ class Database:
             self.client = AsyncIOMotorClient(mongo_uri)
             self.db = self.client[db_name]
 
-            self.collection_users = self.db["users"]
-            self.collection_languages = self.db["user_languages"]
-            self.collection_translation_cache = self.db["translation_cache"]
-            self.collection_payments           = self.db["payments"]
-            
-            self.collection_counters = self.db["counters"]      # NEW
+            self.collection_users             =     self.db["users"]
+            self.collection_languages         =     self.db["user_languages"]
+            self.collection_translation_cache =     self.db["translation_cache"]
+            self.collection_payments          =     self.db["payments"]
+            self.collection_withdrawals       =     self.db["withdrawals"]   # NEW
+            self.collection_orders            =     self.db["orders"]        # NEW  (سفارش‌های خرید/فروش)
+            self.collection_counters          =     self.db["counters"]      # NEW
 
             self.logger.info("✅ Database connected successfully.")
 
@@ -348,7 +349,123 @@ class Database:
         except Exception as e:
             self.logger.error(f"❌ get_downline({user_id}) failed: {e}")
             raise
-        
+    
+    # ─── تابع کمکی عمومی برای کانترهای افزایشی ────────────────────────────
+    async def _get_next_sequence(self, name: str) -> int:
+        """
+        خواندن و ++ کردن کانتر عمومی (اتمیک).
+        مثال name: "order_id" یا "member_no".
+        """
+        counter = await self.collection_counters.find_one_and_update(
+            {"_id": name},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        return counter["seq"]
+    
+    ########################------------------------------------------------------
+    # موجودی دلاری (پس از فروش توکن)
+    async def get_fiat_balance(self, user_id: int) -> float:
+        doc = await self.collection_users.find_one({"user_id": user_id}, {"usd_balance": 1})
+        return float(doc.get("usd_balance", 0)) if doc else 0.0
+
+    async def credit_fiat_balance(self, user_id: int, amount: float):
+        await self.collection_users.update_one(
+            {"user_id": user_id},
+            {"$inc": {"usd_balance": amount}},
+            upsert=True,
+        )
+
+    async def set_fiat_balance(self, user_id: int, amount: float):
+        await self.collection_users.update_one(
+            {"user_id": user_id}, {"$set": {"usd_balance": amount}}, upsert=True
+        )
+##########----------------------------------------------------------------------------------------------
+    # آدرس برداشت
+    async def set_withdraw_address(self, user_id: int, address: str):
+        await self.collection_users.update_one(
+            {"user_id": user_id}, {"$set": {"withdraw_address": address}}, upsert=True
+        )
+
+    async def get_withdraw_address(self, user_id: int) -> str | None:
+        doc = await self.collection_users.find_one({"user_id": user_id}, {"withdraw_address": 1})
+        return doc.get("withdraw_address") if doc else None
+
+    # درج درخواست برداشت
+    async def create_withdraw_request(self, user_id: int, amount: float, address: str) -> int:
+        wid = await self._get_next_sequence("withdraw_id")
+        await self.collection_withdrawals.insert_one(
+            {
+                "withdraw_id": wid,
+                "user_id": user_id,
+                "amount": amount,
+                "address": address,
+                "status": "pending",
+                "requested_at": datetime.utcnow(),
+            }
+        )
+        return wid
+    
+    # ─── ایجاد سفارش فروش ────────────────────────────────────────────────
+    async def create_sell_order(self, order: dict) -> int:
+        """Insert order & return order_id."""
+        seq = await self._get_next_sequence("order_id")
+        order.update(
+            {
+                "order_id":   seq,
+                "status":     "open",            # open → pending_payment → completed
+                "remaining":  order["amount"],   # درصورت partial-fill
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+        )
+        await self.collection_orders.insert_one(order)
+        return seq
+#--------------------------------------------------------------------------
+
+    async def create_buy_order(self, order: dict) -> int:
+        seq = await self._get_next_sequence("buy_order_id")
+        order.update(
+            {
+                "buy_order_id": seq,
+                "status": "open",
+                "remaining": order["amount"],
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+        )
+        await self.collection_orders.insert_one(order)
+        return seq
+
+
+    # ─── انتقال توکن بین دو کاربر (اتمیک) ───────────────────────────────
+    async def transfer_tokens(self, seller_id: int, buyer_id: int, amount: int):
+        """
+        کسر از seller و افزودن به buyer به‌صورت تراکنش اتمیک.
+        موجودی کاربران در فیلد «tokens» نگه‌داری می‌شود.
+        """
+        async with await self.client.start_session() as session:
+            async with session.start_transaction():
+                # ➊ کسر از فروشنده (اگر کافی نباشد exc بالا می‌آید)
+                res = await self.collection_users.update_one(
+                    {"user_id": seller_id, "tokens": {"$gte": amount}},
+                    {"$inc": {"tokens": -amount}},
+                    session=session,
+                )
+                if res.modified_count != 1:
+                    raise ValueError("Seller balance insufficient")
+
+                # ➋ افزودن به خریدار (اگر کاربر وجود نداشت ساخته می‌شود)
+                await self.collection_users.update_one(
+                    {"user_id": buyer_id},
+                    {"$inc": {"tokens": amount}},
+                    upsert=True,
+                    session=session,
+                )
+
+    ########------------------------------------------------------------------------------------
+    
     async def close(self):
             """
             بستن اتصال به MongoDB هنگام خاموشی بات

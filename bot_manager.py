@@ -3,7 +3,7 @@
 # bot_manager.py
 
 
-import os
+import os, re
 import logging
 from typing import Optional, Dict, Callable
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -38,11 +38,12 @@ from trade_handler import TradeHandler            # ← NEW
 from token_price_handler import TokenPriceHandler
 from convert_token_handler import ConvertTokenHandler
 from earn_money_handler import EarnMoneyHandler
-
+from blockchain_client import BlockchainClient
+from withdraw_handler import WithdrawHandler
 from payment_handler import PaymentHandler
 from support_handler import SupportHandler
 
-from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, TRADE_WALLET_ADDRESS
 
 from state_manager import pop_state, push_state
 import inspect
@@ -77,7 +78,9 @@ class BotManager:
         
         self.support_handler: Optional[SupportHandler] = None
         self.payment_handler: Optional[PaymentHandler] = None          
-        
+        self.blockchain: Optional[BlockchainClient] = None
+        self.withdraw_handler: Optional[WithdrawHandler] = None
+    
         self.bot: Optional[Bot] = None
         self.application: Optional[Application] = None
 
@@ -155,6 +158,18 @@ class BotManager:
             )
             self.logger.info( "ProfileHandler initialized with ReferralManager and dependencies")
 
+            # BlockchainClient
+            self.blockchain = BlockchainClient()
+            self.logger.info("BlockchainClient initialized.")
+
+            # WithdrawHandler (وابسته به db / keyboards / translation_manager)
+            self.withdraw_handler = WithdrawHandler(
+                db=self.db,
+                keyboards=self.keyboards,
+                translation_manager=self.translation_manager,
+            )
+            self.logger.info("WithdrawHandler initialized.")
+
             self.trade_handler = TradeHandler(
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
@@ -162,6 +177,8 @@ class BotManager:
                 price_provider=self.price_provider,  # باید متد async def get_price() داشته باشد
                 referral_manager=self.referral_manager,
                 error_handler=self.error_handler,
+                blockchain=self.blockchain,          # ← جدید
+                trade_wallet=TRADE_WALLET_ADDRESS,   # ← جدید
             )
             # لاگِ راه‌اندازی TradeHandler
             self.logger.info(
@@ -169,9 +186,7 @@ class BotManager:
                 type(self.price_provider).__name__,
                 type(self.referral_manager).__name__
             )
-
-            #######################
-            
+  
             self.token_price_handler = TokenPriceHandler(
                 price_provider=self.price_provider,
                 keyboards=self.keyboards,
@@ -191,9 +206,7 @@ class BotManager:
                 translation_manager=self.translation_manager,
             )
             self.logger.info("EarnMoneyHandler initialized.")
-            
-            #######################
-            
+                        
             self.payment_handler = PaymentHandler(
                 db=self.db,                             # اضافه کن
                 referral_manager=self.referral_manager,  # اضافه کن
@@ -482,7 +495,40 @@ class BotManager:
         query = update.callback_query
         await query.answer()
         await self.start_command(update, context)   
-           
+ 
+ 
+    # ─────────────────────────────────────────────────────────
+    async def set_withdraw_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        /setaddress TXXXXXXXXXXXXXXXXX
+        آدرس TRON را برای برداشت ذخیره می‌کند.
+        """
+        chat_id = update.effective_chat.id
+        args = context.args
+
+        if not args:
+            return await update.message.reply_text(
+                await self.translation_manager.translate_for_user(
+                    "Usage: /setaddress <TRON_ADDRESS>", chat_id
+                )
+            )
+
+        address = args[0].strip()
+
+        # ساده‌ترین اعتبارسنجی: حرف اول T یا t و طول 34 کاراکتر
+        if not re.fullmatch(r"[Tt][1-9A-HJ-NP-Za-km-z]{33}", address):
+            return await update.message.reply_text(
+                await self.translation_manager.translate_for_user(
+                    "Invalid TRON address.", chat_id
+                )
+            )
+
+        await self.db.set_withdraw_address(chat_id, address)
+        await update.message.reply_text(
+            await self.translation_manager.translate_for_user(
+                "✅ Withdraw address saved.", chat_id
+            )
+        )         
 #######################################################################################################         
     async def setup_telegram_handlers(self):
         """Setup and add Telegram handlers to the application."""
@@ -498,6 +544,8 @@ class BotManager:
             self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
+            self.application.add_handler(CommandHandler("setaddress", self.set_withdraw_address, filters=filters.ChatType.PRIVATE,), group=0)
+
 
             # درون متد setup_telegram_handlers، در بخشی که سایر CallbackQueryHandler ها را اضافه کرده‌اید:
             self.application.add_handler(
@@ -516,6 +564,29 @@ class BotManager:
 
             self.application.add_handler(
                 CommandHandler("set_price", self.admin_handler.set_price_cmd),
+                group=0
+            )
+
+
+            self.application.add_handler(
+                CallbackQueryHandler(self.trade_handler.buy_order_callback, pattern=r"^buy_order_\d+$"),
+                group=0
+            )
+
+            self.application.add_handler(
+                CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"),
+                group=0
+            )
+
+            self.application.add_handler(
+                CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"),
+                group=0
+            )
+
+
+            # Callback برای تأیید
+            self.application.add_handler(
+                CallbackQueryHandler(self.withdraw_handler.confirm_withdraw_callback, pattern="^withdraw_confirm$"),
                 group=0
             )
 
@@ -623,6 +694,9 @@ class BotManager:
 
             elif text_lower == '💼 earn money':
                 return await self.earn_money_handler.coming_soon(update, context)  # ← اضافه کردن return
+            # دکمهٔ «💵 Withdraw» در منوی اصلی
+            elif text_lower == "💵 withdraw":
+                return await self.withdraw_handler.show_withdraw(update, context)
 
             # ─── Trade Menu Sub-Options ──────────────────────
             elif text_lower == '🛒 buy':

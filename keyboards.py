@@ -86,6 +86,7 @@ class TranslatedKeyboards:
             ["📊 Token Price", ],
             ["💰 Trade", "💳 Payment"],
             ["🔄 Convert Token", "💼 Earn Money"],
+            ["💵 Withdraw"], 
             ["🧭 Help & Support" ],
             ["👤 Profile", "🌐 Language"]
         ]
@@ -103,6 +104,7 @@ class TranslatedKeyboards:
         if chat_id == ADMIN_USER_IDS:
             raw_buttons.append(["🛠 Admin Panel"])
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
+##################################################################################################################
 
     def trade_menu_keyboard(self) -> List[List[str]]:
         """
@@ -121,7 +123,8 @@ class TranslatedKeyboards:
         """
         raw_buttons = self.trade_menu_keyboard()
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
-
+    
+##################################################################################################################
     def back_exit_keyboard(self) -> List[List[str]]:
         """
         کیبورد ساده شامل فقط دکمه‌های Back و Exit.

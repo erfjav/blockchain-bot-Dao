@@ -19,6 +19,7 @@ REQUIRED_VARS = [
     "TELEGRAM_BOT_TOKEN",
     "WEBHOOK_URL",
     "MONGODB_URI",
+    "TRADE_WALLET_ADDRESS",      # ← NEW
     "POOL_WALLET_ADDRESS",
     "PAYMENT_WALLET_ADDRESS",
     "TRADE_CHANNEL_ID",
@@ -36,6 +37,7 @@ WEBHOOK_URL: str = os.getenv("WEBHOOK_URL")
 MONGODB_URI: str = os.getenv("MONGODB_URI")
 POOL_WALLET_ADDRESS: str = os.getenv("POOL_WALLET_ADDRESS")
 PAYMENT_WALLET_ADDRESS: str = os.getenv("PAYMENT_WALLET_ADDRESS")
+TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
 SUPPORT_USER_USERNAME: str = os.getenv("SUPPORT_USER_USERNAME")
 
 # اعدادی که به int باید تبدیل شوند
@@ -59,6 +61,7 @@ __all__ = [
     "MONGODB_URI",
     "POOL_WALLET_ADDRESS",
     "PAYMENT_WALLET_ADDRESS",
+    "TRADE_WALLET_ADDRESS",          # ← NEW
     "SUPPORT_USER_USERNAME",
     "TRADE_CHANNEL_ID",
     "ADMIN_USER_IDS",
