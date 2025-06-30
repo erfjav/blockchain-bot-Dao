@@ -85,7 +85,7 @@ class TranslatedKeyboards:
         return [
             ["📊 Token Price", ],
             ["💰 Trade", "💳 Payment"],
-            ["🎧 Support","📘 Guide" ],
+            ["🧭 Help & Support" ],
             ["🔄 Convert Token", "💼 Earn Money"],
             ["👤 Profile", "🌐 Language"]
         ]
@@ -156,3 +156,15 @@ class TranslatedKeyboards:
         """
         raw_buttons = self.show_payment_keyboard()
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
+    
+    
+    def help_contact_keyboard(self) -> List[List[str]]:
+        return [
+            ['📬 Customer Support', "❓ Help"],
+            ['⬅️ Back', '➡️ Exit']
+        ]
+
+    async def build_help_contact_keyboard(self, user_lang: str) -> ReplyKeyboardMarkup:
+
+        raw_buttons = self.help_contact_keyboard()
+        return await self.build_keyboard_for_user( raw_buttons, user_lang, resize=True, one_time=True)     

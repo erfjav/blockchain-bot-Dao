@@ -589,9 +589,24 @@ class BotManager:
                 context.user_data['state'] = 'starting'
                 await self.start_command(update, context)
 
-            elif text_lower == '📘 guide':
-                await self.help_handler.show_Guide(update, context)
+            # elif text_lower == '📘 guide':
+            #     await self.help_handler.show_Guide(update, context)
                 
+            # elif text_lower == '🎧 support':
+            #     await self.support_handler.show_support_info(update, context)                
+            #--------------------------------------------------------------------------------
+            elif text_lower == '🧭 help & support':
+                # context.user_data['state'] = 'helping'
+                await self.handle_help_support(update, context)            
+
+            elif text_lower == '❓ help':
+                # context.user_data['state'] = 'helping'
+                await self.HelpHandler.show_Guide(update, context) 
+
+            elif text_lower == '📬 customer support':
+                # context.user_data['state'] = 'awaiting_support_question'
+                await self.support_handler.show_support_info(update, context)         
+            #--------------------------------------------------------------------------------
             # دکمه جدید: Chain-of-Thought (CoT)
             elif text_lower == '💰 trade':
                 await self.trade_handler.trade_menu(update, context)
@@ -602,9 +617,6 @@ class BotManager:
             elif text_lower == 'txid (transaction hash)':
                 # این متد خودش state=awaiting_txid را ست می‌کند
                 await self.payment_handler.prompt_for_txid(update, context)                
-                
-            elif text_lower == '🎧 support':
-                await self.support_handler.show_support_info(update, context)
 
             elif text_lower == '🌐 language':   
                 await self.handle_language_button(update, context)   
@@ -638,8 +650,37 @@ class BotManager:
                     reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), parse_mode="HTML")
                 self.logger.warning(f"User {chat_id} sent an unexpected message: {text} in state: {current_state}")
         except Exception as e:
-            await self.error_handler.handle(update, context, e, context_name="handle_private_message")     
-                   
+            await self.error_handler.handle(update, context, e, context_name="handle_private_message")    
+             
+###################################################################################################################
+
+    async def handle_help_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """نمایش توضیح گزینه‌های Help & Support + تغییر state به «help_support_menu»"""
+        try:
+            chat_id = update.effective_chat.id
+            # تنظیم state برای منوی Help & Support
+            push_state(context, "help_support_menu")
+            context.user_data['state'] = 'help_support_menu'
+
+            # متن توضیحی درباره دکمه‌ها
+            text = (
+                "Please choose one of the options below so we can assist you more efficiently:\n\n"
+                "📬 <b>Customer Support</b>: Contact our support team for technical or general inquiries.\n"
+                "❓ <b>Help</b>: Access helpful information and guidance about all features available in the bot. "
+                "Use this section if you're unsure how something works or want to explore what the bot can do.\n\n"
+                "We're here to help—just pick an option!"
+            )
+
+            keyboard = await self.keyboards.build_help_contact_keyboard(chat_id)
+            await update.message.reply_text(
+                await self.translation_manager.translate_for_user(text, chat_id),
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+            
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="handle_help_support")
+                              
 ####################################################################################################################           
     async def exit_bot(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
