@@ -117,41 +117,6 @@ class ReferralManager:
 
         return {k: v for k, v in doc.items() if k != "_id"}
         
-    
-    # async def ensure_user(
-    #     self, chat_id: int, first_name: str, inviter_code: Optional[str] = None
-    # ) -> Dict[str, Any]:
-    #     """Register user, allocate tokens, distribute commissions."""
-    #     # Return if exists
-    #     doc = await self.users.find_one({"user_id": chat_id}, {"_id": 0})
-    #     if doc:
-    #         return doc
-
-    #     referral_code = await self._generate_unique_code()
-    #     member_no = await self._next_member_no()
-
-    #     inviter_id, ancestors = await self._resolve_inviter_chain(inviter_code)
-
-    #     # Allocate tokens – may raise TokensDepletedError
-    #     tokens_allocated = await self._allocate_tokens()
-
-    #     await self.users.insert_one(
-    #         {
-    #             "user_id": chat_id,
-    #             "member_no": member_no,
-    #             "first_name": first_name,
-    #             "created_at": datetime.utcnow(),
-    #             "referral_code": referral_code,
-    #             "inviter_id": inviter_id,
-    #             "tokens": tokens_allocated,
-    #             "commission_usd": 0.0,
-    #         }
-    #     )
-
-    #     await self._distribute_commission(new_user_id=chat_id, ancestors=ancestors)
-
-    #     return await self.users.find_one({"user_id": chat_id}, {"_id": 0})
-
     # ------------------------------------------------------------------
     async def _resolve_inviter_chain(self, inviter_code: Optional[str]):
         inviter_id: Optional[int] = None
@@ -248,51 +213,3 @@ class ReferralManager:
         return await self.ensure_user(chat_id, first_name, inviter_code)
 
 
-
-
-    # # ------------------------------------------------------------------
-    # async def get_profile(self, user_id: int) -> Dict[str, Any]:
-    #     """
-    #     برمی‌گرداند:
-    #      - referral_code
-    #      - member_no
-    #      - tokens
-    #      - commission_usd
-    #      - total downline count
-    #     """
-    #     # سند کاربر
-    #     user = await self.users.find_one(
-    #         {"user_id": user_id},
-    #         {"_id": 0, "referral_code": 1, "member_no": 1, "tokens": 1, "commission_usd": 1}
-    #     )
-    #     if not user:
-    #         return {}
-
-    #     # تعداد زیرمجموعه‌ها (بدون صفحه‌بندی)
-    #     total = await self.users.count_documents({"inviter_id": user_id})
-    #     # مقادیر برگشتی
-    #     return {
-    #         **user,
-    #         "total": total
-    #     }
-
-    # # ------------------------------------------------------------------
-    # async def get_downline_paginated(
-    #     self,
-    #     user_id: int,
-    #     page: int = 1,
-    #     page_size: int = 30
-    # ) -> Dict[str, Any]:
-    #     """
-    #     لیست زیرمجموعه‌ها با صفحه‌بندی:
-    #      - members: لیست دیکشنری {'first_name', 'referral_code'}
-    #      - total: تعداد کل زیرمجموعه‌ها
-    #     """
-    #     skip = (page - 1) * page_size
-    #     cursor = self.users.find(
-    #         {"inviter_id": user_id},
-    #         {"_id": 0, "first_name": 1, "referral_code": 1}
-    #     ).skip(skip).limit(page_size)
-    #     members = await cursor.to_list(length=page_size)
-    #     total = await self.users.count_documents({"inviter_id": user_id})
-    #     return {"members": members, "total": total}
