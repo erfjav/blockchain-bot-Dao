@@ -85,8 +85,8 @@ class TranslatedKeyboards:
         return [
             ["📊 Token Price", ],
             ["💰 Trade", "💳 Payment"],
-            ["🧭 Help & Support" ],
             ["🔄 Convert Token", "💼 Earn Money"],
+            ["🧭 Help & Support" ],
             ["👤 Profile", "🌐 Language"]
         ]
         

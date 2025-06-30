@@ -640,6 +640,21 @@ class BotManager:
             elif text_lower == '💸 sell':
                 return await self.trade_handler.sell_start(update, context)
 
+
+            # ─── مدیریت ورودی عددی در فلو خرید/فروش ───────────────
+            if current_state == 'awaiting_buy_amount':
+                return await self.trade_handler.buy_amount(update, context)
+
+            elif current_state == 'awaiting_buy_price':
+                return await self.trade_handler.buy_price(update, context)
+
+            elif current_state == 'awaiting_sell_amount':
+                return await self.trade_handler.sell_amount(update, context)
+            
+            elif current_state == 'awaiting_sell_price':
+                return await self.trade_handler.sell_price(update, context)
+
+
                 #--------------------------------------------------------------------------------
             else:
                 msg_en = "You're in the <b>main menu</b> now! I'm here to assist you — just <b>pick an option</b> below to begin. 👇"
@@ -788,9 +803,11 @@ class BotManager:
             "trade_menu":                      self.trade_handler.trade_menu,
 
             "awaiting_sell_amount":            self.trade_handler.sell_start,
+            "awaiting_sell_price":             self.trade_handler.sell_price,
+            
             "awaiting_buy_amount":             self.trade_handler.buy_start,
             "awaiting_buy_price":              self.trade_handler.buy_price,
-
+            
             # ───── payment ─────────────────────────────────────────────────────────────────      
 
             # پرداخت
