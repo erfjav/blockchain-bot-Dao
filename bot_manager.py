@@ -718,6 +718,10 @@ class BotManager:
             elif current_state == 'awaiting_sell_price':
                 return await self.trade_handler.sell_price(update, context)
 
+            elif current_state == 'awaiting_txid':
+                # پیام کاربر را به همان متد می‌فرستیم تا تأیید شود
+                return await self.trade_handler.prompt_trade_txid(update, context)            
+            
             # State-based handling for language detection
             elif current_state == 'awaiting_language_detection':
                 return await self.handle_language_detection(update, context)  # ← اضافه کردن return

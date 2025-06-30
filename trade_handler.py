@@ -603,31 +603,60 @@ class TradeHandler:
     # ───────────────────────────────────────────────────────────────────
     async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
-        Handler برای پیامِ متنیِ TXID که خریدار پس از زدن «💳 I Paid» می‌فرستد.
+        دو مرحله را در یک متد پشتیبانی می‌کند:
 
-        گام‌ها
-        ------
-        1) بررسی وجود سفارشِ در انتظار در user_data
-        2) اعتبارسنجی فرمت TXID (64 کاراکتر هگز)
-        3) اطمینان از status = pending_payment و تعلق سفارش به همین خریدار
-        4) تأیید تراکنش روی بلاک‌چین (از طریق self.blockchain.verify_txid)
-        5) انتقال توکن در DB، بستن سفارش، و اعتباردهی موجودی ارزی فروشنده
-        6) ویرایش پیام کانال و ارسال اعلان به طرفین
-        7) پاک‌سازی state
+        ▸ فاز ①  (CallbackQuery) – کاربر روی «💳 I Paid» می‌زند
+            ◦ سفارشِ pending را پیدا می‌کنیم
+            ◦ state ← awaiting_txid
+            ◦ به کاربر می‌گوییم TXID را بفرستد
+
+        ▸ فاز ②  (Message) – کاربر TXID را می‌فرستد
+            ◦ اعتبارسنجی فرمت و تأیید روی بلاک‌چین
+            ◦ انتقال توکن، تکمیل سفارش، آپدیت پیام کانال
+            ◦ پاک‌سازی state
         """
 
-        # این هندلر با یک Message فراخوانى مى‌شود؛ وجود update.message ضرورى است
+        # ─── فاز ① : کاربر روی دکمه «I Paid» کلیک کرده است ──────────────
+        if update.callback_query:
+            query     = update.callback_query
+            await query.answer()
+
+            buyer_id  = query.from_user.id
+            order_id  = int(query.data.split("_")[-1])
+
+            order = await self.db.collection_orders.find_one({
+                "order_id": order_id,
+                "buyer_id": buyer_id,
+                "status":   "pending_payment"
+            })
+            if not order:
+                return await query.answer(
+                    "⛔️ Order not found or already processed.",
+                    show_alert=True
+                )
+
+            # ذخیرهٔ state برای فاز بعدی
+            context.user_data["pending_order"] = order_id
+            context.user_data["state"]        = "awaiting_txid"
+
+            await query.edit_message_text(
+                "✅ Payment initiated.\n"
+                "📄 Please send the <b>TXID</b> (transaction hash) in the chat.",
+                parse_mode="HTML"
+            )
+            return  # از متد خارج می‌شویم؛ منتظر پیام TXID می‌مانیم
+
+        # ─── فاز ② : پیام متنی حاوی TXID ───────────────────────────────
         if not update.message or not update.message.text:
-            return
+            return  # پیام نامعتبر؛ نادیده می‌گیریم
 
         buyer_id  = update.effective_user.id
-        order_id  = context.user_data.get("pending_order")      # از مرحله قبل ذخیره کرده‌ایم
+        order_id  = context.user_data.get("pending_order")
         if not order_id:
             return await update.message.reply_text(
                 "⚠️ No pending order found. Please start from an order card."
             )
 
-        # ── 1) اعتبارسنجى فرمت TXID ─────────────────────────────────────
         txid = update.message.text.strip()
         if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
             return await update.message.reply_text(
@@ -635,13 +664,13 @@ class TradeHandler:
                 "It must be a 64-character hexadecimal string."
             )
 
-        # ── 2) دریافت و صحت‌سنجى سفارش ─────────────────────────────────
-        order = await self.db.collection_orders.find_one({"order_id": order_id})
-        if (
-            not order
-            or order.get("status") != "pending_payment"
-            or order.get("buyer_id") != buyer_id
-        ):
+        # اطمینان از اینکه سفارش همچنان در انتظار پرداخت است
+        order = await self.db.collection_orders.find_one({
+            "order_id": order_id,
+            "buyer_id": buyer_id,
+            "status":   "pending_payment"
+        })
+        if not order:
             context.user_data.clear()
             return await update.message.reply_text(
                 "⛔️ Order is no longer awaiting payment."
@@ -649,12 +678,12 @@ class TradeHandler:
 
         expected_amount = order["amount"] * order["price"]
 
-        # ── 3) تأیید تراکنش روى بلاک‌چین ───────────────────────────────
+        # ── تأیید TXID روی بلاک‌چین ───────────────────────────────────
         try:
             confirmed = await self.blockchain.verify_txid(
                 txid=txid,
                 destination=TRON_WALLET,
-                expected_usdt=expected_amount,
+                expected_usdt=expected_amount
             )
         except Exception as e:
             self.logger.error(f"Blockchain verification failed: {e}", exc_info=True)
@@ -664,26 +693,23 @@ class TradeHandler:
 
         if not confirmed:
             return await update.message.reply_text(
-                "Payment not yet confirmed on-chain. Please wait a few minutes and resend the TXID."
+                "Payment not yet confirmed on-chain. "
+                "Please wait a few minutes and resend the TXID."
             )
 
-        # ── 4) به‌روزرسانى اتمیک دیتابیس ──────────────────────────────
-        # اگر از replica set استفاده مى‌کنید، session بهترین گزینه است.
-        # در غیر این صورت همین توالى امن است:
+        # ── انتقال توکن و بستن سفارش ───────────────────────────────────
         await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
         await self.db.collection_orders.update_one(
             {"order_id": order_id},
             {"$set": {
                 "status":     "completed",
                 "txid":       txid,
-                "updated_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
             }}
         )
-        await self.db.credit_fiat_balance(
-            order["seller_id"], expected_amount
-        )
+        await self.db.credit_fiat_balance(order["seller_id"], expected_amount)
 
-        # ── 5) ویرایش پیام اولیهٔ کانال ───────────────────────────────
+        # ── ویرایش پیام کانال ────────────────────────────────────────
         try:
             await context.bot.edit_message_text(
                 chat_id=TRADE_CHANNEL_ID,
@@ -693,13 +719,12 @@ class TradeHandler:
                     f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>\n"
                     f"Amount: {order['amount']} tokens @ ${order['price']}"
                 ),
-                parse_mode="HTML",
+                parse_mode="HTML"
             )
         except Exception as e:
-            # اگر پیام پاک یا ادیت شده باشد، فقط لاگ می‌کنیم
             self.logger.warning(f"Could not edit trade message {order_id}: {e}")
 
-        # ── 6) اعلان به دو طرف معامله ─────────────────────────────────
+        # ── اعلان به طرفین ───────────────────────────────────────────
         await context.bot.send_message(
             order["seller_id"],
             "🎉 Your tokens were sold! USDT has been credited to your withdraw balance. ✅"
@@ -708,8 +733,9 @@ class TradeHandler:
             "✅ Payment confirmed and tokens credited to your account."
         )
 
-        # ── 7) پاک‌سازى state کاربر ───────────────────────────────────
-        context.user_data.clear()    
+        # ── پاک‌سازی state ──────────────────────────────────────────
+        context.user_data.clear()
+
     
     # async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     #     """
