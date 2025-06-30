@@ -62,7 +62,7 @@ class BotManager:
         
         self.error_handler: Optional[ErrorHandler] = None    
             
-        self.HelpHandler: Optional[HelpHandler] = None
+        self.help_handler: Optional[HelpHandler] = None
         
         self.trade_handler: Optional[TradeHandler] = None
         
@@ -601,7 +601,7 @@ class BotManager:
 
             elif text_lower == '❓ help':
                 # context.user_data['state'] = 'helping'
-                await self.HelpHandler.show_Guide(update, context) 
+                await self.help_handler.show_Guide(update, context) 
 
             elif text_lower == '📬 customer support':
                 # context.user_data['state'] = 'awaiting_support_question'
