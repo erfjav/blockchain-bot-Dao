@@ -171,23 +171,32 @@ class TradeHandler:
             await self.error_handler.handle(update, context, e, context_name="sell_start")
 
     #--------------------------------------------------------------------------
+
+    # -----------------------------------------------------------------
     async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        گام اول فروش: دریافت تعداد، سپس عبور به گام قیمت.
+        """
         try:
             chat_id = update.effective_chat.id
             txt     = update.message.text.strip()
 
+            # ── اعتبارسنجی عدد ─────────────────────────────────────────
             if not txt.isdigit() or int(txt) <= 0:
                 await update.message.reply_text(
                     await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
                 )
-                return  # در همان state می‌مانیم
+                return  # در همان state `awaiting_sell_amount` می‌مانیم
 
-            # مقدار را ذخیره می‌کنیم و state بعدی را ست می‌کنیم
-            context.user_data["sell_amount"] = int(txt)
-            pop_state(context)                      # خارج از awaiting_sell_amount
-            push_state(context, SELL_PRICE)
-            context.user_data["state"] = SELL_PRICE
+            amount = int(txt)
+            context.user_data["sell_amount"] = amount
 
+            # ── انتقال state → awaiting_sell_price ─────────────────────
+            pop_state(context)                               # خارج از awaiting_sell_amount
+            push_state(context, "awaiting_sell_price")
+            context.user_data["state"] = "awaiting_sell_price"
+
+            # ── پرسش قیمت از فروشنده ─────────────────────────────────
             await update.message.reply_text(
                 await self.translation_manager.translate_for_user(
                     "At what price (USD) per token are you willing to sell?", chat_id
@@ -197,6 +206,34 @@ class TradeHandler:
 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_amount")
+    
+    
+    # async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     try:
+    #         chat_id = update.effective_chat.id
+    #         txt     = update.message.text.strip()
+
+    #         if not txt.isdigit() or int(txt) <= 0:
+    #             await update.message.reply_text(
+    #                 await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
+    #             )
+    #             return  # در همان state می‌مانیم
+
+    #         # مقدار را ذخیره می‌کنیم و state بعدی را ست می‌کنیم
+    #         context.user_data["sell_amount"] = int(txt)
+    #         pop_state(context)                      # خارج از awaiting_sell_amount
+    #         push_state(context, SELL_PRICE)
+    #         context.user_data["state"] = SELL_PRICE
+
+    #         await update.message.reply_text(
+    #             await self.translation_manager.translate_for_user(
+    #                 "At what price (USD) per token are you willing to sell?", chat_id
+    #             ),
+    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
+    #         )
+
+    #     except Exception as e:
+    #         await self.error_handler.handle(update, context, e, context_name="sell_amount")
             
     # #-------------------------------------------------------------------------
     
