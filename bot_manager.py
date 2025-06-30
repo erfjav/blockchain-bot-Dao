@@ -783,10 +783,6 @@ class BotManager:
             
             "starting":                        self.start_command,
             
-            # ───── showing_payment ─────────────────────────────────────────────────────────────────  
-            
-            "showing_guide":                   self.help_handler.show_Guide,
-            
             # ───── مراحل خرید/فروش ────────────────────────────────────────────────────────────        
                
             "trade_menu":                      self.trade_handler.trade_menu,
@@ -798,14 +794,20 @@ class BotManager:
             # ───── payment ─────────────────────────────────────────────────────────────────      
 
             # پرداخت
-            "showing_payment":   self.payment_handler.show_payment_instructions,
-            "prompt_txid":       self.payment_handler.prompt_for_txid,
-            "awaiting_txid":     self.payment_handler.handle_txid,
-            "txid_received":     self.payment_handler.handle_txid,
+            "showing_payment":                 self.payment_handler.show_payment_instructions,
+            "prompt_txid":                     self.payment_handler.prompt_for_txid,
+            "awaiting_txid":                   self.payment_handler.handle_txid,
+            "txid_received":                   self.payment_handler.handle_txid,
 
             # ───── support_menu ─────────────────────────────────────────────────────────────────      
 
+            "help_support_menu":               self.handle_help_support,
+
             "support_menu":                    self.support_handler.show_support_info,
+            
+            # ───── showing_payment ─────────────────────────────────────────────────────────────────  
+            
+            "showing_guide":                   self.help_handler.show_Guide,            
             
             # ───── showing_payment ─────────────────────────────────────────────────────────────────      
                     

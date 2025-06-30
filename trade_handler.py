@@ -51,6 +51,7 @@ from keyboards import TranslatedKeyboards
 from language_Manager import TranslationManager
 from error_handler import ErrorHandler
 from Referral_logic_code import ReferralManager
+from price_provider import PriceProvider          # ← NEW
 
 from myproject_database import Database  # Async wrapper
 from state_manager import push_state
@@ -69,27 +70,29 @@ class TradeHandler:
 
     def __init__(
         self,
+        db: Database,        
         keyboards: TranslatedKeyboards,
         translation_manager: TranslationManager,
-        db: Database,
-        price_provider,
+        price_provider: PriceProvider,
         referral_manager: ReferralManager,
         error_handler: ErrorHandler,
         
     ) -> None:
+        
+        self.db = db
         self.keyboards = keyboards
         self.translation_manager = translation_manager
-        self.db = db
         self.price_provider = price_provider
         self.referral_manager = referral_manager
         self.error_handler = error_handler
+        
         self.logger = logging.getLogger(self.__class__.__name__)
 
     # ───────────────────────────────────────── helper utilities ────────────
 
     async def _get_user_identifier(self, user_id: int) -> str:
         """Return member_no if available else referral_code as display ID."""
-        profile = await self.referral_manager.get_profile(user_id)
+        profile = await self.db.get_profile(user_id)
         if not profile:
             return str(user_id)
         return str(profile.get("member_no") or profile.get("referral_code") or user_id)
@@ -138,21 +141,6 @@ class TradeHandler:
         except Exception as e:
             # در صورت بروز خطا، به ErrorHandler ارجاع بده
             await self.error_handler.handle( update, context, e, context_name="trade_menu")
-
-
-    # async def trade_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """Shows translated trade menu."""
-    #             # ───➤ ست‌کردن state برای نمایش منوی Trade
-    #     push_state(context, "trade_menu")
-    #     context.user_data['state'] = "trade_menu"
-        
-    #     chat_id = update.effective_chat.id
-    #     kb: ReplyKeyboardMarkup = await self.keyboards.build_trade_menu_keyboard(chat_id)
-    #     await update.message.reply_text(
-    #         await self.translation_manager.translate_for_user("Select an option:", chat_id),
-    #         reply_markup=kb,
-    #     )
-    #     return ConversationHandler.END  # just menu – not entering conversation yet
 
     # ───────────────────────────────────────── SELL FLOW ──────────────────
 
