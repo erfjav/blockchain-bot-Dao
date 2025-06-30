@@ -43,8 +43,8 @@ from withdraw_handler import WithdrawHandler
 from payment_handler import PaymentHandler
 from support_handler import SupportHandler
 
-from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, TRADE_WALLET_ADDRESS
-
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
+#, TRADE_WALLET_ADDRESS
 from state_manager import pop_state, push_state
 import inspect
 
@@ -178,7 +178,7 @@ class BotManager:
                 referral_manager=self.referral_manager,
                 error_handler=self.error_handler,
                 blockchain=self.blockchain,          # ← جدید
-                trade_wallet=TRADE_WALLET_ADDRESS,   # ← جدید
+                # trade_wallet=TRADE_WALLET_ADDRESS,   # ← جدید
             )
             # لاگِ راه‌اندازی TradeHandler
             self.logger.info(
