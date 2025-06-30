@@ -578,60 +578,51 @@ class BotManager:
 
             # ─── Global Exit ─────────────────────────
             if text_lower in {'exit', '➡️ exit'}:
-               # Delegate to the exit_bot handler (clears state, builds and sends farewell)
+            # Delegate to the exit_bot handler (clears state, builds and sends farewell)
                 return await self.exit_bot(update, context)
             
             if text_lower in {'back', '⬅️ back'}:
-               # Delegate to the exit_bot handler (clears state, builds and sends farewell)
+            # Delegate to the exit_bot handler (clears state, builds and sends farewell)
                 return await self.back_handler(update, context)            
 
             if text_lower == '🚀 start':
                 context.user_data['state'] = 'starting'
-                await self.start_command(update, context)
-
-            # elif text_lower == '📘 guide':
-            #     await self.help_handler.show_Guide(update, context)
-                
-            # elif text_lower == '🎧 support':
-            #     await self.support_handler.show_support_info(update, context)                
+                return await self.start_command(update, context)  # ← اضافه کردن return
+            
             #--------------------------------------------------------------------------------
             elif text_lower == '🧭 help & support':
-                # context.user_data['state'] = 'helping'
-                await self.handle_help_support(update, context)            
+                return await self.handle_help_support(update, context)  # ← اضافه کردن return           
 
             elif text_lower == '❓ help':
-                # context.user_data['state'] = 'helping'
-                await self.help_handler.show_Guide(update, context) 
+                return await self.help_handler.show_Guide(update, context)  # ← اضافه کردن return
 
             elif text_lower == '📬 customer support':
-                # context.user_data['state'] = 'awaiting_support_question'
-                await self.support_handler.show_support_info(update, context)         
+                return await self.support_handler.show_support_info(update, context)  # ← اضافه کردن return        
             #--------------------------------------------------------------------------------
-            # دکمه جدید: Chain-of-Thought (CoT)
             elif text_lower == '💰 trade':
-                await self.trade_handler.trade_menu(update, context)
+                return await self.trade_handler.trade_menu(update, context)  # ← اضافه کردن return
                 
             elif text_lower == '💳 payment':
-                await self.payment_handler.show_payment_instructions(update, context)
+                return await self.payment_handler.show_payment_instructions(update, context)  # ← اضافه کردن return
                 
             elif text_lower == 'txid (transaction hash)':
                 # این متد خودش state=awaiting_txid را ست می‌کند
-                await self.payment_handler.prompt_for_txid(update, context)                
+                return await self.payment_handler.prompt_for_txid(update, context)  # ← اضافه کردن return               
 
             elif text_lower == '🌐 language':   
-                await self.handle_language_button(update, context)   
+                return await self.handle_language_button(update, context)  # ← اضافه کردن return  
                 
             elif text_lower == '👤 profile':   
-                await self.profile_handler.show_profile(update, context)   
+                return await self.profile_handler.show_profile(update, context)  # ← اضافه کردن return  
                 
             elif text_lower == '📊 token price':
-                await self.token_price_handler.show_price(update, context)
+                return await self.token_price_handler.show_price(update, context)  # ← اضافه کردن return
 
             elif text_lower == '🔄 convert token':
-                await self.convert_token_handler.coming_soon(update, context)
+                return await self.convert_token_handler.coming_soon(update, context)  # ← اضافه کردن return
 
             elif text_lower == '💼 earn money':
-                await self.earn_money_handler.coming_soon(update, context)
+                return await self.earn_money_handler.coming_soon(update, context)  # ← اضافه کردن return
 
             # ─── Trade Menu Sub-Options ──────────────────────
             elif text_lower == '🛒 buy':
@@ -640,9 +631,8 @@ class BotManager:
             elif text_lower == '💸 sell':
                 return await self.trade_handler.sell_start(update, context)
 
-
             # ─── مدیریت ورودی عددی در فلو خرید/فروش ───────────────
-            if current_state == 'awaiting_buy_amount':
+            elif current_state == 'awaiting_buy_amount':
                 return await self.trade_handler.buy_amount(update, context)
 
             elif current_state == 'awaiting_buy_price':
@@ -654,18 +644,123 @@ class BotManager:
             elif current_state == 'awaiting_sell_price':
                 return await self.trade_handler.sell_price(update, context)
 
+            # State-based handling for language detection
+            elif current_state == 'awaiting_language_detection':
+                return await self.handle_language_detection(update, context)  # ← اضافه کردن return
 
-                #--------------------------------------------------------------------------------
+            #--------------------------------------------------------------------------------
             else:
                 msg_en = "You're in the <b>main menu</b> now! I'm here to assist you — just <b>pick an option</b> below to begin. 👇"
                 msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
-                                             
+                                            
                 await update.message.reply_text(
                     msg_final,
-                    reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), parse_mode="HTML")
+                    reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), 
+                    parse_mode="HTML"
+                )
                 self.logger.warning(f"User {chat_id} sent an unexpected message: {text} in state: {current_state}")
+                
         except Exception as e:
-            await self.error_handler.handle(update, context, e, context_name="handle_private_message")    
+            await self.error_handler.handle(update, context, e, context_name="handle_private_message")
+
+
+    # async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """Route private text messages based on user input and current state, building keyboards."""
+    #     try:
+    #         chat_id = update.effective_chat.id
+    #         text = (update.message.text or "").strip()
+    #         text_lower = text.lower()
+    #         self.logger.info(f"Received private text from {chat_id}: '{text}'")
+
+    #         # Retrieve and restore language & history
+    #         user_lang = await self.db.get_user_language(chat_id) or 'en'
+    #         original = await self.db.get_original_text_by_translation(text, user_lang)
+    #         if original:
+    #             text_lower = original.lower()
+
+    #         current_state = context.user_data.get('state', 'main_menu')
+
+    #         # ─── Global Exit ─────────────────────────
+    #         if text_lower in {'exit', '➡️ exit'}:
+    #            # Delegate to the exit_bot handler (clears state, builds and sends farewell)
+    #             return await self.exit_bot(update, context)
+            
+    #         if text_lower in {'back', '⬅️ back'}:
+    #            # Delegate to the exit_bot handler (clears state, builds and sends farewell)
+    #             return await self.back_handler(update, context)            
+
+    #         if text_lower == '🚀 start':
+    #             context.user_data['state'] = 'starting'
+    #             await self.start_command(update, context)
+              
+    #         #--------------------------------------------------------------------------------
+    #         elif text_lower == '🧭 help & support':
+    #             await self.handle_help_support(update, context)            
+
+    #         elif text_lower == '❓ help':
+    #             await self.help_handler.show_Guide(update, context) 
+
+    #         elif text_lower == '📬 customer support':
+    #             await self.support_handler.show_support_info(update, context)         
+    #         #--------------------------------------------------------------------------------
+    #         elif text_lower == '💰 trade':
+    #             await self.trade_handler.trade_menu(update, context)
+                
+    #         elif text_lower == '💳 payment':
+    #             await self.payment_handler.show_payment_instructions(update, context)
+                
+    #         elif text_lower == 'txid (transaction hash)':
+    #             # این متد خودش state=awaiting_txid را ست می‌کند
+    #             await self.payment_handler.prompt_for_txid(update, context)                
+
+    #         elif text_lower == '🌐 language':   
+    #             await self.handle_language_button(update, context)   
+                
+    #         elif text_lower == '👤 profile':   
+    #             await self.profile_handler.show_profile(update, context)   
+                
+    #         elif text_lower == '📊 token price':
+    #             await self.token_price_handler.show_price(update, context)
+
+    #         elif text_lower == '🔄 convert token':
+    #             await self.convert_token_handler.coming_soon(update, context)
+
+    #         elif text_lower == '💼 earn money':
+    #             await self.earn_money_handler.coming_soon(update, context)
+
+    #         # ─── Trade Menu Sub-Options ──────────────────────
+    #         elif text_lower == '🛒 buy':
+    #             return await self.trade_handler.buy_start(update, context)
+
+    #         elif text_lower == '💸 sell':
+    #             return await self.trade_handler.sell_start(update, context)
+
+
+    #         # ─── مدیریت ورودی عددی در فلو خرید/فروش ───────────────
+    #         if current_state == 'awaiting_buy_amount':
+    #             return await self.trade_handler.buy_amount(update, context)
+
+    #         elif current_state == 'awaiting_buy_price':
+    #             return await self.trade_handler.buy_price(update, context)
+
+    #         elif current_state == 'awaiting_sell_amount':
+    #             return await self.trade_handler.sell_amount(update, context)
+            
+    #         elif current_state == 'awaiting_sell_price':
+    #             return await self.trade_handler.sell_price(update, context)
+
+
+    #             #--------------------------------------------------------------------------------
+    #         else:
+    #             msg_en = "You're in the <b>main menu</b> now! I'm here to assist you — just <b>pick an option</b> below to begin. 👇"
+    #             msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
+                                             
+    #             await update.message.reply_text(
+    #                 msg_final,
+    #                 reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), parse_mode="HTML")
+    #             self.logger.warning(f"User {chat_id} sent an unexpected message: {text} in state: {current_state}")
+    #     except Exception as e:
+    #         await self.error_handler.handle(update, context, e, context_name="handle_private_message")    
              
 ###################################################################################################################
 
