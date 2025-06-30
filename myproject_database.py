@@ -406,37 +406,68 @@ class Database:
             }
         )
         return wid
-    
-    # ─── ایجاد سفارش فروش ────────────────────────────────────────────────
-    async def create_sell_order(self, order: dict) -> int:
-        """Insert order & return order_id."""
-        seq = await self._get_next_sequence("order_id")
-        order.update(
-            {
-                "order_id":   seq,
-                "status":     "open",            # open → pending_payment → completed
-                "remaining":  order["amount"],   # درصورت partial-fill
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-            }
-        )
-        await self.collection_orders.insert_one(order)
-        return seq
-#--------------------------------------------------------------------------
 
-    async def create_buy_order(self, order: dict) -> int:
-        seq = await self._get_next_sequence("buy_order_id")
-        order.update(
-            {
-                "buy_order_id": seq,
-                "status": "open",
-                "remaining": order["amount"],
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-            }
-        )
+    # db_manager.py  (یا هر فایلی که متدهای زیر داخل آن است)
+
+    # ── ایجاد سفارش فروش ───────────────────────────────────────────────
+    async def create_sell_order(self, order: dict) -> int:
+        seq = await self._get_next_sequence("order_id")      # ← همین شمارنده را
+        order.update({
+            "order_id":   seq,
+            "side":       "sell",        # تمایز جهت سفارش (اختیاری)
+            "status":     "open",
+            "remaining":  order["amount"],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        })
         await self.collection_orders.insert_one(order)
         return seq
+
+    # ── ایجاد سفارش خرید ───────────────────────────────────────────────
+    async def create_buy_order(self, order: dict) -> int:
+        seq = await self._get_next_sequence("order_id")      # ← همان شمارنده
+        order.update({
+            "order_id":   seq,
+            "side":       "buy",
+            "status":     "open",
+            "remaining":  order["amount"],
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        })
+        await self.collection_orders.insert_one(order)
+        return seq
+ 
+    
+#     # ─── ایجاد سفارش فروش ────────────────────────────────────────────────
+#     async def create_sell_order(self, order: dict) -> int:
+#         """Insert order & return order_id."""
+#         seq = await self._get_next_sequence("order_id")
+#         order.update(
+#             {
+#                 "order_id":   seq,
+#                 "status":     "open",            # open → pending_payment → completed
+#                 "remaining":  order["amount"],   # درصورت partial-fill
+#                 "created_at": datetime.utcnow(),
+#                 "updated_at": datetime.utcnow(),
+#             }
+#         )
+#         await self.collection_orders.insert_one(order)
+#         return seq
+# #--------------------------------------------------------------------------
+
+#     async def create_buy_order(self, order: dict) -> int:
+#         seq = await self._get_next_sequence("buy_order_id")
+#         order.update(
+#             {
+#                 "buy_order_id": seq,
+#                 "status": "open",
+#                 "remaining": order["amount"],
+#                 "created_at": datetime.utcnow(),
+#                 "updated_at": datetime.utcnow(),
+#             }
+#         )
+#         await self.collection_orders.insert_one(order)
+#         return seq
 
 
     # ─── انتقال توکن بین دو کاربر (اتمیک) ───────────────────────────────
