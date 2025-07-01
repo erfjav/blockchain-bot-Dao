@@ -933,7 +933,7 @@ class BotManager:
             "awaiting_language_detection":     self.handle_language_button,
             
             # ───── profile ─────────────────────────────────────────────────────────────────      
-            # "showing_profile":                 self.profile_handler.show_profile,
+            "showing_profile":                 self.profile_handler.show_profile,
             
             "profile_menu":                     self.profile_handler.show_profile_menu,
             "profile_wallet_menu":              self.profile_handler.show_wallet_menu,
