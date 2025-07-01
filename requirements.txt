@@ -4,3 +4,7 @@ python-telegram-bot
 motor
 httpx
 python-dotenv
+
+web3
+
+coinaddrvalidator

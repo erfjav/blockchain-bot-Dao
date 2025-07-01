@@ -32,7 +32,13 @@ from myproject_database import Database
 from Referral_logic_code import ReferralManager
 # from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
+from coinaddrvalidator import validate
 
+
+def valid_wallet_format(address: str) -> bool:
+    # اگر coin را ندهید، خودش تشخیص می‌دهد یا می‌توانید specify کنید:
+    #   validate(address, 'BTC') یا 'ETH' و …
+    return validate(address)
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
@@ -105,12 +111,14 @@ class ProfileHandler:
             tokens: int | None = profile.get("tokens")
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
+            wallet_address = await self.db.get_wallet_address(chat_id)
             
             # 5) Compose message body
             placeholder = "—"
             lines: List[str] = [
                 f"<b>{('Member No')}:</b> {member_no}",
                 f"<b>{('Referral Code')}:</b> <code>{referral_code}</code>",
+                f"<b>Wallet Address:</b> <code>{wallet_address or placeholder}</code>",
                 "─────────────",
                 f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
                 f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
@@ -244,152 +252,116 @@ class ProfileHandler:
         «loading…» خارج می‌کند تا تجربهٔ UX روان بماند.
         """
         await update.callback_query.answer()
+#################################################################################################################
 
 
+    async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Prompt the user to add or update their wallet address.
+
+        - If no address is stored yet, show a welcome explanation:
+          the bot needs this address to send token rewards or process payments.
+        - If an address already exists, display it and ask for the new one.
+        """
+        chat_id = update.effective_chat.id
+
+        # ۱) بررسی می‌کنیم آیا قبلاً آدرسی ذخیره شده یا خیر
+        old_address = await self.db.get_wallet_address(chat_id)
+
+        if old_address:
+            # مسیر ویرایش: به کاربر آدرس فعلی را نشان می‌دهیم
+            prompt_text = (
+                f"📋 Your current wallet address is:\n"
+                f"<code>{old_address}</code>\n\n"
+                "If you’d like to change it, please send the new address now:"
+            )
+        else:
+            # مسیر ثبت اولیه: توضیح می‌دهیم که آدرس چرا لازم است
+            prompt_text = (
+                "👋 Welcome! Here you can register your crypto wallet address.\n"
+                "We use this address to send you token rewards and handle payments securely.\n\n"
+                "Please send your wallet address now:"
+            )
+
+        # ۲) ارسال پیام با دکمه‌های Back/Exit
+        await update.message.reply_text(
+            prompt_text,
+            parse_mode="HTML",
+            reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+        )
+
+        # ۳) ست کردن state برای دریافت پیام بعدی در handle_wallet_input
+        push_state(context, "awaiting_wallet")
+        context.user_data["state"] = "awaiting_wallet"
+
+    # -----------------------------------------------------------------------------------------
+
+    async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle the user's wallet address input:
+        1) Read the incoming text as the address.
+        2) Validate format.
+        3) Save or update in the database.
+        4) Send a confirmation with the new address.
+        5) Clear FSM state and show updated profile.
+        """
+        chat_id = update.effective_chat.id
+        address = update.message.text.strip()
+
+        # ۱) بررسی اولیه فرمت (مثلاً با coinaddrvalidator)
+        if not valid_wallet_format(address):
+            return await update.message.reply_text(
+                "❌ The address you entered is not valid. Please try again:",
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+            )
+
+        # ۲) ذخیره یا به‌روزرسانی آدرس در MongoDB
+        await self.db.set_wallet_address(chat_id, address)
+
+        # ۳) تأیید به کاربر
+        await update.message.reply_text(
+            f"✅ Your wallet address has been successfully set to:\n"
+            f"<code>{address}</code>",
+            parse_mode="HTML",
+            reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+        )
+
+        # ۴) پاک کردن state و نمایش پروفایل به‌روز
+        pop_state(context)
+        await self.show_profile(update, context)
 
 
-# from __future__ import annotations
-# """
-# Profile.py – profile handler with paginated multi‑level downline list.
-# """
+    # async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     # ۱) تشخیص منبع فراخوانی: Inline یا ReplyKeyboard
+    #     if update.callback_query:
+    #         query = update.callback_query
+    #         await query.answer()
+    #         chat_id = query.from_user.id
+    #         # ویرایش پیام قبلی
+    #         await query.edit_message_text("لطفاً آدرس کیف پول خود را ارسال کنید:")
+    #     else:
+    #         # update.message
+    #         chat_id = update.effective_chat.id
+    #         await update.message.reply_text("لطفاً آدرس کیف پول خود را ارسال کنید:")
 
-# import logging
-# import math
-# from typing import Dict, Any, List
+    #     # ۲) ست کردن state تا پیام بعدی به handle_wallet_input برود
+    #     push_state(context, "awaiting_wallet")
+    #     context.user_data["state"] = "awaiting_wallet"
 
-# from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-# from telegram.ext import ContextTypes
+        
+    # #------------------------------------------------------------------------------------------------
+    # async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     chat_id = update.effective_chat.id
+    #     address = update.message.text.strip()
 
-# from language_Manager import TranslationManager
-# from keyboards import TranslatedKeyboards
-# from error_handler import ErrorHandler
-# from myproject_database import Database
-# from Referral_logic_code import ReferralManager
-# from state_manager import push_state
+    #     # (اختیاری) اعتبارسنجی ابتدایی آدرس
+    #     if not valid_wallet_format(address):
+    #         return await update.message.reply_text("آدرس وارد شده معتبر نیست. دوباره تلاش کنید:")
 
-# logger = logging.getLogger(__name__)
+    #     # ذخیره در دیتابیس
+    #     await self.db.set_wallet_address(chat_id, address)
 
-# PAGE_SIZE = 30  # members per page
-
-
-# class ProfileHandler:
-#     """Shows user profile with paginated downline."""
-
-#     def __init__(
-#         self,
-#         db: Database,
-#         referral_manager: ReferralManager,
-#         keyboards: TranslatedKeyboards,
-#         translation_manager: TranslationManager,
-#         error_handler: ErrorHandler,
-#     ) -> None:
-#         self.db = db
-#         self.referral_manager = referral_manager
-#         self.keyboards = keyboards
-#         self.translation_manager = translation_manager
-#         self.error_handler = error_handler
-#         self.logger = logging.getLogger(self.__class__.__name__)
-
-#     # ───────────────────────────────────── Telegram entry ────────────────────
-
-#     async def show_profile(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-#         """Handles both /profile messages and pagination callback queries."""
-#         try:
-            
-#             # ───➤ ست‌کردن state برای نمایش پروفایل
-#             push_state(context, "showing_profile")
-#             context.user_data['state'] = "showing_profile"            
-            
-#             # Detect whether this is an initial message or a callback
-#             if update.callback_query:
-#                 query = update.callback_query
-#                 await query.answer()
-#                 chat_id = query.from_user.id
-#                 # callback_data pattern: profile_page_{n}
-#                 page = int(query.data.rsplit("_", 1)[-1])
-#                 reply_func = query.edit_message_text
-#             else:
-#                 chat_id = update.effective_chat.id
-#                 page = 1
-#                 reply_func = update.message.reply_text
-
-#             # -----------------------------------------------------------------
-#             # Fetch profile and paginated downline
-#             # -----------------------------------------------------------------
-#             profile: Dict[str, Any] = await self.referral_manager.get_profile(chat_id)
-#             if not profile:
-#                 msg_en = "You don’t have a profile yet. Please join the plan first."
-#                 await reply_func(
-#                     await self.translation_manager.translate_for_user(msg_en, chat_id),
-#                     reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-#                 )
-#                 return
-
-#             ref_code: str = profile["referral_code"]
-#             member_no: int = profile["member_no"]
-#             tokens: int = profile.get("tokens", 0)
-#             commission: float = profile.get("commission_usd", 0.0)
-
-#             downline_data = await self.referral_manager.get_downline_paginated(
-#                 chat_id, page=page, page_size=PAGE_SIZE
-#             )
-#             members: List[Dict[str, Any]] = downline_data["members"]
-#             total: int = downline_data["total"]
-
-#             # -----------------------------------------------------------------
-#             # Build message (English → translated later)
-#             # -----------------------------------------------------------------
-#             lines = [
-#                 "<b>Your Profile</b>",
-#                 f"• Member No: <b>{member_no}</b>",
-#                 f"• Code: <code>{ref_code}</code>",
-#                 f"• Tokens: <b>{tokens}</b>",
-#                 f"• Pending Commission: <b>${commission:.2f}</b>",
-#                 f"• Down-line Count: <b>{total}</b>",
-#             ]
-
-#             if total:
-#                 lines.append(
-#                     f"\n<b>Your Referrals (Page {page}/{math.ceil(total / PAGE_SIZE)}):</b>"
-#                 )
-#                 start_index = (page - 1) * PAGE_SIZE + 1
-#                 for i, member in enumerate(members, start_index):
-#                     lines.append(
-#                         f"{i}. {member['first_name']} — <code>{member['referral_code']}</code>"
-#                     )
-
-#             msg_en = "\n".join(lines)
-#             msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
-
-#             # -----------------------------------------------------------------
-#             # Inline keyboard: share link + pagination controls
-#             # -----------------------------------------------------------------
-#             bot_username = context.bot.username
-#             referral_link = f"https://t.me/{bot_username}?start={ref_code}"
-
-#             rows: List[List[InlineKeyboardButton]] = [
-#                 [InlineKeyboardButton("🔗 Share Referral Link", url=referral_link)]
-#             ]
-#             nav_row: List[InlineKeyboardButton] = []
-#             if page > 1:
-#                 nav_row.append(
-#                     InlineKeyboardButton("⬅️ Prev", callback_data=f"profile_page_{page - 1}")
-#                 )
-#             if page * PAGE_SIZE < total:
-#                 nav_row.append(
-#                     InlineKeyboardButton("Next ➡️", callback_data=f"profile_page_{page + 1}")
-#                 )
-#             if nav_row:
-#                 rows.append(nav_row)
-
-#             inline_kb = InlineKeyboardMarkup(rows)
-
-#             await reply_func(
-#                 msg_final,
-#                 parse_mode="HTML",
-#                 reply_markup=inline_kb,
-#             )
-
-#         except Exception as e:
-#             await self.error_handler.handle(update, context, e, context_name="show_profile")
-
+    #     # پاک کردن state و بازگشت به پروفایل
+    #     pop_state(context)
+    #     await update.message.reply_text("آدرس کیف پول با موفقیت ثبت شد.")
+    #     await self.show_profile(update, context)

@@ -691,8 +691,15 @@ class BotManager:
             elif text_lower == '🔄 convert token':
                 return await self.convert_token_handler.coming_soon(update, context)  # ← اضافه کردن return
 
-            elif text_lower == '💼 earn money':
+            elif text_lower == '💸 earn money':
                 return await self.earn_money_handler.coming_soon(update, context)  # ← اضافه کردن return
+            
+            elif text_lower == 'set wallet':
+                return await self.profile_handler.edit_wallet(update, context)
+
+            elif text_lower == '💼 edit wallet':
+                return await self.profile_handler.edit_wallet(update, context)
+            
             # دکمهٔ «💵 Withdraw» در منوی اصلی
             elif text_lower == "💵 withdraw":
                 return await self.withdraw_handler.show_withdraw(update, context)
@@ -742,104 +749,7 @@ class BotManager:
                 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="handle_private_message")
-
-
-    # async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """Route private text messages based on user input and current state, building keyboards."""
-    #     try:
-    #         chat_id = update.effective_chat.id
-    #         text = (update.message.text or "").strip()
-    #         text_lower = text.lower()
-    #         self.logger.info(f"Received private text from {chat_id}: '{text}'")
-
-    #         # Retrieve and restore language & history
-    #         user_lang = await self.db.get_user_language(chat_id) or 'en'
-    #         original = await self.db.get_original_text_by_translation(text, user_lang)
-    #         if original:
-    #             text_lower = original.lower()
-
-    #         current_state = context.user_data.get('state', 'main_menu')
-
-    #         # ─── Global Exit ─────────────────────────
-    #         if text_lower in {'exit', '➡️ exit'}:
-    #            # Delegate to the exit_bot handler (clears state, builds and sends farewell)
-    #             return await self.exit_bot(update, context)
-            
-    #         if text_lower in {'back', '⬅️ back'}:
-    #            # Delegate to the exit_bot handler (clears state, builds and sends farewell)
-    #             return await self.back_handler(update, context)            
-
-    #         if text_lower == '🚀 start':
-    #             context.user_data['state'] = 'starting'
-    #             await self.start_command(update, context)
-              
-    #         #--------------------------------------------------------------------------------
-    #         elif text_lower == '🧭 help & support':
-    #             await self.handle_help_support(update, context)            
-
-    #         elif text_lower == '❓ help':
-    #             await self.help_handler.show_Guide(update, context) 
-
-    #         elif text_lower == '📬 customer support':
-    #             await self.support_handler.show_support_info(update, context)         
-    #         #--------------------------------------------------------------------------------
-    #         elif text_lower == '💰 trade':
-    #             await self.trade_handler.trade_menu(update, context)
-                
-    #         elif text_lower == '💳 payment':
-    #             await self.payment_handler.show_payment_instructions(update, context)
-                
-    #         elif text_lower == 'txid (transaction hash)':
-    #             await self.payment_handler.prompt_for_txid(update, context)                
-
-    #         elif text_lower == '🌐 language':   
-    #             await self.handle_language_button(update, context)   
-                
-    #         elif text_lower == '👤 profile':   
-    #             await self.profile_handler.show_profile(update, context)   
-                
-    #         elif text_lower == '📊 token price':
-    #             await self.token_price_handler.show_price(update, context)
-
-    #         elif text_lower == '🔄 convert token':
-    #             await self.convert_token_handler.coming_soon(update, context)
-
-    #         elif text_lower == '💼 earn money':
-    #             await self.earn_money_handler.coming_soon(update, context)
-
-    #         # ─── Trade Menu Sub-Options ──────────────────────
-    #         elif text_lower == '🛒 buy':
-    #             return await self.trade_handler.buy_start(update, context)
-
-    #         elif text_lower == '💸 sell':
-    #             return await self.trade_handler.sell_start(update, context)
-
-
-    #         # ─── مدیریت ورودی عددی در فلو خرید/فروش ───────────────
-    #         if current_state == 'awaiting_buy_amount':
-    #             return await self.trade_handler.buy_amount(update, context)
-
-    #         elif current_state == 'awaiting_buy_price':
-    #             return await self.trade_handler.buy_price(update, context)
-
-    #         elif current_state == 'awaiting_sell_amount':
-    #             return await self.trade_handler.sell_amount(update, context)
-            
-    #         elif current_state == 'awaiting_sell_price':
-    #             return await self.trade_handler.sell_price(update, context)
-
-
-    #             #--------------------------------------------------------------------------------
-    #         else:
-    #             msg_en = "You're in the <b>main menu</b> now! I'm here to assist you — just <b>pick an option</b> below to begin. 👇"
-    #             msg_final = await self.translation_manager.translate_for_user(msg_en, chat_id)
-                                             
-    #             await update.message.reply_text(
-    #                 msg_final,
-    #                 reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id), parse_mode="HTML")
-    #             self.logger.warning(f"User {chat_id} sent an unexpected message: {text} in state: {current_state}")
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="handle_private_message")    
+ 
              
 ###################################################################################################################
 
@@ -990,8 +900,7 @@ class BotManager:
             # ───── support / guide ─────────────────────────────────────────────────────────────────      
 
             "help_support_menu":               self.handle_help_support,
-            "support_menu":                    self.support_handler.show_support_info,
-                        
+            "support_menu":                    self.support_handler.show_support_info,        
             "showing_guide":                   self.help_handler.show_Guide,            
             
             
@@ -1006,6 +915,10 @@ class BotManager:
            
             "showing_profile":                 self.profile_handler.show_profile,
             
+            "prompting_wallet":      self.profile_handler.edit_wallet,
+            # وقتی کاربر متن آدرس کیف پول رو فرستاد
+            "awaiting_wallet":       self.profile_handler.handle_wallet_input,            
+                
             # ───── showing_token_price ─────────────────────────────────────────────────────────────────      
 
             "showing_token_price":             self.token_price_handler.show_price,
@@ -1024,18 +937,20 @@ class BotManager:
     async def handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.lower()
         menu_map = {
-            "🚀 start":         "starting",
-            "📘 guide":         "showing_guide",
-            "💰 trade":         "trade_menu",
-            "💳 payment":       "showing_payment",
-            "🎧 support":       "support_menu",
-            "🌐 language":      "awaiting_language_detection",
-            "👤 profile":       "showing_profile",
-            "📊 token price":   "showing_token_price",
-            "🔄 convert token": "convert_token",
-            "💼 earn money":    "earn_money_menu",
-            "💸 withdraw":      "show_withdraw",        
-            "txid (transaction hash)": "awaiting_sub_txid",
+            "🚀 start":                     "starting",
+            "📘 guide":                     "showing_guide",
+            "💰 trade":                     "trade_menu",
+            "💳 payment":                   "showing_payment",
+            "🎧 support":                   "support_menu",
+            "🌐 language":                  "awaiting_language_detection",
+            "👤 profile":                   "showing_profile",
+            "set wallet":                   "prompting_wallet",
+            "💼 edit wallet":               "prompting_wallet",
+            "📊 token price":               "showing_token_price",
+            "🔄 convert token":             "convert_token",
+            "💼 earn money":                "earn_money_menu",
+            "💸 withdraw":                  "show_withdraw",        
+            "txid (transaction hash)":       "awaiting_sub_txid",
             
         }
         state = menu_map.get(text)

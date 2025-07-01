@@ -85,7 +85,7 @@ class TranslatedKeyboards:
         return [
             ["📊 Token Price", ],
             ["💰 Trade", "💳 Payment"],
-            ["🔄 Convert Token", "💼 Earn Money"],
+            ["🔄 Convert Token", "💸 Earn Money"],
             ["💵 Withdraw"], 
             ["🧭 Help & Support" ],
             ["👤 Profile", "🌐 Language"]
@@ -171,3 +171,25 @@ class TranslatedKeyboards:
 
         raw_buttons = self.help_contact_keyboard()
         return await self.build_keyboard_for_user( raw_buttons, user_lang, resize=True, one_time=True)     
+    
+
+    def wallet_keyboard(self) -> List[List[str]]:
+        """
+        کیبورد برای ثبت و ویرایش آدرس کیف پول در پروفایل
+        """
+        return [
+            ["Set Wallet", "💼 Edit Wallet"],
+            ["⬅️ Back", "➡️ Exit"]
+        ]
+
+    async def build_wallet_keyboard(
+        self,
+        chat_id: int,
+        resize: bool = True,
+        one_time: bool = False
+    ) -> ReplyKeyboardMarkup:
+        """
+        ساخت کیبورد ترجمه‌شدهٔ wallet_keyboard
+        """
+        raw_buttons = self.wallet_keyboard()
+        return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)    

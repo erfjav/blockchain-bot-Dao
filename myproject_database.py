@@ -437,38 +437,6 @@ class Database:
         await self.collection_orders.insert_one(order)
         return seq
  
-    
-#     # ─── ایجاد سفارش فروش ────────────────────────────────────────────────
-#     async def create_sell_order(self, order: dict) -> int:
-#         """Insert order & return order_id."""
-#         seq = await self._get_next_sequence("order_id")
-#         order.update(
-#             {
-#                 "order_id":   seq,
-#                 "status":     "open",            # open → pending_payment → completed
-#                 "remaining":  order["amount"],   # درصورت partial-fill
-#                 "created_at": datetime.utcnow(),
-#                 "updated_at": datetime.utcnow(),
-#             }
-#         )
-#         await self.collection_orders.insert_one(order)
-#         return seq
-# #--------------------------------------------------------------------------
-
-#     async def create_buy_order(self, order: dict) -> int:
-#         seq = await self._get_next_sequence("buy_order_id")
-#         order.update(
-#             {
-#                 "buy_order_id": seq,
-#                 "status": "open",
-#                 "remaining": order["amount"],
-#                 "created_at": datetime.utcnow(),
-#                 "updated_at": datetime.utcnow(),
-#             }
-#         )
-#         await self.collection_orders.insert_one(order)
-#         return seq
-
 
     # ─── انتقال توکن بین دو کاربر (اتمیک) ───────────────────────────────
     async def transfer_tokens(self, seller_id: int, buyer_id: int, amount: int):
@@ -494,6 +462,23 @@ class Database:
                     upsert=True,
                     session=session,
                 )
+
+#################################################################################################
+    async def set_wallet_address(self, user_id: int, address: str) -> None:
+        """ذخیره یا به‌روزرسانی آدرس کیف پول کاربر."""
+        await self.collection_users.update_one(
+            {"user_id": user_id},
+            {"$set": {"wallet_address": address}},
+            upsert=True
+        )
+
+    async def get_wallet_address(self, user_id: int) -> str | None:
+        """بازیابی آدرس کیف پول کاربر یا None اگر ذخیره نشده باشد."""
+        doc = await self.collection_users.find_one(
+            {"user_id": user_id},
+            {"wallet_address": 1}
+        )
+        return doc.get("wallet_address") if doc else None
 
     ########------------------------------------------------------------------------------------
     
