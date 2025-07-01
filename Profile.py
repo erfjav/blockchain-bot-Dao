@@ -25,7 +25,7 @@ from typing import Any, Dict, Final, List
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-# from language_Manager import TranslationManager
+from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
@@ -69,7 +69,7 @@ class ProfileHandler:
         db: Database,
         referral_manager: ReferralManager,
         keyboards: TranslatedKeyboards,
-        # translation_manager: TranslationManager,
+        translation_manager: TranslationManager,
         # inline_translator: TranslatedInlineKeyboards,
         error_handler: ErrorHandler,
         
@@ -77,7 +77,7 @@ class ProfileHandler:
         self.db = db
         self.referral_manager = referral_manager
         self.keyboards = keyboards
-        # self.translation_manager = translation_manager
+        self.translation_manager = translation_manager
         # self.inline_translator = inline_translator
         self.error_handler = error_handler
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -91,33 +91,75 @@ class ProfileHandler:
         context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """
-        نمایش منوی اولیهٔ پروفایل:
+        نمایش منوی اولیهٔ پروفایل با ترجمه و کیبورد:
         ["See Profile", "Wallet", "Back", "Exit"]
         """
-        chat_id   = update.effective_chat.id
-        user_lang = await self.db.get_user_language(chat_id) or "en"
-        await update.message.reply_text(
-            "🔍 *Profile Menu*:", 
-            parse_mode="Markdown",
-            reply_markup=await self.keyboards.build_profile_menu_keyboard(user_lang)
-        )
+        try:
+            
+            chat_id   = update.effective_chat.id
 
+            # متن خوش‌آمد و توضیحات دکمه‌ها
+            welcome_text = (
+                "📋 *Welcome to Your Profile Menu!*\n\n"
+                "You’ve entered your personal space where you can:\n\n"
+                "🔹 *See Profile* – View your basic information, subscription details, referral stats, and more.\n\n"
+                "🔹 *Wallet* – Check your registered crypto wallet address or update it if needed.\n"
+                "🧭 *Please select one of the options from the menu below to continue.*"
+            )
+
+            # ترجمه متن برای زبان کاربر
+            translated_text = await self.translation_manager.translate_for_user(welcome_text, chat_id)
+
+            # ارسال پیام با کیبورد ترجمه‌شده
+            await update.message.reply_text(
+                translated_text,
+                parse_mode="Markdown",
+                reply_markup=await self.keyboards.build_profile_menu_keyboard(chat_id)
+            )
+        except Exception as e:
+            self.logger.error(f"Error in show_profile_menu: {e}")
+            await update.message.reply_text("⚠️ An error occurred while loading your profile menu.")
+
+#########----------------------------------------------------------------------------------------------------
     async def show_wallet_menu(
         self,
         update: Update,
         context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """
-        نمایش منوی کیف‌پول:
-        ["Set Wallet","Edit Wallet","Transfer Tokens","View Balance","View History","Back","Exit"]
+        نمایش منوی کیف‌پول با ترجمه و توضیحات:
+        شامل: ثبت/ویرایش آدرس، انتقال، موجودی و تاریخچه
         """
-        chat_id   = update.effective_chat.id
-        user_lang = await self.db.get_user_language(chat_id) or "en"
-        await update.message.reply_text(
-            "👛 *Wallet Menu*:", 
-            parse_mode="Markdown",
-            reply_markup=await self.keyboards.build_wallet_keyboard(user_lang)
-        )
+        try:
+            chat_id   = update.effective_chat.id
+
+            # پیام توضیح منوی کیف‌پول
+            wallet_text = (
+                "👛 *Welcome to Your Wallet Menu!*\n\n"
+                "Here you can manage your wallet and perform key operations:\n\n"
+                "🔹 *Set Wallet* – Register your crypto wallet address for the first time.\n"
+                "🔹 *Edit Wallet* – Update or change your existing wallet address.\n"
+                "🔄 *Transfer Tokens* – Send your tokens to another address.\n"
+                "💰 *View Balance* – See your current available token balance.\n"
+                "📜 *View History* – Review all your past wallet transactions.\n\n"
+                "🧭 *Please choose an option from the menu below to continue.*"
+            )
+
+            # ترجمه پیام با توجه به زبان کاربر
+            translated_text = await self.translation_manager.translate_for_user(wallet_text, chat_id)
+
+            # ارسال پیام با کیبورد ترجمه‌شده
+            await update.message.reply_text(
+                translated_text,
+                parse_mode="Markdown",
+                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error in show_wallet_menu: {e}")
+            await update.message.reply_text("⚠️ An error occurred while loading your wallet menu.")
+
+#########----------------------------------------------------------------------------------------------------
 
     async def show_profile(
         self,
@@ -254,7 +296,7 @@ class ProfileHandler:
             await context.bot.send_message(
                 chat_id=chat_id,
                 text="ℹ️ No profile information available.",  # متن می‌تواند خالی یا یک نیم‌فاصله باشد
-                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as exc:
@@ -303,6 +345,7 @@ class ProfileHandler:
         «loading…» خارج می‌کند تا تجربهٔ UX روان بماند.
         """
         await update.callback_query.answer()
+        
 #################################################################################################################
 
     async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
