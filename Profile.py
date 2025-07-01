@@ -202,7 +202,7 @@ class ProfileHandler:
             # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit) — همیشه پایین صفحه بماند
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=" ",  # متن می‌تواند خالی یا یک نیم‌فاصله باشد
+                text="ℹ️ No profile information available.",  # متن می‌تواند خالی یا یک نیم‌فاصله باشد
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
