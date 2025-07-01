@@ -34,7 +34,8 @@ class Database:
             self.collection_withdrawals       =     self.db["withdrawals"]   # NEW
             self.collection_orders            =     self.db["orders"]        # NEW  (سفارش‌های خرید/فروش)
             self.collection_counters          =     self.db["counters"]      # NEW
-
+            self.collection_wallet_events     =     self.db["wallet_events"]
+            
             self.logger.info("✅ Database connected successfully.")
 
         except Exception as e:
@@ -497,6 +498,48 @@ class Database:
         )
         return doc["user_id"] if doc else None
 
+    # ── مدیریت موجودی و تاریخچه ─────────────────────────────────
+    async def get_user_balance(self, user_id: int) -> float:
+        """موجودی فعلی توکن کاربر (یا ۰.۰ اگر فیلد وجود نداشته باشد)."""
+        doc = await self.collection_users.find_one(
+            {"user_id": user_id},
+            {"_id": 0, "tokens": 1}
+        )
+        return float(doc.get("tokens", 0.0)) if doc else 0.0
+
+    async def adjust_balance(self, user_id: int, delta: float):
+        """اضافه یا کم کردن اتمیک مقدار delta در موجودی."""
+        await self.collection_users.update_one(
+            {"user_id": user_id},
+            {"$inc": {"tokens": delta}},
+            upsert=True
+        )
+
+    async def record_wallet_event(
+        self, user_id: int, amount: float, event_type: str, description: str = ""
+    ) -> None:
+        """
+        ثبت هر تغییر در موجودی:
+        event_type مثل "referral_reward" یا "manual_adjustment"
+        """
+        await self.collection_wallet_events.insert_one({
+            "user_id":     user_id,
+            "amount":      amount,
+            "event_type":  event_type,
+            "description": description,
+            "timestamp":   datetime.utcnow()
+        })
+
+    async def get_wallet_history(
+        self, user_id: int, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """بازگرداندن جدیدترین رویدادهای کیف‌پول به ترتیب timestamp نزولی."""
+        cursor = self.collection_wallet_events.find(
+            {"user_id": user_id},
+            {"_id": 0, "amount": 1, "event_type": 1, "description": 1, "timestamp": 1}
+        ).sort("timestamp", -1).limit(limit)
+        return await cursor.to_list(length=limit)
+    
     ########------------------------------------------------------------------------------------
     
     async def close(self):

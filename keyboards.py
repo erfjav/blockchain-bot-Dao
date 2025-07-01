@@ -141,6 +141,8 @@ class TranslatedKeyboards:
         """
         raw_buttons = self.back_exit_keyboard()
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
+    
+    ##########------------------------------------------------------------------------------------------------------
 
     def show_payment_keyboard(self) -> List[List[str]]:
         """
@@ -160,6 +162,7 @@ class TranslatedKeyboards:
         raw_buttons = self.show_payment_keyboard()
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
     
+    ##########------------------------------------------------------------------------------------------------------
     
     def help_contact_keyboard(self) -> List[List[str]]:
         return [
@@ -172,24 +175,35 @@ class TranslatedKeyboards:
         raw_buttons = self.help_contact_keyboard()
         return await self.build_keyboard_for_user( raw_buttons, user_lang, resize=True, one_time=True)     
     
-
+    ##########------------------------------------------------------------------------------------------------------
     def wallet_keyboard(self) -> List[List[str]]:
         """
-        کیبورد برای ثبت و ویرایش آدرس کیف پول در پروفایل
+        کیبورد برای ثبت/ویرایش آدرس و عملیات کیف‌پول
         """
         return [
-            ["Set Wallet", "💼 Edit Wallet"],
+            ["👛 Set Wallet", "💼 Edit Wallet"],
+            ["🔄 Transfer Tokens", "💰 View Balance"],
+            ["📜 View History"],
             ["⬅️ Back", "➡️ Exit"]
         ]
 
-    async def build_wallet_keyboard(
-        self,
-        chat_id: int,
-        resize: bool = True,
-        one_time: bool = False
-    ) -> ReplyKeyboardMarkup:
-        """
-        ساخت کیبورد ترجمه‌شدهٔ wallet_keyboard
-        """
+    async def build_wallet_keyboard(self, user_lang: str) -> ReplyKeyboardMarkup:
+
         raw_buttons = self.wallet_keyboard()
-        return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)    
+        return await self.build_keyboard_for_user(raw_buttons, user_lang, resize=True, one_time=True)    
+
+    ##########------------------------------------------------------------------------------------------------------
+
+    def profile_menu_keyboard(self) -> List[List[str]]:
+        """
+        کیبورد برای ثبت/ویرایش آدرس و عملیات کیف‌پول
+        """
+        return [
+            ["See Profile", "Wallet"],
+            ["⬅️ Back", "➡️ Exit"]
+        ]
+
+    async def build_profile_menu_keyboard(self, user_lang: str) -> ReplyKeyboardMarkup:
+
+        raw_buttons = self.profile_menu_keyboard()
+        return await self.build_keyboard_for_user(raw_buttons, user_lang, resize=True, one_time=True)   

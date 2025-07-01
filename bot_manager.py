@@ -682,10 +682,40 @@ class BotManager:
 
             elif text_lower == '🌐 language':   
                 return await self.handle_language_button(update, context)  # ← اضافه کردن return  
-                
+            #######-------------------------------------------------------------------------------------
+               
+            # elif text_lower == '👤 profile':   
+            #     return await self.profile_handler.show_profile(update, context)  # ← اضافه کردن return  
+
             elif text_lower == '👤 profile':   
-                return await self.profile_handler.show_profile(update, context)  # ← اضافه کردن return  
+                return await self.profile_handler.show_profile_menu(update, context)  # ← اضافه کردن return        
+
+            # وقتی کاربر از منوی پروفایل «See Profile» را می‌زند:
+            elif text_lower == 'see profile':
+                return await self.profile_handler.show_profile(update, context)
+
+            # وقتی کاربر از منوی پروفایل «Wallet» را می‌زند:
+            elif text_lower == 'wallet':
+                return await self.profile_handler.show_wallet_menu(update, context)
+            
+            ###################################################################################################
+            elif text_lower == '👛 set wallet':
+                return await self.profile_handler.edit_wallet(update, context)
+
+            elif text_lower == '💼 edit wallet':
+                return await self.profile_handler.edit_wallet(update, context)
+            
+            if text_lower == "🔄 transfer tokens":
+                return await self.profile_handler.initiate_transfer(update, context)
+            
+            elif text_lower == "💰 view balance":
+                return await self.profile_handler.view_balance(update, context)
+
+            elif text_lower == "📜 view history":
+                return await self.profile_handler.view_history(update, context)        
                 
+            ###################################################################################################            
+            
             elif text_lower == '📊 token price':
                 return await self.token_price_handler.show_price(update, context)  # ← اضافه کردن return
 
@@ -694,13 +724,7 @@ class BotManager:
 
             elif text_lower == '💸 earn money':
                 return await self.earn_money_handler.coming_soon(update, context)  # ← اضافه کردن return
-            
-            elif text_lower == 'set wallet':
-                return await self.profile_handler.edit_wallet(update, context)
-
-            elif text_lower == '💼 edit wallet':
-                return await self.profile_handler.edit_wallet(update, context)
-            
+                       
             # دکمهٔ «💵 Withdraw» در منوی اصلی
             elif text_lower == "💵 withdraw":
                 return await self.withdraw_handler.show_withdraw(update, context)
@@ -891,45 +915,44 @@ class BotManager:
             "awaiting_buy_amount":             self.trade_handler.buy_start,
             "awaiting_buy_price":              self.trade_handler.buy_price,
             "awaiting_txid":                   self.trade_handler.prompt_trade_txid,
+            
             # ───── payment ─────────────────────────────────────────────────────────────────      
-
-            # پرداخت
             "showing_payment":                 self.payment_handler.show_payment_instructions,
             "awaiting_sub_txid":               self.payment_handler.prompt_for_txid,
             "sub_txid_received":               self.payment_handler.handle_txid,
             
             # ───── support / guide ─────────────────────────────────────────────────────────────────      
-
             "help_support_menu":               self.handle_help_support,
             "support_menu":                    self.support_handler.show_support_info,        
             "showing_guide":                   self.help_handler.show_Guide,            
             
-            
             "show_withdraw":                   self.withdraw_handler.show_withdraw,
             "awaiting_withdraw_confirm":       self.withdraw_handler.confirm_withdraw_callback,            
             
-            # ───── awaiting_language_detection ─────────────────────────────────────────────────────────────────      
-
+            # ───── language─────────────────────────────────────────────────────────────────      
             "awaiting_language_detection":     self.handle_language_button,
             
-            # ───── showing_profile ─────────────────────────────────────────────────────────────────      
-           
-            "showing_profile":                 self.profile_handler.show_profile,
+            # ───── profile ─────────────────────────────────────────────────────────────────      
+            # "showing_profile":                 self.profile_handler.show_profile,
             
-            "prompting_wallet":      self.profile_handler.edit_wallet,
-            # وقتی کاربر متن آدرس کیف پول رو فرستاد
-            "awaiting_wallet":       self.profile_handler.handle_wallet_input,            
-                
+            "profile_menu":          self.profile_handler.show_profile_menu,
+            "profile_wallet_menu":   self.profile_handler.show_wallet_menu,
+            
+            # ───── wallet ─────────────────────────────────────────────────────────────────      
+            "prompting_wallet":                self.profile_handler.edit_wallet,
+            "awaiting_wallet":                 self.profile_handler.handle_wallet_input,       
+            "initiating_transfer":             self.profile_handler.initiate_transfer,
+            "awaiting_transfer_amount":        self.profile_handler.handle_transfer_amount,
+            "view_balance":                    self.profile_handler.view_balance,
+            "view_history":                    self.profile_handler.view_history,
+     
             # ───── showing_token_price ─────────────────────────────────────────────────────────────────      
-
             "showing_token_price":             self.token_price_handler.show_price,
             
             # ───── convert_token ─────────────────────────────────────────────────────────────────      
-
             "convert_token":                   self.convert_token_handler.coming_soon,
             
             # ───── earn_money_menu ─────────────────────────────────────────────────────────────────      
-
             "earn_money_menu":                 self.earn_money_handler.coming_soon,
             
             # (در صورت نیاز وضعیت‌های دیگری هم اضافه کنید)
@@ -944,9 +967,19 @@ class BotManager:
             "💳 payment":                   "showing_payment",
             "🎧 support":                   "support_menu",
             "🌐 language":                  "awaiting_language_detection",
-            "👤 profile":                   "showing_profile",
-            "set wallet":                   "prompting_wallet",
+            
+            # Wallet buttons
+            "👤 profile":                   "profile_menu",
+
+            "see profile":                  "showing_profile",
+            "wallet":                       "profile_wallet_menu",            
+            
+            "👛 set wallet":                 "prompting_wallet",
             "💼 edit wallet":               "prompting_wallet",
+            "🔄 transfer tokens":           "initiating_transfer",
+            "💰 view balance":              "view_balance",
+            "📜 view history":              "view_history",
+            
             "📊 token price":               "showing_token_price",
             "🔄 convert token":             "convert_token",
             "💼 earn money":                "earn_money_menu",

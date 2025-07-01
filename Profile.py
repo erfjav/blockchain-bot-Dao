@@ -55,21 +55,6 @@ def valid_wallet_format(address: str, chain: str = "ETH") -> bool:
         # برای سایر زنجیره‌ها فقط از coinaddrvalidator بهره ببر
         return validate(address, chain.upper())
 
-# def valid_wallet_format(address: str) -> bool:
-#     """
-#     1) Must start with 0x, length 42, hex chars
-#     2) Web3.is_address + coinaddrvalidator.validate
-#     """
-#     if not (address.startswith("0x") and len(address) == 42 and all(
-#         c in "0123456789abcdefABCDEF" for c in address[2:]
-#     )):
-#         return False
-#     return Web3.is_address(address) and validate(address)
-#####################################################################################
-# def valid_wallet_format(address: str) -> bool:
-#     # اگر coin را ندهید، خودش تشخیص می‌دهد یا می‌توانید specify کنید:
-#     #   validate(address, 'BTC') یا 'ETH' و …
-#     return validate(address)
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
@@ -98,6 +83,41 @@ class ProfileHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
 
     # ───────────────────────────────── Telegram entry‑point ───────────────────
+
+
+    async def show_profile_menu(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """
+        نمایش منوی اولیهٔ پروفایل:
+        ["See Profile", "Wallet", "Back", "Exit"]
+        """
+        chat_id   = update.effective_chat.id
+        user_lang = await self.db.get_user_language(chat_id) or "en"
+        await update.message.reply_text(
+            "🔍 *Profile Menu*:", 
+            parse_mode="Markdown",
+            reply_markup=await self.keyboards.build_profile_menu_keyboard(user_lang)
+        )
+
+    async def show_wallet_menu(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """
+        نمایش منوی کیف‌پول:
+        ["Set Wallet","Edit Wallet","Transfer Tokens","View Balance","View History","Back","Exit"]
+        """
+        chat_id   = update.effective_chat.id
+        user_lang = await self.db.get_user_language(chat_id) or "en"
+        await update.message.reply_text(
+            "👛 *Wallet Menu*:", 
+            parse_mode="Markdown",
+            reply_markup=await self.keyboards.build_wallet_keyboard(user_lang)
+        )
 
     async def show_profile(
         self,
@@ -285,7 +305,6 @@ class ProfileHandler:
         await update.callback_query.answer()
 #################################################################################################################
 
-
     async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id     = update.effective_chat.id
         old_address = await self.db.get_wallet_address(chat_id)
@@ -350,80 +369,103 @@ class ProfileHandler:
         pop_state(context)
         context.user_data.pop("state", None)
         await self.show_profile(update, context)
+    
+    
+####################################################################################################
+
+    async def view_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        نمایش موجودی توکن
+        """
+        chat_id = update.effective_chat.id
+        balance = await self.db.get_user_balance(chat_id)
+        text = f"💰 موجودی توکن شما: <b>{balance:.2f}</b> توکن"
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+        )
+
+    async def view_history(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        نمایش تاریخچه تغییرات موجودی
+        """
+        chat_id = update.effective_chat.id
+        events = await self.db.get_wallet_history(chat_id, limit=10)
+        if not events:
+            text = "📭 هیچ رویدادی یافت نشد."
+        else:
+            lines = []
+            for e in events:
+                ts  = e["timestamp"].strftime("%Y-%m-%d %H:%M")
+                amt = f"{e['amount']:+.2f}"
+                lines.append(f"{ts} | {amt} توکن | {e['event_type']}")
+            text = "📜 تاریخچه‌ی اخیر:\n" + "\n".join(lines)
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+        )
         
-    # async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     Prompt the user to add or update their wallet address.
+    #---------------------------------------------------------------------------------------------------    
+    async def initiate_transfer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        گام اول: پرسش مقدار توکن برای انتقال
+        """
+        chat_id = update.effective_chat.id
+        # ۱) چک آدرس کیف‌پول
+        wallet = await self.db.get_wallet_address(chat_id)
+        if not wallet:
+            return await update.message.reply_text(
+                "❌ شما هنوز آدرس کیف‌پول ثبت نکرده‌اید.",
+                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+            )
+        # ۲) موجودی فعلی
+        balance = await self.db.get_user_balance(chat_id)
+        if balance <= 0:
+            return await update.message.reply_text(
+                "❌ موجودی شما صفر است و نمی‌توانید انتقال انجام دهید.",
+                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+            )
+        # ۳) تنظیم state و ذخیره موجودی
+        push_state(context, "awaiting_transfer_amount")
+        context.user_data["state"] = "awaiting_transfer_amount"
+        context.user_data["wallet_balance"] = balance
+        # ۴) پرسش مقدار
+        await update.message.reply_text(
+            f"موجودی شما: {balance:.2f} توکن\nچند توکن می‌خواهید به {wallet} انتقال دهید؟",
+            reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+        )
 
-    #     - If no address is stored yet, show a welcome explanation:
-    #       the bot needs this address to send token rewards or process payments.
-    #     - If an address already exists, display it and ask for the new one.
-    #     """
-    #     chat_id = update.effective_chat.id
-
-    #     # ۱) بررسی می‌کنیم آیا قبلاً آدرسی ذخیره شده یا خیر
-    #     old_address = await self.db.get_wallet_address(chat_id)
-
-    #     if old_address:
-    #         # مسیر ویرایش: به کاربر آدرس فعلی را نشان می‌دهیم
-    #         prompt_text = (
-    #             f"📋 Your current wallet address is:\n"
-    #             f"<code>{old_address}</code>\n\n"
-    #             "If you’d like to change it, please send the new address now:"
-    #         )
-    #     else:
-    #         # مسیر ثبت اولیه: توضیح می‌دهیم که آدرس چرا لازم است
-    #         prompt_text = (
-    #             "👋 Welcome! Here you can register your crypto wallet address.\n"
-    #             "We use this address to send you token rewards and handle payments securely.\n\n"
-    #             "Please send your wallet address now:"
-    #         )
-
-    #     # ۲) ارسال پیام با دکمه‌های Back/Exit
-    #     await update.message.reply_text(
-    #         prompt_text,
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-
-    #     # ۳) ست کردن state برای دریافت پیام بعدی در handle_wallet_input
-    #     push_state(context, "awaiting_wallet")
-    #     context.user_data["state"] = "awaiting_wallet"
-
-    # # -----------------------------------------------------------------------------------------
-
-    # async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     Handle the user's wallet address input:
-    #     1) Read the incoming text as the address.
-    #     2) Validate format.
-    #     3) Save or update in the database.
-    #     4) Send a confirmation with the new address.
-    #     5) Clear FSM state and show updated profile.
-    #     """
-    #     chat_id = update.effective_chat.id
-    #     address = update.message.text.strip()
-
-    #     # ۱) بررسی اولیه فرمت (مثلاً با coinaddrvalidator)
-    #     if not valid_wallet_format(address):
-    #         return await update.message.reply_text(
-    #             "❌ The address you entered is not valid. Please try again:",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #         )
-
-    #     # ۲) ذخیره یا به‌روزرسانی آدرس در MongoDB
-    #     await self.db.set_wallet_address(chat_id, address)
-
-    #     # ۳) تأیید به کاربر
-    #     await update.message.reply_text(
-    #         f"✅ Your wallet address has been successfully set to:\n"
-    #         f"<code>{address}</code>",
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-
-    #     # ۴) پاک کردن state و نمایش پروفایل به‌روز
-    #     pop_state(context)
-    #     await self.show_profile(update, context)
-
-
+    async def handle_transfer_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        گام دوم: دریافت مقدار، اعتبارسنجی و ثبت انتقال
+        """
+        chat_id = update.effective_chat.id
+        text    = (update.message.text or "").strip()
+        try:
+            amount = float(text)
+        except ValueError:
+            return await update.message.reply_text(
+                "❌ مقدار وارد شده عدد نیست. لطفاً یک عدد معتبر وارد کنید:",
+                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+            )
+        balance = context.user_data.get("wallet_balance", 0.0)
+        if amount <= 0 or amount > balance:
+            return await update.message.reply_text(
+                f"❌ مقدار نامعتبر است. باید بین 0 و {balance:.2f} باشد.",
+                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+            )
+        # ۵) ذخیره انتقال (ساده: فقط دیتابیس آپدیت و رویداد ثبت می‌شود)
+        await self.db.adjust_balance(chat_id, -amount)
+        await self.db.record_wallet_event(
+            chat_id, -amount, "transfer_to_wallet", f"Transferred to on-chain wallet"
+        )
+        await update.message.reply_text(
+            f"✅ موفقیت‌آمیز! مقدار {amount:.2f} توکن به کیف‌پول شما انتقال یافت.",
+            reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+        )
+        # ۶) پاک‌سازی state
+        pop_state(context)
+        context.user_data.pop("state", None)
+        context.user_data.pop("wallet_balance", None)        
