@@ -867,96 +867,176 @@ class BotManager:
             await self.error_handler.handle(update, context, e, context_name="show_main_menu")          
             
 #######################################################################################################
+
+    # ────────────────────────────────────────────────────────────
     async def back_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        دکمهٔ «⬅️ Back» را هندل می‌کند:
-        • یک پله از پشتهٔ state کم می‌کند
-        • اگر handler مربوط وجود داشت همان را صدا می‌زند
-        • در غیر این صورت کاربر را به منوی اصلی می‌برد
+        «⬅️ Back» در تمام بخش‌های بات یک قدم به عقب می‌رود.
+        اگر پشته خالی شد ➜ منوی اصلی.
         """
         try:
             chat_id = update.effective_chat.id
 
-            prev_state = pop_state(context)      # یک قدم عقب
-            if prev_state is None:               # پشته خالی ➜ منوی اصلی
+            # ➊ یک خانه از پشته حذف می‌کنیم؛ مقدار برگشتی اینجا مهم نیست
+            pop_state(context)
+
+            # ➋ حالا وضعیتِ فعلی بعد از pop چیست؟
+            prev_state = context.user_data.get("state")
+
+            if prev_state is None:  # پشته خالی ➜ منوی اصلی
                 await self.show_main_menu(update, context)
+                self.logger.info(f"User {chat_id} navigated back to main menu.")
                 return
 
-            # روتِر را (یک بار) بسازیم
-            router: dict[str, Callable] = getattr(self, "_state_router", {})
-            handler = router.get(prev_state)
-
+            # ➌ روتِر را یک‌بار ساخته‌ایم؛ از آن استفاده می‌کنیم
+            handler = self._state_router.get(prev_state)
             if handler:
                 await handler(update, context)
                 self.logger.info(f"User {chat_id} navigated back to '{prev_state}'.")
             else:
-                # هندلر ناشناخته ➜ منوی اصلی
-                self.logger.warning(f"No handler mapped for state '{prev_state}'. Sent main menu instead.")
+                # اگر به هر دلیل مپ پیدا نشد، باز هم منوی اصلی
+                self.logger.warning(f"No handler mapped for '{prev_state}'. Fallback → main menu.")
                 await self.show_main_menu(update, context)
 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="back_handler")
-         
-    # ────────────────────────────────
-    # ۱) جدول مسیریابی همهٔ state‌ها
-    # ────────────────────────────────
+
+    # ────────────────────────────────────────────────────────────
     def _build_state_router(self) -> dict[str, Callable]:
+        """
+        یک‌بار در __init__ ساخته می‌شود تا همهٔ state→handlerها
+        در دسترس back_handler باشند.
+        """
         return {
-            
-            # منوی عمومی
-            
-            "starting":                        self.start_command,
-            
-            # ───── مراحل خرید/فروش ────────────────────────────────────────────────────────────        
-               
-            "trade_menu":                      self.trade_handler.trade_menu,
-            "awaiting_sell_amount":            self.trade_handler.sell_start,
-            "awaiting_sell_price":             self.trade_handler.sell_price,
-            "awaiting_buy_amount":             self.trade_handler.buy_start,
-            "awaiting_buy_price":              self.trade_handler.buy_price,
-            "awaiting_txid":                   self.trade_handler.prompt_trade_txid,
-            
-            # ───── payment ─────────────────────────────────────────────────────────────────      
-            "showing_payment":                 self.payment_handler.show_payment_instructions,
-            "awaiting_sub_txid":               self.payment_handler.prompt_for_txid,
-            "sub_txid_received":               self.payment_handler.handle_txid,
-            
-            # ───── support / guide ─────────────────────────────────────────────────────────────────      
-            "help_support_menu":               self.handle_help_support,
-            "support_menu":                    self.support_handler.show_support_info,        
-            "showing_guide":                   self.help_handler.show_Guide,            
-            
-            "show_withdraw":                   self.withdraw_handler.show_withdraw,
-            "awaiting_withdraw_confirm":       self.withdraw_handler.confirm_withdraw_callback,            
-            
-            # ───── language─────────────────────────────────────────────────────────────────      
-            "awaiting_language_detection":     self.handle_language_button,
-            
-            # ───── profile ─────────────────────────────────────────────────────────────────      
-            "showing_profile":                 self.profile_handler.show_profile,
-            
-            "profile_menu":                     self.profile_handler.show_profile_menu,
-            "profile_wallet_menu":              self.profile_handler.show_wallet_menu,
-            
-            # ───── wallet ─────────────────────────────────────────────────────────────────      
-            "prompting_wallet":                self.profile_handler.edit_wallet,
-            "awaiting_wallet":                 self.profile_handler.handle_wallet_input,       
-            "initiating_transfer":             self.profile_handler.initiate_transfer,
-            "awaiting_transfer_amount":        self.profile_handler.handle_transfer_amount,
-            "view_balance":                    self.profile_handler.view_balance,
-            "view_history":                    self.profile_handler.view_history,
-     
-            # ───── showing_token_price ─────────────────────────────────────────────────────────────────      
-            "showing_token_price":             self.token_price_handler.show_price,
-            
-            # ───── convert_token ─────────────────────────────────────────────────────────────────      
-            "convert_token":                   self.convert_token_handler.coming_soon,
-            
-            # ───── earn_money_menu ─────────────────────────────────────────────────────────────────      
-            "earn_money_menu":                 self.earn_money_handler.coming_soon,
-            
-            # (در صورت نیاز وضعیت‌های دیگری هم اضافه کنید)
+            # ــ Main / Global
+            "starting":                    self.start_command,
+            "help_support_menu":           self.handle_help_support,
+            "support_menu":                self.support_handler.show_support_info,
+            "showing_guide":               self.help_handler.show_Guide,
+            "showing_payment":             self.payment_handler.show_payment_instructions,
+            "awaiting_sub_txid":           self.payment_handler.prompt_for_txid,
+            "sub_txid_received":           self.payment_handler.handle_txid,
+
+            # ــ Trade
+            "trade_menu":                  self.trade_handler.trade_menu,
+            "awaiting_sell_amount":        self.trade_handler.sell_start,
+            "awaiting_sell_price":         self.trade_handler.sell_price,
+            "awaiting_buy_amount":         self.trade_handler.buy_start,
+            "awaiting_buy_price":          self.trade_handler.buy_price,
+            "awaiting_txid":               self.trade_handler.prompt_trade_txid,
+
+            # ــ Profile & Wallet
+            "profile_menu":                self.profile_handler.show_profile_menu,
+            "showing_profile":             self.profile_handler.show_profile,
+            "profile_wallet_menu":         self.profile_handler.show_wallet_menu,
+            "prompting_wallet":            self.profile_handler.edit_wallet,
+            "awaiting_wallet":             self.profile_handler.handle_wallet_input,
+            "initiating_transfer":         self.profile_handler.initiate_transfer,
+            "awaiting_transfer_amount":    self.profile_handler.handle_transfer_amount,
+            "view_balance":                self.profile_handler.view_balance,
+            "view_history":                self.profile_handler.view_history,
+
+            # ــ Finance
+            "show_withdraw":               self.withdraw_handler.show_withdraw,
+            "awaiting_withdraw_confirm":   self.withdraw_handler.confirm_withdraw_callback,
+            "showing_token_price":         self.token_price_handler.show_price,
+            "convert_token":               self.convert_token_handler.coming_soon,
+            "earn_money_menu":             self.earn_money_handler.coming_soon,
+
+            # ــ Language
+            "awaiting_language_detection": self.handle_language_button,
         }
+
+    # async def back_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     دکمهٔ «⬅️ Back» را هندل می‌کند:
+    #     • یک پله از پشتهٔ state کم می‌کند
+    #     • اگر handler مربوط وجود داشت همان را صدا می‌زند
+    #     • در غیر این صورت کاربر را به منوی اصلی می‌برد
+    #     """
+    #     try:
+    #         chat_id = update.effective_chat.id
+
+    #         prev_state = pop_state(context)      # یک قدم عقب
+    #         if prev_state is None:               # پشته خالی ➜ منوی اصلی
+    #             await self.show_main_menu(update, context)
+    #             return
+
+    #         # روتِر را (یک بار) بسازیم
+    #         router: dict[str, Callable] = getattr(self, "_state_router", {})
+    #         handler = router.get(prev_state)
+
+    #         if handler:
+    #             await handler(update, context)
+    #             self.logger.info(f"User {chat_id} navigated back to '{prev_state}'.")
+    #         else:
+    #             # هندلر ناشناخته ➜ منوی اصلی
+    #             self.logger.warning(f"No handler mapped for state '{prev_state}'. Sent main menu instead.")
+    #             await self.show_main_menu(update, context)
+
+    #     except Exception as e:
+    #         await self.error_handler.handle(update, context, e, context_name="back_handler")
+         
+    # # ────────────────────────────────
+    # # ۱) جدول مسیریابی همهٔ state‌ها
+    # # ────────────────────────────────
+    # def _build_state_router(self) -> dict[str, Callable]:
+    #     return {
+            
+    #         # منوی عمومی
+            
+    #         "starting":                        self.start_command,
+            
+    #         # ───── مراحل خرید/فروش ────────────────────────────────────────────────────────────        
+               
+    #         "trade_menu":                      self.trade_handler.trade_menu,
+    #         "awaiting_sell_amount":            self.trade_handler.sell_start,
+    #         "awaiting_sell_price":             self.trade_handler.sell_price,
+    #         "awaiting_buy_amount":             self.trade_handler.buy_start,
+    #         "awaiting_buy_price":              self.trade_handler.buy_price,
+    #         "awaiting_txid":                   self.trade_handler.prompt_trade_txid,
+            
+    #         # ───── payment ─────────────────────────────────────────────────────────────────      
+    #         "showing_payment":                 self.payment_handler.show_payment_instructions,
+    #         "awaiting_sub_txid":               self.payment_handler.prompt_for_txid,
+    #         "sub_txid_received":               self.payment_handler.handle_txid,
+            
+    #         # ───── support / guide ─────────────────────────────────────────────────────────────────      
+    #         "help_support_menu":               self.handle_help_support,
+    #         "support_menu":                    self.support_handler.show_support_info,        
+    #         "showing_guide":                   self.help_handler.show_Guide,            
+            
+    #         "show_withdraw":                   self.withdraw_handler.show_withdraw,
+    #         "awaiting_withdraw_confirm":       self.withdraw_handler.confirm_withdraw_callback,            
+            
+    #         # ───── language─────────────────────────────────────────────────────────────────      
+    #         "awaiting_language_detection":     self.handle_language_button,
+            
+    #         # ───── profile ─────────────────────────────────────────────────────────────────      
+    #         "showing_profile":                 self.profile_handler.show_profile,
+            
+    #         "profile_menu":                     self.profile_handler.show_profile_menu,
+    #         "profile_wallet_menu":              self.profile_handler.show_wallet_menu,
+            
+    #         # ───── wallet ─────────────────────────────────────────────────────────────────      
+    #         "prompting_wallet":                self.profile_handler.edit_wallet,
+    #         "awaiting_wallet":                 self.profile_handler.handle_wallet_input,       
+    #         "initiating_transfer":             self.profile_handler.initiate_transfer,
+    #         "awaiting_transfer_amount":        self.profile_handler.handle_transfer_amount,
+    #         "view_balance":                    self.profile_handler.view_balance,
+    #         "view_history":                    self.profile_handler.view_history,
+     
+    #         # ───── showing_token_price ─────────────────────────────────────────────────────────────────      
+    #         "showing_token_price":             self.token_price_handler.show_price,
+            
+    #         # ───── convert_token ─────────────────────────────────────────────────────────────────      
+    #         "convert_token":                   self.convert_token_handler.coming_soon,
+            
+    #         # ───── earn_money_menu ─────────────────────────────────────────────────────────────────      
+    #         "earn_money_menu":                 self.earn_money_handler.coming_soon,
+            
+    #         # (در صورت نیاز وضعیت‌های دیگری هم اضافه کنید)
+    #     }
 
     async def handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.lower()
