@@ -387,31 +387,6 @@ class ProfileHandler:
                 parse_mode="HTML"
             )
 
-
-    # async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     chat_id     = update.effective_chat.id
-    #     old_address = await self.db.get_wallet_address(chat_id)
-    #     if old_address:
-    #         prompt_text = (
-    #             "📋 Your current wallet address is:\n"
-    #             f"<code>{old_address}</code>\n\n"
-    #             "If you’d like to change it, send the new address now:"
-    #         )
-    #     else:
-    #         prompt_text = (
-    #             "👋 Welcome! Please register your crypto wallet address.\n"
-    #             "We need this to send token rewards and handle payments securely.\n\n"
-    #             "Send your wallet address now:"
-    #         )
-
-    #     await update.message.reply_text(
-    #         prompt_text,
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-    #     push_state(context, "awaiting_wallet")
-    #     context.user_data["state"] = "awaiting_wallet"
-        
     #------------------------------------------------------------------------------------------------------
     
     async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -489,49 +464,6 @@ class ProfileHandler:
                 parse_mode="HTML"
             )
     
-    
-    # async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     chat_id = update.effective_chat.id
-    #     raw     = (update.message.text or "").strip()
-    #     address = raw.lower()
-
-    #     # 1) structural + Web3 check
-    #     if not valid_wallet_format(address):
-    #         return await update.message.reply_text(
-    #             "❌ The address you entered is not valid. Please try again:",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #         )
-
-    #     # 2) duplicate?
-    #     existing = await self.db.get_user_by_wallet(address)
-    #     if existing and existing != chat_id:
-    #         return await update.message.reply_text(
-    #             "❌ This wallet address is already registered by another user. Please use a different address.",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #         )
-
-    #     # 3) save
-    #     try:
-    #         await self.db.set_wallet_address(chat_id, address)
-    #     except DuplicateKeyError:
-    #         return await update.message.reply_text(
-    #             "❌ This wallet address is already registered. Please send a different one.",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #         )
-
-    #     # 4) confirm
-    #     await update.message.reply_text(
-    #         f"✅ Your wallet address has been set to:\n<code>{address}</code>",
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-
-    #     # 5) clear state & refresh profile
-    #     pop_state(context)
-    #     context.user_data.pop("state", None)
-    #     await self.show_profile(update, context)
-    
-    
 ####################################################################################################
 
     async def view_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -549,7 +481,7 @@ class ProfileHandler:
             await update.message.reply_text(
                 translated_text,
                 parse_mode="HTML",
-                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as e:
@@ -558,19 +490,6 @@ class ProfileHandler:
             translated_text = await self.translation_manager.translate_for_user(error_text, chat_id)
             await update.message.reply_text(translated_text, parse_mode="HTML")
 
-
-    # async def view_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     نمایش موجودی توکن
-    #     """
-    #     chat_id = update.effective_chat.id
-    #     balance = await self.db.get_user_balance(chat_id)
-    #     text = f"💰 موجودی توکن شما: <b>{balance:.2f}</b> توکن"
-    #     await update.message.reply_text(
-    #         text,
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #     )
 
     async def view_history(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -598,7 +517,7 @@ class ProfileHandler:
             await update.message.reply_text(
                 translated_text,
                 parse_mode="HTML",
-                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as e:
@@ -607,28 +526,6 @@ class ProfileHandler:
             translated_text = await self.translation_manager.translate_for_user(error_text, chat_id)
             await update.message.reply_text(translated_text, parse_mode="HTML")
 
-
-    # async def view_history(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     نمایش تاریخچه تغییرات موجودی
-    #     """
-    #     chat_id = update.effective_chat.id
-    #     events = await self.db.get_wallet_history(chat_id, limit=10)
-    #     if not events:
-    #         text = "📭 هیچ رویدادی یافت نشد."
-    #     else:
-    #         lines = []
-    #         for e in events:
-    #             ts  = e["timestamp"].strftime("%Y-%m-%d %H:%M")
-    #             amt = f"{e['amount']:+.2f}"
-    #             lines.append(f"{ts} | {amt} توکن | {e['event_type']}")
-    #         text = "📜 تاریخچه‌ی اخیر:\n" + "\n".join(lines)
-    #     await update.message.reply_text(
-    #         text,
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #     )
-        
     #---------------------------------------------------------------------------------------------------   
 
     async def initiate_transfer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -651,7 +548,7 @@ class ProfileHandler:
                 return await update.message.reply_text(
                     translated_text,
                     parse_mode="HTML",
-                    reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
                 )
 
             # ۲) بررسی موجودی
@@ -665,7 +562,7 @@ class ProfileHandler:
                 return await update.message.reply_text(
                     translated_text,
                     parse_mode="HTML",
-                    reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
                 )
 
             # ۳) ذخیره state و موجودی
@@ -683,7 +580,7 @@ class ProfileHandler:
             await update.message.reply_text(
                 translated_text,
                 parse_mode="HTML",
-                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as e:
@@ -692,36 +589,6 @@ class ProfileHandler:
                 "⚠️ <b>An unexpected error occurred while preparing the transfer.</b>",
                 parse_mode="HTML"
             )
-    
-     
-    # async def initiate_transfer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     گام اول: پرسش مقدار توکن برای انتقال
-    #     """
-    #     chat_id = update.effective_chat.id
-    #     # ۱) چک آدرس کیف‌پول
-    #     wallet = await self.db.get_wallet_address(chat_id)
-    #     if not wallet:
-    #         return await update.message.reply_text(
-    #             "❌ شما هنوز آدرس کیف‌پول ثبت نکرده‌اید.",
-    #             reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #         )
-    #     # ۲) موجودی فعلی
-    #     balance = await self.db.get_user_balance(chat_id)
-    #     if balance <= 0:
-    #         return await update.message.reply_text(
-    #             "❌ موجودی شما صفر است و نمی‌توانید انتقال انجام دهید.",
-    #             reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #         )
-    #     # ۳) تنظیم state و ذخیره موجودی
-    #     push_state(context, "awaiting_transfer_amount")
-    #     context.user_data["state"] = "awaiting_transfer_amount"
-    #     context.user_data["wallet_balance"] = balance
-    #     # ۴) پرسش مقدار
-    #     await update.message.reply_text(
-    #         f"موجودی شما: {balance:.2f} توکن\nچند توکن می‌خواهید به {wallet} انتقال دهید؟",
-    #         reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #     )
         
     ##-----------------------------------------------------------------------------------------------------
     async def handle_transfer_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -732,7 +599,7 @@ class ProfileHandler:
         text = (update.message.text or "").strip()
 
         try:
-            user_lang = await self.db.get_user_language(chat_id) or "en"
+            # user_lang = await self.db.get_user_language(chat_id) or "en"
 
             # ۱) بررسی عدد بودن مقدار وارد شده
             try:
@@ -746,7 +613,7 @@ class ProfileHandler:
                 return await update.message.reply_text(
                     translated_text,
                     parse_mode="HTML",
-                    reply_markup=await self.keyboards.build_wallet_keyboard(user_lang)
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
                 )
 
             # ۲) بررسی اعتبار مقدار وارد شده
@@ -760,7 +627,7 @@ class ProfileHandler:
                 return await update.message.reply_text(
                     translated_text,
                     parse_mode="HTML",
-                    reply_markup=await self.keyboards.build_wallet_keyboard(user_lang)
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
                 )
 
             # ۳) کسر از موجودی و ثبت رویداد انتقال
@@ -778,7 +645,7 @@ class ProfileHandler:
             await update.message.reply_text(
                 translated_text,
                 parse_mode="HTML",
-                reply_markup=await self.keyboards.build_wallet_keyboard(user_lang)
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as e:
@@ -795,37 +662,3 @@ class ProfileHandler:
             pop_state(context)
             context.user_data.pop("state", None)
             context.user_data.pop("wallet_balance", None)
-
-
-    # async def handle_transfer_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     گام دوم: دریافت مقدار، اعتبارسنجی و ثبت انتقال
-    #     """
-    #     chat_id = update.effective_chat.id
-    #     text    = (update.message.text or "").strip()
-    #     try:
-    #         amount = float(text)
-    #     except ValueError:
-    #         return await update.message.reply_text(
-    #             "❌ مقدار وارد شده عدد نیست. لطفاً یک عدد معتبر وارد کنید:",
-    #             reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #         )
-    #     balance = context.user_data.get("wallet_balance", 0.0)
-    #     if amount <= 0 or amount > balance:
-    #         return await update.message.reply_text(
-    #             f"❌ مقدار نامعتبر است. باید بین 0 و {balance:.2f} باشد.",
-    #             reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #         )
-    #     # ۵) ذخیره انتقال (ساده: فقط دیتابیس آپدیت و رویداد ثبت می‌شود)
-    #     await self.db.adjust_balance(chat_id, -amount)
-    #     await self.db.record_wallet_event(
-    #         chat_id, -amount, "transfer_to_wallet", f"Transferred to on-chain wallet"
-    #     )
-    #     await update.message.reply_text(
-    #         f"✅ موفقیت‌آمیز! مقدار {amount:.2f} توکن به کیف‌پول شما انتقال یافت.",
-    #         reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
-    #     )
-    #     # ۶) پاک‌سازی state
-    #     pop_state(context)
-    #     context.user_data.pop("state", None)
-    #     context.user_data.pop("wallet_balance", None)        
