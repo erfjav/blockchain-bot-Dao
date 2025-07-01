@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
-from pymongo import ReturnDocument
+from pymongo import ReturnDocument, ASCENDING
 
 class Database:
     def __init__(self):
@@ -63,7 +63,14 @@ class Database:
                 {"$setOnInsert": {"seq": 1000}},   # یا 1؛ هر عددی که می‌خواهید شروع شود
                 upsert=True
             )            
-            
+
+            # ➂ unique index on wallet_address (sparse: only docs that have it)
+            await self.collection_users.create_index(
+                [("wallet_address", ASCENDING)],
+                unique=True,
+                sparse=True,
+                name="unique_wallet_address"
+            )         
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
@@ -479,6 +486,16 @@ class Database:
             {"wallet_address": 1}
         )
         return doc.get("wallet_address") if doc else None
+
+    async def get_user_by_wallet(self, address: str) -> Optional[int]:
+        """
+        If this address is already taken, return the owner’s chat_id.
+        """
+        doc = await self.collection_users.find_one(
+            {"wallet_address": address},
+            {"_id": 0, "user_id": 1}
+        )
+        return doc["user_id"] if doc else None
 
     ########------------------------------------------------------------------------------------
     

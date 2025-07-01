@@ -33,12 +33,43 @@ from Referral_logic_code import ReferralManager
 # from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
 from coinaddrvalidator import validate
+from web3 import Web3
+from pymongo.errors import DuplicateKeyError
 
 
-def valid_wallet_format(address: str) -> bool:
-    # اگر coin را ندهید، خودش تشخیص می‌دهد یا می‌توانید specify کنید:
-    #   validate(address, 'BTC') یا 'ETH' و …
-    return validate(address)
+def valid_wallet_format(address: str, chain: str = "ETH") -> bool:
+    """
+    • chain="ETH" (یا "BSC"): 
+      – length 42, start 0x, Web3 + coinaddrvalidator.validate
+    • chain="BTC", "LTC", ...: 
+      – فقط coinaddrvalidator.validate
+    """
+    if chain.upper() in {"ETH", "BSC"}:
+        # شرط ظاهری اتریوم/بی‌اس‌سی
+        if not (address.startswith("0x") and len(address) == 42 and
+                all(c in "0123456789abcdefABCDEF" for c in address[2:])):
+            return False
+        # اعتبارسنجی دقیق
+        return Web3.is_address(address) and validate(address, chain.upper())
+    else:
+        # برای سایر زنجیره‌ها فقط از coinaddrvalidator بهره ببر
+        return validate(address, chain.upper())
+
+# def valid_wallet_format(address: str) -> bool:
+#     """
+#     1) Must start with 0x, length 42, hex chars
+#     2) Web3.is_address + coinaddrvalidator.validate
+#     """
+#     if not (address.startswith("0x") and len(address) == 42 and all(
+#         c in "0123456789abcdefABCDEF" for c in address[2:]
+#     )):
+#         return False
+#     return Web3.is_address(address) and validate(address)
+#####################################################################################
+# def valid_wallet_format(address: str) -> bool:
+#     # اگر coin را ندهید، خودش تشخیص می‌دهد یا می‌توانید specify کنید:
+#     #   validate(address, 'BTC') یا 'ETH' و …
+#     return validate(address)
 
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
@@ -256,112 +287,143 @@ class ProfileHandler:
 
 
     async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Prompt the user to add or update their wallet address.
-
-        - If no address is stored yet, show a welcome explanation:
-          the bot needs this address to send token rewards or process payments.
-        - If an address already exists, display it and ask for the new one.
-        """
-        chat_id = update.effective_chat.id
-
-        # ۱) بررسی می‌کنیم آیا قبلاً آدرسی ذخیره شده یا خیر
+        chat_id     = update.effective_chat.id
         old_address = await self.db.get_wallet_address(chat_id)
-
         if old_address:
-            # مسیر ویرایش: به کاربر آدرس فعلی را نشان می‌دهیم
             prompt_text = (
-                f"📋 Your current wallet address is:\n"
+                "📋 Your current wallet address is:\n"
                 f"<code>{old_address}</code>\n\n"
-                "If you’d like to change it, please send the new address now:"
+                "If you’d like to change it, send the new address now:"
             )
         else:
-            # مسیر ثبت اولیه: توضیح می‌دهیم که آدرس چرا لازم است
             prompt_text = (
-                "👋 Welcome! Here you can register your crypto wallet address.\n"
-                "We use this address to send you token rewards and handle payments securely.\n\n"
-                "Please send your wallet address now:"
+                "👋 Welcome! Please register your crypto wallet address.\n"
+                "We need this to send token rewards and handle payments securely.\n\n"
+                "Send your wallet address now:"
             )
 
-        # ۲) ارسال پیام با دکمه‌های Back/Exit
         await update.message.reply_text(
             prompt_text,
             parse_mode="HTML",
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
         )
-
-        # ۳) ست کردن state برای دریافت پیام بعدی در handle_wallet_input
         push_state(context, "awaiting_wallet")
         context.user_data["state"] = "awaiting_wallet"
 
-    # -----------------------------------------------------------------------------------------
-
     async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Handle the user's wallet address input:
-        1) Read the incoming text as the address.
-        2) Validate format.
-        3) Save or update in the database.
-        4) Send a confirmation with the new address.
-        5) Clear FSM state and show updated profile.
-        """
         chat_id = update.effective_chat.id
-        address = update.message.text.strip()
+        raw     = (update.message.text or "").strip()
+        address = raw.lower()
 
-        # ۱) بررسی اولیه فرمت (مثلاً با coinaddrvalidator)
+        # 1) structural + Web3 check
         if not valid_wallet_format(address):
             return await update.message.reply_text(
                 "❌ The address you entered is not valid. Please try again:",
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
-        # ۲) ذخیره یا به‌روزرسانی آدرس در MongoDB
-        await self.db.set_wallet_address(chat_id, address)
+        # 2) duplicate?
+        existing = await self.db.get_user_by_wallet(address)
+        if existing and existing != chat_id:
+            return await update.message.reply_text(
+                "❌ This wallet address is already registered by another user. Please use a different address.",
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+            )
 
-        # ۳) تأیید به کاربر
+        # 3) save
+        try:
+            await self.db.set_wallet_address(chat_id, address)
+        except DuplicateKeyError:
+            return await update.message.reply_text(
+                "❌ This wallet address is already registered. Please send a different one.",
+                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+            )
+
+        # 4) confirm
         await update.message.reply_text(
-            f"✅ Your wallet address has been successfully set to:\n"
-            f"<code>{address}</code>",
+            f"✅ Your wallet address has been set to:\n<code>{address}</code>",
             parse_mode="HTML",
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
         )
 
-        # ۴) پاک کردن state و نمایش پروفایل به‌روز
+        # 5) clear state & refresh profile
         pop_state(context)
+        context.user_data.pop("state", None)
         await self.show_profile(update, context)
-
-
+        
     # async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     # ۱) تشخیص منبع فراخوانی: Inline یا ReplyKeyboard
-    #     if update.callback_query:
-    #         query = update.callback_query
-    #         await query.answer()
-    #         chat_id = query.from_user.id
-    #         # ویرایش پیام قبلی
-    #         await query.edit_message_text("لطفاً آدرس کیف پول خود را ارسال کنید:")
-    #     else:
-    #         # update.message
-    #         chat_id = update.effective_chat.id
-    #         await update.message.reply_text("لطفاً آدرس کیف پول خود را ارسال کنید:")
+    #     """
+    #     Prompt the user to add or update their wallet address.
 
-    #     # ۲) ست کردن state تا پیام بعدی به handle_wallet_input برود
+    #     - If no address is stored yet, show a welcome explanation:
+    #       the bot needs this address to send token rewards or process payments.
+    #     - If an address already exists, display it and ask for the new one.
+    #     """
+    #     chat_id = update.effective_chat.id
+
+    #     # ۱) بررسی می‌کنیم آیا قبلاً آدرسی ذخیره شده یا خیر
+    #     old_address = await self.db.get_wallet_address(chat_id)
+
+    #     if old_address:
+    #         # مسیر ویرایش: به کاربر آدرس فعلی را نشان می‌دهیم
+    #         prompt_text = (
+    #             f"📋 Your current wallet address is:\n"
+    #             f"<code>{old_address}</code>\n\n"
+    #             "If you’d like to change it, please send the new address now:"
+    #         )
+    #     else:
+    #         # مسیر ثبت اولیه: توضیح می‌دهیم که آدرس چرا لازم است
+    #         prompt_text = (
+    #             "👋 Welcome! Here you can register your crypto wallet address.\n"
+    #             "We use this address to send you token rewards and handle payments securely.\n\n"
+    #             "Please send your wallet address now:"
+    #         )
+
+    #     # ۲) ارسال پیام با دکمه‌های Back/Exit
+    #     await update.message.reply_text(
+    #         prompt_text,
+    #         parse_mode="HTML",
+    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #     )
+
+    #     # ۳) ست کردن state برای دریافت پیام بعدی در handle_wallet_input
     #     push_state(context, "awaiting_wallet")
     #     context.user_data["state"] = "awaiting_wallet"
 
-        
-    # #------------------------------------------------------------------------------------------------
+    # # -----------------------------------------------------------------------------------------
+
     # async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     Handle the user's wallet address input:
+    #     1) Read the incoming text as the address.
+    #     2) Validate format.
+    #     3) Save or update in the database.
+    #     4) Send a confirmation with the new address.
+    #     5) Clear FSM state and show updated profile.
+    #     """
     #     chat_id = update.effective_chat.id
     #     address = update.message.text.strip()
 
-    #     # (اختیاری) اعتبارسنجی ابتدایی آدرس
+    #     # ۱) بررسی اولیه فرمت (مثلاً با coinaddrvalidator)
     #     if not valid_wallet_format(address):
-    #         return await update.message.reply_text("آدرس وارد شده معتبر نیست. دوباره تلاش کنید:")
+    #         return await update.message.reply_text(
+    #             "❌ The address you entered is not valid. Please try again:",
+    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #         )
 
-    #     # ذخیره در دیتابیس
+    #     # ۲) ذخیره یا به‌روزرسانی آدرس در MongoDB
     #     await self.db.set_wallet_address(chat_id, address)
 
-    #     # پاک کردن state و بازگشت به پروفایل
+    #     # ۳) تأیید به کاربر
+    #     await update.message.reply_text(
+    #         f"✅ Your wallet address has been successfully set to:\n"
+    #         f"<code>{address}</code>",
+    #         parse_mode="HTML",
+    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #     )
+
+    #     # ۴) پاک کردن state و نمایش پروفایل به‌روز
     #     pop_state(context)
-    #     await update.message.reply_text("آدرس کیف پول با موفقیت ثبت شد.")
     #     await self.show_profile(update, context)
+
+

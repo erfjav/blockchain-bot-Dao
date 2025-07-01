@@ -210,6 +210,7 @@ class BotManager:
             self.payment_handler = PaymentHandler(
                 db=self.db,                             # اضافه کن
                 referral_manager=self.referral_manager,  # اضافه کن
+                blockchain=self.blockchain,
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
                 error_handler=self.error_handler,
