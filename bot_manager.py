@@ -544,8 +544,8 @@ class BotManager:
             self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
-            self.application.add_handler(CommandHandler("setaddress", self.set_withdraw_address, filters=filters.ChatType.PRIVATE,), group=0)
-
+            self.application.add_handler(CommandHandler("setaddress", self.set_withdraw_address), group=0)
+            self.application.add_handler(CommandHandler("withdraw", self.withdraw_handler.show_withdraw), group=0)
 
             # درون متد setup_telegram_handlers، در بخشی که سایر CallbackQueryHandler ها را اضافه کرده‌اید:
             self.application.add_handler(
@@ -677,7 +677,6 @@ class BotManager:
                 return await self.payment_handler.show_payment_instructions(update, context)  # ← اضافه کردن return
                 
             elif text_lower == 'txid (transaction hash)':
-                # این متد خودش state=awaiting_txid را ست می‌کند
                 return await self.payment_handler.prompt_for_txid(update, context)  # ← اضافه کردن return               
 
             elif text_lower == '🌐 language':   
@@ -721,6 +720,9 @@ class BotManager:
             elif current_state == 'awaiting_txid':
                 # پیام کاربر را به همان متد می‌فرستیم تا تأیید شود
                 return await self.trade_handler.prompt_trade_txid(update, context)            
+            
+            elif current_state == 'awaiting_sub_txid':                             # Subscription
+                return await self.payment_handler.handle_txid(update, context)     # ← شاخهٔ جدید            
             
             # State-based handling for language detection
             elif current_state == 'awaiting_language_detection':
@@ -788,7 +790,6 @@ class BotManager:
     #             await self.payment_handler.show_payment_instructions(update, context)
                 
     #         elif text_lower == 'txid (transaction hash)':
-    #             # این متد خودش state=awaiting_txid را ست می‌کند
     #             await self.payment_handler.prompt_for_txid(update, context)                
 
     #         elif text_lower == '🌐 language':   
@@ -974,34 +975,28 @@ class BotManager:
             # ───── مراحل خرید/فروش ────────────────────────────────────────────────────────────        
                
             "trade_menu":                      self.trade_handler.trade_menu,
-
             "awaiting_sell_amount":            self.trade_handler.sell_start,
             "awaiting_sell_price":             self.trade_handler.sell_price,
-            
             "awaiting_buy_amount":             self.trade_handler.buy_start,
             "awaiting_buy_price":              self.trade_handler.buy_price,
-            
+            "awaiting_txid":                   self.trade_handler.prompt_trade_txid,
             # ───── payment ─────────────────────────────────────────────────────────────────      
 
             # پرداخت
             "showing_payment":                 self.payment_handler.show_payment_instructions,
-            "prompt_txid":                     self.payment_handler.prompt_for_txid,
-            "awaiting_txid":                   self.payment_handler.handle_txid,
-            "txid_received":                   self.payment_handler.handle_txid,
-
-            # ───── support_menu ─────────────────────────────────────────────────────────────────      
+            "awaiting_sub_txid":               self.payment_handler.prompt_for_txid,
+            "sub_txid_received":               self.payment_handler.handle_txid,
+            
+            # ───── support / guide ─────────────────────────────────────────────────────────────────      
 
             "help_support_menu":               self.handle_help_support,
-
             "support_menu":                    self.support_handler.show_support_info,
-            
-            # ───── showing_payment ─────────────────────────────────────────────────────────────────  
-            
+                        
             "showing_guide":                   self.help_handler.show_Guide,            
             
-            # ───── showing_payment ─────────────────────────────────────────────────────────────────      
-                    
-            "showing_payment":                 self.payment_handler.show_payment_instructions,
+            
+            "show_withdraw":                   self.withdraw_handler.show_withdraw,
+            "awaiting_withdraw_confirm":       self.withdraw_handler.confirm_withdraw_callback,            
             
             # ───── awaiting_language_detection ─────────────────────────────────────────────────────────────────      
 
@@ -1039,8 +1034,9 @@ class BotManager:
             "📊 token price":   "showing_token_price",
             "🔄 convert token": "convert_token",
             "💼 earn money":    "earn_money_menu",
-            # دکمه‌ی جدیدِ TxID
-            "txid (transaction hash)": "prompt_txid",
+            "💸 withdraw":      "show_withdraw",        
+            "txid (transaction hash)": "awaiting_sub_txid",
+            
         }
         state = menu_map.get(text)
         if state:
@@ -1051,7 +1047,8 @@ class BotManager:
 
             # ➌ روتِر را نگاه کنیم و تابع مرتبط را اجرا کنیم
             handler = self._state_router[state]
-            await handler(update, context)                     
+            await handler(update, context) 
+                                
 ############################################## fastapi #########################################################
     async def startup(self):
         """

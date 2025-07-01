@@ -105,14 +105,14 @@ class PaymentHandler:
     async def prompt_for_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         وقتی کاربر دکمه‌ی “TxID (transaction hash)” را می‌زند:
-        1) ست‌کردن state = awaiting_txid
+        1) ست‌کردن state = awaiting_sub_txid
         2) درخواست ارسال هش
         """
         chat_id = update.effective_chat.id
 
         # ➊ رفتن به فاز دریافت TxID
         # push_state(context, "awaiting_txid")
-        context.user_data["state"] = "awaiting_txid"
+        context.user_data["state"] = "awaiting_sub_txid"
 
         await update.message.reply_text(
             "🔔 لطفاً TxID (transaction hash) خود را ارسال کنید:",
@@ -137,7 +137,7 @@ class PaymentHandler:
         txid    = update.message.text.strip()
 
         # ➊ ست کردن state جدید
-        push_state(context, "txid_received")
+        push_state(context, "sub_txid_received")
         context.user_data["state"] = "txid_received"
 
         # ➋ ذخیره TxID در DB
