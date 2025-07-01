@@ -573,17 +573,17 @@ class BotManager:
                 group=0
             )
 
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"),
-                group=0
-            )
 
             self.application.add_handler(
                 CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"),
                 group=0
             )
 
-
+            self.application.add_handler(
+                CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"),
+                group=0
+            )
+            
             # Callback برای تأیید
             self.application.add_handler(
                 CallbackQueryHandler(self.withdraw_handler.confirm_withdraw_callback, pattern="^withdraw_confirm$"),
