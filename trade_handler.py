@@ -600,201 +600,201 @@ class TradeHandler:
     #  ب) دریافت و تأیید TxID خریدار
     # =========================================================================
     
-    # ───────────────────────────────────────────────────────────────────
-    async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """
-        دو مرحله را در یک متد پشتیبانی می‌کند:
-
-        ▸ فاز ①  (CallbackQuery) – کاربر روی «💳 I Paid» می‌زند
-            ◦ سفارشِ pending را پیدا می‌کنیم
-            ◦ state ← awaiting_txid
-            ◦ به کاربر می‌گوییم TXID را بفرستد
-
-        ▸ فاز ②  (Message) – کاربر TXID را می‌فرستد
-            ◦ اعتبارسنجی فرمت و تأیید روی بلاک‌چین
-            ◦ انتقال توکن، تکمیل سفارش، آپدیت پیام کانال
-            ◦ پاک‌سازی state
-        """
-
-        # ─── فاز ① : کاربر روی دکمه «I Paid» کلیک کرده است ──────────────
-        if update.callback_query:
-            query     = update.callback_query
-            await query.answer()
-
-            buyer_id  = query.from_user.id
-            order_id  = int(query.data.split("_")[-1])
-
-            order = await self.db.collection_orders.find_one({
-                "order_id": order_id,
-                "buyer_id": buyer_id,
-                "status":   "pending_payment"
-            })
-            if not order:
-                return await query.answer(
-                    "⛔️ Order not found or already processed.",
-                    show_alert=True
-                )
-
-            # ذخیرهٔ state برای فاز بعدی
-            context.user_data["pending_order"] = order_id
-            context.user_data["state"]        = "awaiting_txid"
-
-            await query.edit_message_text(
-                "✅ Payment initiated.\n"
-                "📄 Please send the <b>TXID</b> (transaction hash) in the chat.",
-                parse_mode="HTML"
-            )
-            return  # از متد خارج می‌شویم؛ منتظر پیام TXID می‌مانیم
-
-        # ─── فاز ② : پیام متنی حاوی TXID ───────────────────────────────
-        if not update.message or not update.message.text:
-            return  # پیام نامعتبر؛ نادیده می‌گیریم
-
-        buyer_id  = update.effective_user.id
-        order_id  = context.user_data.get("pending_order")
-        if not order_id:
-            return await update.message.reply_text(
-                "⚠️ No pending order found. Please start from an order card."
-            )
-
-        txid = update.message.text.strip()
-        if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
-            return await update.message.reply_text(
-                "❗️ Invalid TXID format.\n"
-                "It must be a 64-character hexadecimal string."
-            )
-
-        # اطمینان از اینکه سفارش همچنان در انتظار پرداخت است
-        order = await self.db.collection_orders.find_one({
-            "order_id": order_id,
-            "buyer_id": buyer_id,
-            "status":   "pending_payment"
-        })
-        if not order:
-            context.user_data.clear()
-            return await update.message.reply_text(
-                "⛔️ Order is no longer awaiting payment."
-            )
-
-        expected_amount = order["amount"] * order["price"]
-
-        # ── تأیید TXID روی بلاک‌چین ───────────────────────────────────
-        try:
-            confirmed = await self.blockchain.verify_txid(
-                txid=txid,
-                destination=TRON_WALLET,
-                expected_usdt=expected_amount
-            )
-        except Exception as e:
-            self.logger.error(f"Blockchain verification failed: {e}", exc_info=True)
-            return await update.message.reply_text(
-                "Unable to verify payment right now. Please try again later."
-            )
-
-        if not confirmed:
-            return await update.message.reply_text(
-                "Payment not yet confirmed on-chain. "
-                "Please wait a few minutes and resend the TXID."
-            )
-
-        # ── انتقال توکن و بستن سفارش ───────────────────────────────────
-        await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
-        await self.db.collection_orders.update_one(
-            {"order_id": order_id},
-            {"$set": {
-                "status":     "completed",
-                "txid":       txid,
-                "updated_at": datetime.utcnow()
-            }}
-        )
-        await self.db.credit_fiat_balance(order["seller_id"], expected_amount)
-
-        # ── ویرایش پیام کانال ────────────────────────────────────────
-        try:
-            await context.bot.edit_message_text(
-                chat_id=TRADE_CHANNEL_ID,
-                message_id=order["channel_msg_id"],
-                text=(
-                    f"✅ <b>ORDER {order_id} FILLED</b>\n"
-                    f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>\n"
-                    f"Amount: {order['amount']} tokens @ ${order['price']}"
-                ),
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            self.logger.warning(f"Could not edit trade message {order_id}: {e}")
-
-        # ── اعلان به طرفین ───────────────────────────────────────────
-        await context.bot.send_message(
-            order["seller_id"],
-            "🎉 Your tokens were sold! USDT has been credited to your withdraw balance. ✅"
-        )
-        await update.message.reply_text(
-            "✅ Payment confirmed and tokens credited to your account."
-        )
-
-        # ── پاک‌سازی state ──────────────────────────────────────────
-        context.user_data.clear()
-
-    
-    # async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # # ───────────────────────────────────────────────────────────────────
+    # async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #     """
-    #     پس از زدن «💳 I Paid»:
-    #     1) انتظار دریافت TXID
-    #     2) تأیید در بلاک‌چین (مثال ساده)
-    #     3) انتقال توکن در DB و بستن Order
+    #     دو مرحله را در یک متد پشتیبانی می‌کند:
+
+    #     ▸ فاز ①  (CallbackQuery) – کاربر روی «💳 I Paid» می‌زند
+    #         ◦ سفارشِ pending را پیدا می‌کنیم
+    #         ◦ state ← awaiting_txid
+    #         ◦ به کاربر می‌گوییم TXID را بفرستد
+
+    #     ▸ فاز ②  (Message) – کاربر TXID را می‌فرستد
+    #         ◦ اعتبارسنجی فرمت و تأیید روی بلاک‌چین
+    #         ◦ انتقال توکن، تکمیل سفارش، آپدیت پیام کانال
+    #         ◦ پاک‌سازی state
     #     """
-    #     buyer_id  = update.effective_chat.id
+
+    #     # ─── فاز ① : کاربر روی دکمه «I Paid» کلیک کرده است ──────────────
+    #     if update.callback_query:
+    #         query     = update.callback_query
+    #         await query.answer()
+
+    #         buyer_id  = query.from_user.id
+    #         order_id  = int(query.data.split("_")[-1])
+
+    #         order = await self.db.collection_orders.find_one({
+    #             "order_id": order_id,
+    #             "buyer_id": buyer_id,
+    #             "status":   "pending_payment"
+    #         })
+    #         if not order:
+    #             return await query.answer(
+    #                 "⛔️ Order not found or already processed.",
+    #                 show_alert=True
+    #             )
+
+    #         # ذخیرهٔ state برای فاز بعدی
+    #         context.user_data["pending_order"] = order_id
+    #         context.user_data["state"]        = "awaiting_txid"
+
+    #         await query.edit_message_text(
+    #             "✅ Payment initiated.\n"
+    #             "📄 Please send the <b>TXID</b> (transaction hash) in the chat.",
+    #             parse_mode="HTML"
+    #         )
+    #         return  # از متد خارج می‌شویم؛ منتظر پیام TXID می‌مانیم
+
+    #     # ─── فاز ② : پیام متنی حاوی TXID ───────────────────────────────
+    #     if not update.message or not update.message.text:
+    #         return  # پیام نامعتبر؛ نادیده می‌گیریم
+
+    #     buyer_id  = update.effective_user.id
     #     order_id  = context.user_data.get("pending_order")
     #     if not order_id:
-    #         return  # سفارشی در انتظار نیست
+    #         return await update.message.reply_text(
+    #             "⚠️ No pending order found. Please start from an order card."
+    #         )
 
     #     txid = update.message.text.strip()
     #     if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
-    #         return await update.message.reply_text("Invalid TXID, try again.")
+    #         return await update.message.reply_text(
+    #             "❗️ Invalid TXID format.\n"
+    #             "It must be a 64-character hexadecimal string."
+    #         )
 
-    #     # ─── تأیید تراکنش در بلاک‌چین (Pseudo) ───────────────────
-    #     order = await self.db.collection_orders.find_one({"order_id": order_id})
+    #     # اطمینان از اینکه سفارش همچنان در انتظار پرداخت است
+    #     order = await self.db.collection_orders.find_one({
+    #         "order_id": order_id,
+    #         "buyer_id": buyer_id,
+    #         "status":   "pending_payment"
+    #     })
+    #     if not order:
+    #         context.user_data.clear()
+    #         return await update.message.reply_text(
+    #             "⛔️ Order is no longer awaiting payment."
+    #         )
+
     #     expected_amount = order["amount"] * order["price"]
-    #     confirmed = await self.blockchain.verify_txid(txid, TRON_WALLET, expected_amount)
+
+    #     # ── تأیید TXID روی بلاک‌چین ───────────────────────────────────
+    #     try:
+    #         confirmed = await self.blockchain.verify_txid(
+    #             txid=txid,
+    #             destination=TRON_WALLET,
+    #             expected_usdt=expected_amount
+    #         )
+    #     except Exception as e:
+    #         self.logger.error(f"Blockchain verification failed: {e}", exc_info=True)
+    #         return await update.message.reply_text(
+    #             "Unable to verify payment right now. Please try again later."
+    #         )
 
     #     if not confirmed:
-    #         return await update.message.reply_text("Payment not confirmed yet.")
+    #         return await update.message.reply_text(
+    #             "Payment not yet confirmed on-chain. "
+    #             "Please wait a few minutes and resend the TXID."
+    #         )
 
-    #     # ─── انتقال توکن در DB (اتمیک) ───────────────────────────
+    #     # ── انتقال توکن و بستن سفارش ───────────────────────────────────
     #     await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
     #     await self.db.collection_orders.update_one(
     #         {"order_id": order_id},
     #         {"$set": {
     #             "status":     "completed",
-    #             "buyer_id":   buyer_id,
     #             "txid":       txid,
-    #             "updated_at": datetime.utcnow(),
+    #             "updated_at": datetime.utcnow()
     #         }}
     #     )
+    #     await self.db.credit_fiat_balance(order["seller_id"], expected_amount)
 
-    #     # ─── ویرایش پیام کانال ──────────────────────────────────
+    #     # ── ویرایش پیام کانال ────────────────────────────────────────
     #     try:
-    #         await update.get_bot().edit_message_text(
+    #         await context.bot.edit_message_text(
     #             chat_id=TRADE_CHANNEL_ID,
     #             message_id=order["channel_msg_id"],
     #             text=(
-    #                 f"✅ SOLD\n"
-    #                 f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>"
+    #                 f"✅ <b>ORDER {order_id} FILLED</b>\n"
+    #                 f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>\n"
+    #                 f"Amount: {order['amount']} tokens @ ${order['price']}"
     #             ),
-    #             parse_mode="HTML",
+    #             parse_mode="HTML"
     #         )
-    #     except Exception:
-    #         pass  # اگر پیام حذف یا ویرایش شده بود نادیده بگیر
+    #     except Exception as e:
+    #         self.logger.warning(f"Could not edit trade message {order_id}: {e}")
 
-    #     # ─── اعلان به طرفین ─────────────────────────────────────
-    #     await update.get_bot().send_message(
-    #         order["seller_id"], "🎉 Your tokens were sold! ✅"
+    #     # ── اعلان به طرفین ───────────────────────────────────────────
+    #     await context.bot.send_message(
+    #         order["seller_id"],
+    #         "🎉 Your tokens were sold! USDT has been credited to your withdraw balance. ✅"
     #     )
-    #     await update.message.reply_text("Payment confirmed, tokens credited. ✅")
+    #     await update.message.reply_text(
+    #         "✅ Payment confirmed and tokens credited to your account."
+    #     )
 
-    #     # پاک‌سازی state
-    #     context.user_data.clear()  
+    #     # ── پاک‌سازی state ──────────────────────────────────────────
+    #     context.user_data.clear()
+
+    
+    async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        پس از زدن «💳 I Paid»:
+        1) انتظار دریافت TXID
+        2) تأیید در بلاک‌چین (مثال ساده)
+        3) انتقال توکن در DB و بستن Order
+        """
+        buyer_id  = update.effective_chat.id
+        order_id  = context.user_data.get("pending_order")
+        if not order_id:
+            return  # سفارشی در انتظار نیست
+
+        txid = update.message.text.strip()
+        if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
+            return await update.message.reply_text("Invalid TXID, try again.")
+
+        # ─── تأیید تراکنش در بلاک‌چین (Pseudo) ───────────────────
+        order = await self.db.collection_orders.find_one({"order_id": order_id})
+        expected_amount = order["amount"] * order["price"]
+        confirmed = await self.blockchain.verify_txid(txid, TRON_WALLET, expected_amount)
+
+        if not confirmed:
+            return await update.message.reply_text("Payment not confirmed yet.")
+
+        # ─── انتقال توکن در DB (اتمیک) ───────────────────────────
+        await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
+        await self.db.collection_orders.update_one(
+            {"order_id": order_id},
+            {"$set": {
+                "status":     "completed",
+                "buyer_id":   buyer_id,
+                "txid":       txid,
+                "updated_at": datetime.utcnow(),
+            }}
+        )
+
+        # ─── ویرایش پیام کانال ──────────────────────────────────
+        try:
+            await update.get_bot().edit_message_text(
+                chat_id=TRADE_CHANNEL_ID,
+                message_id=order["channel_msg_id"],
+                text=(
+                    f"✅ SOLD\n"
+                    f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>"
+                ),
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass  # اگر پیام حذف یا ویرایش شده بود نادیده بگیر
+
+        # ─── اعلان به طرفین ─────────────────────────────────────
+        await update.get_bot().send_message(
+            order["seller_id"], "🎉 Your tokens were sold! ✅"
+        )
+        await update.message.reply_text("Payment confirmed, tokens credited. ✅")
+
+        # پاک‌سازی state
+        context.user_data.clear()  
 ##############################################################################################################
 
     # #------------------------------------------------------------------------------------------------------
