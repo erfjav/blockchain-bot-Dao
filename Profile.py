@@ -203,7 +203,7 @@ class ProfileHandler:
             await context.bot.send_message(
                 chat_id=chat_id,
                 text="ℹ️ No profile information available.",  # متن می‌تواند خالی یا یک نیم‌فاصله باشد
-                reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+                reply_markup=await self.keyboards.build_wallet_keyboard(chat_id)
             )
 
         except Exception as exc:
