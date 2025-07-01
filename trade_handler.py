@@ -314,52 +314,7 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_price")
 
-    # # ───────────────────────────────────────────────────────────────────
-    # async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     query = update.callback_query
-    #     await query.answer()
-    #     buyer_id = query.from_user.id
-
-    #     order_id = int(query.data.split("_")[-1])
-    #     order = await self.db.collection_orders.find_one({"order_id": order_id})
-    #     if not order or order["status"] != "open":
-    #         return await query.edit_message_reply_markup(None)   # Order closed / already taken
-
-    #     if buyer_id == order.get("seller_id"):
-    #         return await query.answer("You cannot buy your own order.", show_alert=True)
-
-    #     total = order["amount"] * order["price"]
-    #     context.user_data["pending_order"] = order_id
-    #     context.user_data["state"] = "awaiting_trade_txid"
-
-    #     # ── Send payment instructions to buyer ─────────────────────────
-    #     text_en = (
-    #         f"Total to pay: <b>${total:.2f}</b>\n"
-    #         f"Send USDT-TRC20 to:\n<code>{TRON_WALLET}</code>\n\n"
-    #         "After sending, press <b>I Paid</b> and submit the TXID."
-    #     )
-    #     kb = InlineKeyboardMarkup(
-    #         [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
-    #     )
-    #     await context.bot.send_message(
-    #         chat_id=buyer_id,
-    #         text=text_en,
-    #         reply_markup=kb,
-    #         parse_mode="HTML",
-    #     )
-
-    #     # ── Mark order as pending & store buyer_id ─────────────────────
-    #     await self.db.collection_orders.update_one(
-    #         {"order_id": order_id},
-    #         {"$set": {
-    #             "status":     "pending_payment",
-    #             "buyer_id":   buyer_id,
-    #             "updated_at": datetime.utcnow()
-    #         }}
-    #     )
-   
-    
-    # trade_handler.py  ───────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
     async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
         await query.answer()
@@ -368,15 +323,16 @@ class TradeHandler:
         order_id = int(query.data.split("_")[-1])
         order = await self.db.collection_orders.find_one({"order_id": order_id})
         if not order or order["status"] != "open":
-            return await query.edit_message_reply_markup(None)   # Order closed
+            return await query.edit_message_reply_markup(None)   # Order closed / already taken
 
-        if buyer_id == order["seller_id"]:
+        if buyer_id == order.get("seller_id"):
             return await query.answer("You cannot buy your own order.", show_alert=True)
 
         total = order["amount"] * order["price"]
         context.user_data["pending_order"] = order_id
         context.user_data["state"] = "awaiting_trade_txid"
 
+        # ── Send payment instructions to buyer ─────────────────────────
         text_en = (
             f"Total to pay: <b>${total:.2f}</b>\n"
             f"Send USDT-TRC20 to:\n<code>{TRON_WALLET}</code>\n\n"
@@ -392,11 +348,19 @@ class TradeHandler:
             parse_mode="HTML",
         )
 
-        # وضعیت سفارش ← در انتظار پرداخت
+        self.logger.info(f"Sent payment instructions for order {order_id} to user {buyer_id}")
+        
+        # ── Mark order as pending & store buyer_id ─────────────────────
         await self.db.collection_orders.update_one(
-            {"order_id": order_id}, {"$set": {"status": "pending_payment"}}
+            {"order_id": order_id},
+            {"$set": {
+                "status":     "pending_payment",
+                "buyer_id":   buyer_id,
+                "updated_at": datetime.utcnow()
+            }}
         )
- 
+   
+
     # ─────────────────────────── BUY FLOW ─────────────────────────────────
     async def buy_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     
@@ -514,7 +478,86 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="buy_price")
 
-    # # ───────────────────────────────────────────────────────────────────
+
+    # ───────────────────────────────────────────────────────────────────
+    async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        # ➊ لاگ دریافت Callback
+        self.logger.info(f"🔔 CALLBACK sell_order: {query.data}")
+
+        # ➋ پاسخ به کلیک کاربر (نمایش spinner تلگرام و پیام کوتاه)
+        await query.answer(
+            text="در حال پردازش سفارش فروش شما…",
+            show_alert=False
+        )
+
+        seller_id = query.from_user.id
+        order_id = int(query.data.split("_")[-1])
+
+        # ➌ واکشی سفارش از دیتابیس
+        order = await self.db.collection_orders.find_one({"order_id": order_id})
+        if not order or order["status"] != "open":
+            self.logger.warning(f"Order {order_id} not open or not found")
+            return await query.edit_message_reply_markup(None)
+
+        # ➍ جلوگیری از خودفروشی
+        if seller_id == order.get("buyer_id"):
+            return await query.answer(
+                "❌ نمی‌توانید برای خودتان سفارش فروش ثبت کنید.",
+                show_alert=True
+            )
+
+        # ➎ بررسی موجودی توکن فروشنده
+        balance = await self.db.get_user_balance(seller_id)
+        if balance < order["amount"]:
+            return await query.answer(
+                "❌ موجودی توکن کافی نیست.",
+                show_alert=True
+            )
+
+        # ➏ انتقال توکن و بستن سفارش
+        await self.db.transfer_tokens(seller_id, order["buyer_id"], order["amount"])
+        await self.db.collection_orders.update_one(
+            {"order_id": order_id},
+            {"$set": {
+                "status":     "completed",
+                "seller_id":  seller_id,
+                "remaining":  0,
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        self.logger.info(
+            f"Transferred {order['amount']} tokens from seller {seller_id} to buyer {order['buyer_id']} for order {order_id}"
+        )
+
+        # ➐ ویرایش پیام کانال برای نشان دادن پر شدن سفارش
+        await query.edit_message_text("✅ این سفارش توسط فروشنده پر شد.")
+
+        # ➑ ارسال پیام خصوصی به خریدار
+        buyer_id = order["buyer_id"]
+        text_buyer = "🎉 سفارش خرید شما پر شد و توکن‌ها به حسابتان واریز گردید."
+        await context.bot.send_message(
+            chat_id=buyer_id,
+            text=await self.translation_manager.translate_for_user(text_buyer, buyer_id),
+            parse_mode="HTML"
+        )
+
+        # ➒ ارسال پیام خصوصی به فروشنده
+        text_seller = "✅ توکن‌های شما فروخته شد. پرداخت معادل USDT به حساب کاربری‌تان واریز خواهد شد."
+        await context.bot.send_message(
+            chat_id=seller_id,
+            text=await self.translation_manager.translate_for_user(text_seller, seller_id),
+            parse_mode="HTML"
+        )
+        self.logger.info(f"Notified buyer {buyer_id} and seller {seller_id} about completion of order {order_id}")
+
+        # ➓ اعتباری کردن موجودی ریالی فروشنده
+        payout = order["amount"] * order["price"]
+        await self.db.credit_fiat_balance(seller_id, payout)
+        self.logger.info(f"Credited fiat balance of seller {seller_id} by ${payout:.2f}")
+
+
+    # ───────────────────────────────────────────────────────────────────
     # async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     #     query = update.callback_query
     #     await query.answer()
@@ -558,44 +601,7 @@ class TradeHandler:
     #     # ── Credit seller’s fiat balance for payout ───────────────────
     #     await self.db.credit_fiat_balance(seller_id, order["amount"] * order["price"])
         
-    #---------------------------------------------------------------------------------------------------
-    async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        query = update.callback_query
-        await query.answer()
-        seller_id = query.from_user.id
 
-        order_id = int(query.data.split("_")[-1])
-        order = await self.db.collection_orders.find_one({"order_id": order_id})
-        if not order or order["status"] != "open":
-            return await query.edit_message_reply_markup(None)
-
-        if seller_id == order["buyer_id"]:
-            return await query.answer("You cannot sell to yourself.", show_alert=True)
-
-        # check token balance
-        balance = await self.db.get_user_balance(seller_id)
-        if balance < order["amount"]:
-            return await query.answer("Insufficient token balance.", show_alert=True)
-
-        # انتقال توکن در DB
-        await self.db.transfer_tokens(seller_id, order["buyer_id"], order["amount"])
-        await self.db.collection_orders.update_one(
-            {"order_id": order_id},
-            {"$set": {"status": "completed", "seller_id": seller_id, "updated_at": datetime.utcnow()}},
-        )
-
-        # پیام‌ها
-        await query.edit_message_text("✅ FILLED by seller.")
-        await context.bot.send_message(
-            order["buyer_id"], "🎉 Your buy order was filled! Tokens credited."
-        )
-        await context.bot.send_message(
-            seller_id,
-            "✅ You sold your tokens. Admin will send USDT to your withdraw balance soon.",
-        )
-
-        # اعتبار دلاری برای خریدار کم نمی‌کنیم؛ او از قبل پول نداده است.
-        await self.db.credit_fiat_balance(seller_id, order["amount"] * order["price"])
 
     # =========================================================================
     #  ب) دریافت و تأیید TxID خریدار
