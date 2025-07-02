@@ -519,7 +519,7 @@ class BotManager:
             #######-------------------------------------------------------------------------------------------########
             # Help & Guide Section
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_details_callback, pattern="^show_details_help$"), group=0)
-            self.application.add_handler(CallbackQueryHandler(self.help_handler.show_help_command, pattern="^hide_details_help$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.show_help_command, pattern="^help_details$"), group=0)
             self.application.add_handler(CallbackQueryHandler(self.exit_bot, pattern="^exit_help$"), group=0)
 
             # Individual help buttons
