@@ -510,12 +510,30 @@ class BotManager:
 
             # 1️⃣ Command Handlers
             self.application.add_handler(CommandHandler('start', self.start_command), group=0)
-            self.application.add_handler(CommandHandler('guide', self.help_handler.show_Guide), group=0)
+            self.application.add_handler(CommandHandler('guide', self.help_handler.show_help_command), group=0)
             self.application.add_handler(CommandHandler('language', self.handle_language_button), group=0)
             self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
+            
+            #######-------------------------------------------------------------------------------------------########
+            # Help & Guide Section
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_details_callback, pattern="^show_details_help$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.show_help_command, pattern="^hide_details_help$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.exit_bot, pattern="^exit_help$"), group=0)
 
+            # Individual help buttons
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_payment_callback, pattern="^help_payment$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_withdraw_callback, pattern="^help_withdraw$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_trade_callback, pattern="^help_trade$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_convert_callback, pattern="^help_convert$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_token_price_callback, pattern="^help_token_price$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_earn_callback, pattern="^help_earn$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_profile_callback, pattern="^help_profile$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_language_callback, pattern="^help_language$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_support_callback, pattern="^help_support$"), group=0)
+
+            #######-------------------------------------------------------------------------------------------########
             # درون متد setup_telegram_handlers، در بخشی که سایر CallbackQueryHandler ها را اضافه کرده‌اید:
             self.application.add_handler(
                 CallbackQueryHandler(
@@ -553,7 +571,7 @@ class BotManager:
                 group=0
             )
             
-
+            #######-------------------------------------------------------------------------------------------########
             self.application.add_handler(
                 CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"),
                 group=1
@@ -581,14 +599,16 @@ class BotManager:
                 MessageHandler(private_text_filter, self.handle_private_message),
                 group=1
             )
-
+            
+            #######-------------------------------------------------------------------------------------------########
             # 4️⃣ Global error handler
             self.application.add_error_handler(
                 lambda update, context: self.error_handler.handle(
                     update, context, context.error, context_name="setup_telegram_handlers"
                 )
             )
-
+            
+            #######-------------------------------------------------------------------------------------------########
             self.logger.info("Telegram handlers setup completed.")
         except Exception as e:
             self.logger.error(f"Failed to setup telegram handlers: {e}")
@@ -629,7 +649,7 @@ class BotManager:
                 return await self.handle_help_support(update, context)  # ← اضافه کردن return           
 
             elif text_lower == '❓ help':
-                return await self.help_handler.show_Guide(update, context)  # ← اضافه کردن return
+                return await self.help_handler.show_help_command(update, context)  # ← اضافه کردن return
 
             elif text_lower == '📬 customer support':
                 return await self.support_handler.show_support_info(update, context)  # ← اضافه کردن return        
@@ -875,7 +895,7 @@ class BotManager:
             "starting":                    self.start_command,
             "help_support_menu":           self.handle_help_support,
             "support_menu":                self.support_handler.show_support_info,
-            "showing_guide":               self.help_handler.show_Guide,
+            "showing_guide":               self.help_handler.show_help_command,
             "showing_payment":             self.payment_handler.show_payment_instructions,
             
                     # ▼ اضافه کردن state گم‌شده
