@@ -161,14 +161,18 @@ class BotManager:
             # BlockchainClient
             self.blockchain = BlockchainClient()
             self.logger.info("BlockchainClient initialized.")
-
-            # WithdrawHandler (وابسته به db / keyboards / translation_manager)
+############################################################################################################
+            # 9. 🔹 WithdrawHandler  ← NEW
             self.withdraw_handler = WithdrawHandler(
                 db=self.db,
+                referral_manager=self.referral_manager,
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
+                error_handler=self.error_handler,
+                # blockchain_client=self.blockchain   # فقط اگر تسویهٔ آنی دارید
             )
             self.logger.info("WithdrawHandler initialized.")
+############################################################################################################
 
             self.trade_handler = TradeHandler(
                 keyboards=self.keyboards,
@@ -495,40 +499,7 @@ class BotManager:
         query = update.callback_query
         await query.answer()
         await self.start_command(update, context)   
- 
- 
-    # ─────────────────────────────────────────────────────────
-    async def set_withdraw_address(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        /setaddress TXXXXXXXXXXXXXXXXX
-        آدرس TRON را برای برداشت ذخیره می‌کند.
-        """
-        chat_id = update.effective_chat.id
-        args = context.args
-
-        if not args:
-            return await update.message.reply_text(
-                await self.translation_manager.translate_for_user(
-                    "Usage: /setaddress <TRON_ADDRESS>", chat_id
-                )
-            )
-
-        address = args[0].strip()
-
-        # ساده‌ترین اعتبارسنجی: حرف اول T یا t و طول 34 کاراکتر
-        if not re.fullmatch(r"[Tt][1-9A-HJ-NP-Za-km-z]{33}", address):
-            return await update.message.reply_text(
-                await self.translation_manager.translate_for_user(
-                    "Invalid TRON address.", chat_id
-                )
-            )
-
-        await self.db.set_withdraw_address(chat_id, address)
-        await update.message.reply_text(
-            await self.translation_manager.translate_for_user(
-                "✅ Withdraw address saved.", chat_id
-            )
-        )         
+       
 #######################################################################################################         
     async def setup_telegram_handlers(self):
         """Setup and add Telegram handlers to the application."""
@@ -544,8 +515,6 @@ class BotManager:
             self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
-            self.application.add_handler(CommandHandler("setaddress", self.set_withdraw_address), group=0)
-            self.application.add_handler(CommandHandler("withdraw", self.withdraw_handler.show_withdraw), group=0)
 
             # درون متد setup_telegram_handlers، در بخشی که سایر CallbackQueryHandler ها را اضافه کرده‌اید:
             self.application.add_handler(
@@ -584,11 +553,6 @@ class BotManager:
                 group=0
             )
             
-            # Callback برای تأیید
-            self.application.add_handler(
-                CallbackQueryHandler(self.withdraw_handler.confirm_withdraw_callback, pattern="^withdraw_confirm$"),
-                group=0
-            )
 
             self.application.add_handler(
                 CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"),
@@ -675,7 +639,11 @@ class BotManager:
                 
             elif text_lower == '💳 payment':
                 return await self.payment_handler.show_payment_instructions(update, context)  # ← اضافه کردن return
-                
+            #-------------------------------------------------------------------------------------------    
+               
+            elif text_lower == '💵 withdraw':
+                return await self.withdraw_handler.show_withdraw_menu(update, context)
+            #-------------------------------------------------------------------------------------------    
             elif text_lower == '#️⃣ txid (transaction hash)':
                 return await self.payment_handler.prompt_for_txid(update, context)  # ← اضافه کردن return               
 
@@ -719,10 +687,6 @@ class BotManager:
 
             elif text_lower == '💸 earn money':
                 return await self.earn_money_handler.coming_soon(update, context)  # ← اضافه کردن return
-                       
-            # دکمهٔ «💵 Withdraw» در منوی اصلی
-            elif text_lower == "💵 withdraw":
-                return await self.withdraw_handler.show_withdraw(update, context)
 
             # ─── Trade Menu Sub-Options ──────────────────────
             elif text_lower == '🛒 buy':
@@ -919,6 +883,9 @@ class BotManager:
         
             "awaiting_sub_txid":           self.payment_handler.prompt_for_txid,
             "sub_txid_received":           self.payment_handler.handle_txid,
+            ###################-------------------------------------------------------------------------
+            "withdraw_menu":       self.withdraw_handler.show_withdraw_menu,   # ← NEW
+            ###################-------------------------------------------------------------------------
 
             # ــ Trade
             "trade_menu":                  self.trade_handler.trade_menu,
@@ -976,7 +943,7 @@ class BotManager:
             "📊 token price":               "showing_token_price",
             "🔄 convert token":             "convert_token",
             "💼 earn money":                "earn_money_menu",
-            "💸 withdraw":                  "show_withdraw",        
+            "💸 withdraw":                  "withdraw_menu",        
             "#️⃣ txid (transaction hash)":   "awaiting_sub_txid",
             
         }

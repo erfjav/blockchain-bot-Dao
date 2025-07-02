@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.errors import PyMongoError
+from pymongo.errors import PyMongoError, DuplicateKeyError
 from pymongo import ReturnDocument, ASCENDING
 
 
@@ -32,7 +32,9 @@ class Database:
             self.collection_languages         =     self.db["user_languages"]
             self.collection_translation_cache =     self.db["translation_cache"]
             self.collection_payments          =     self.db["payments"]
+            
             self.collection_withdrawals       =     self.db["withdrawals"]   # NEW
+            
             self.collection_orders            =     self.db["orders"]        # NEW  (سفارش‌های خرید/فروش)
             self.collection_counters          =     self.db["counters"]      # NEW
             self.collection_wallet_events     =     self.db["wallet_events"]
@@ -79,6 +81,12 @@ class Database:
                 unique=True,
                 name="unique_txid"          # prevents duplicate hashes
             )            
+           
+            await self.collection_withdrawals.create_index(
+                [("withdraw_id", ASCENDING)],
+                unique=True,
+                name="unique_withdraw_id"
+            )           
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
@@ -396,36 +404,110 @@ class Database:
         await self.collection_users.update_one(
             {"user_id": user_id}, {"$set": {"usd_balance": amount}}, upsert=True
         )
-        
-    #----------------------------------------------------------------------------------------------
-    # آدرس برداشت
-    async def set_withdraw_address(self, user_id: int, address: str):
-        await self.collection_users.update_one(
-            {"user_id": user_id}, {"$set": {"withdraw_address": address}}, upsert=True
-        )
-        
-    #-------------------------------------------------------------------------------------   
-    async def get_withdraw_address(self, user_id: int) -> str | None:
-        doc = await self.collection_users.find_one({"user_id": user_id}, {"withdraw_address": 1})
-        return doc.get("withdraw_address") if doc else None
-    
-    #-------------------------------------------------------------------------------------   
-    # درج درخواست برداشت
-    async def create_withdraw_request(self, user_id: int, amount: float, address: str) -> int:
-        wid = await self._get_next_sequence("withdraw_id")
-        await self.collection_withdrawals.insert_one(
-            {
-                "withdraw_id": wid,
-                "user_id": user_id,
-                "amount": amount,
-                "address": address,
-                "status": "pending",
-                "requested_at": datetime.utcnow(),
-            }
-        )
-        return wid
+################################### withdraw #####################################################################################
 
-    # db_manager.py  (یا هر فایلی که متدهای زیر داخل آن است)
+    # ─────────────────────── Referral helpers ────────────────────────
+    async def get_downline_count(self, user_id: int) -> int:
+        """تعداد مستقیم‌ترین زیرمجموعه‌های کاربر."""
+        return await self.collection_users.count_documents({"parent_id": user_id})
+
+    async def clear_downline(self, user_id: int) -> None:
+        """
+        والدِ تمام زیرمجموعه‌های مستقیم را خالی می‌کند.
+        همچنین می‌توانید به دلخواه، رکوردی در لاگ نگه دارید.
+        """
+        await self.collection_users.update_many(
+            {"parent_id": user_id},
+            {"$set": {"parent_id": None}}
+        )
+
+    async def mark_membership_withdrawn(self, user_id: int) -> None:
+        """
+        فلَگ‌های عضویت را ریست می‌کند تا کاربر برای استفادهٔ مجدد مجبور
+        به پرداخت یا دعوت مجدد شود.
+        """
+        await self.collection_users.update_one(
+            {"user_id": user_id},
+            {"$set": {"joined": False, "membership_withdrawn": True,
+                      "withdrawn_at": datetime.utcnow()}}
+        )
+
+    # ─────────────────── Withdrawal life-cycle helpers ───────────────
+    async def update_withdraw_status(
+        self, withdraw_id: int, status: str, txid: Optional[str] = None
+    ) -> None:
+        """
+        به‌روز‌رسانی وضعیت برداشت (pending → sent/failed).
+        `txid` برای زمانی است که تسویهٔ آنی روی بلاک‌چین انجام شده باشد.
+        """
+        update_doc: Dict[str, Any] = {
+            "status": status,
+            "updated_at": datetime.utcnow(),
+        }
+        if txid:
+            update_doc["txid"] = txid
+
+        await self.collection_withdrawals.update_one(
+            {"withdraw_id": withdraw_id},
+            {"$set": update_doc}
+        )
+
+    # (اختیاری) اگر می‌خواهید برداشت‌های باز را استریم کنید
+    async def get_pending_withdrawals(self) -> List[Dict[str, Any]]:
+        """برمی‌گرداند تمام درخواست‌های برداشت با status='pending'."""
+        cursor = self.collection_withdrawals.find({"status": "pending"})
+        return await cursor.to_list(length=None)
+    
+    # ------------------------------------------------------------------
+    async def create_withdraw_request(
+        self,
+        user_id: int,
+        address: str,
+        amount: float = 50.0,           # پیش‌فرض برای حق عضویت
+    ) -> int:
+        """
+        درج ایمن یک درخواست برداشت جدید.
+
+        ● اگر همان کاربر هنوز درخواست «pending» داشته باشد → خطا.
+        ● شناسهٔ یکتا (auto-increment) با کلید `withdraw_id`.
+        ● در صورت بروز حذف هم‌زمان (race condition) روی همان id،
+        DuplicateKeyError گرفته و مجدداً تلاش می‌شود.
+
+        Returns
+        -------
+        wid : int
+            شمارهٔ یکتای درخواست برداشت.
+        """
+        # ➊ آیا قبلاً درخواست باز دارد؟
+        existing = await self.collection_withdrawals.find_one(
+            {"user_id": user_id, "status": "pending"}
+        )
+        if existing:
+            raise ValueError("pending_withdraw_exists")
+
+        # ➋ حلقهٔ امن برای ایجاد ID یکتا
+        for _ in range(3):                         # حداکثر ۳ بار تلاش
+            wid = await self._get_next_sequence("withdraw_id")
+            try:
+                await self.collection_withdrawals.insert_one(
+                    {
+                        "withdraw_id":  wid,
+                        "user_id":      user_id,
+                        "amount":       amount,
+                        "address":      address,
+                        "status":       "pending",
+                        "requested_at": datetime.utcnow(),
+                    }
+                )
+                return wid                         # موفقیت ☑
+            except DuplicateKeyError:
+                # در شرایط رقابتی نادر رخ می‌دهد؛ تکرار حلقه
+                continue
+
+        # اگر به اینجا برسیم یعنی بعد از ۳ تلاش هنوز موفق نشدیم
+        raise RuntimeError("withdraw_id_generation_failed")
+
+########################################################################################################################
 
     # ── ایجاد سفارش فروش ───────────────────────────────────────────────
     async def create_sell_order(self, order: dict) -> int:
