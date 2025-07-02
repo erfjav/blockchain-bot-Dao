@@ -114,6 +114,79 @@ class HelpHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_details_callback")
 
+    async def hide_details_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle the Back button in the detailed Help menu:
+        1) Pop the current state
+        2) Edit the message back to the main Help menu
+        """
+        try:
+            query = update.callback_query
+            await query.answer()
+            # ۱) Pop current help-details state
+            pop_state(context)
+
+            # ۲) آماده‌سازی متن و کیبورد منوی اصلی Help
+            chat_id    = query.message.chat.id
+            user_first = update.effective_user.first_name or ""
+            help_intro = (
+                f"<b>👋 Welcome, {user_first}!</b>\n\n"
+                "This is the Help Center where you can learn how to use each feature of the bot.\n\n"
+                "Whether you’re here to trade, withdraw, earn, or manage your account — we’ve got you covered.\n\n"
+                "Tap 'More Details' to explore guides for each button."
+            )
+            keyboard = [
+                [
+                    InlineKeyboardButton("📖 More Details", callback_data="show_details_help"),
+                    InlineKeyboardButton("➡️ Exit",        callback_data="exit_help")
+                ]
+            ]
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
+            translated   = await self.translation_manager.translate_for_user(help_intro, chat_id)
+
+            # ۳) ویرایش پیام جاری به منوی اصلی Help
+            await query.edit_message_text(
+                translated,
+                reply_markup=reply_markup,
+                parse_mode="HTML"
+            )
+
+        except Exception as e:
+            await self.error_handler.handle(
+                update, context, e, context_name="hide_details_callback"
+            )
+
+
+#--------------------------------- exit_help_callback ------------------------------------------------------------------------
+    async def exit_help_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle 'Exit' action from the help sections.
+        This method should close the help session (for example, clear the help message or return a goodbye message).
+        """
+        try:
+            
+            chat_id = update.effective_chat.id
+            user_first_name = update.effective_user.first_name
+            query = update.callback_query
+            
+            await query.answer()
+            
+            user_language = await self.db.get_user_language(chat_id)
+            rtl_languages = ["fa", "ar", "he", "ur"]
+            if user_language.lower() in rtl_languages:
+                rlm = "\u200F"
+                display_name = f"{rlm}{user_first_name}{rlm}"
+            else:
+                display_name = user_first_name   
+
+            msg_en = "Thank you {name}! If you need further assistance, feel free to ask."
+            translated_template = await self.translation_manager.translate_for_user(msg_en, chat_id)
+            # جایگذاری نام واقعی کاربر در متن ترجمه شده
+            final_msg = translated_template.format(name=display_name)            
+            await query.edit_message_text(final_msg)
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="exit_help_callback")
+
     #----------------------------------------------------------------------------------------------------------
     async def handle_invalid_help_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -161,7 +234,7 @@ class HelpHandler:
                 "⏳ Processing time depends on blockchain congestion, but usually takes a few minutes."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -188,7 +261,7 @@ class HelpHandler:
                 "Ensure your wallet is set and you have sufficient balance before using this feature."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -215,7 +288,7 @@ class HelpHandler:
                 "Prices are updated every few seconds for accuracy."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -242,7 +315,7 @@ class HelpHandler:
                 "Your conversion history will be saved and shown in the history section."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -268,7 +341,7 @@ class HelpHandler:
                 "Your membership or service access will activate automatically after confirmation."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -294,7 +367,7 @@ class HelpHandler:
                 "Grow your community and earn more each time others join."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -321,7 +394,7 @@ class HelpHandler:
                 "Manage your account details from one place."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -347,7 +420,7 @@ class HelpHandler:
                 "Multilingual support ensures a smooth experience for everyone."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -373,7 +446,7 @@ class HelpHandler:
                 "Our team responds to issues as quickly as possible."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)

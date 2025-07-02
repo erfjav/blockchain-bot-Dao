@@ -430,13 +430,13 @@ class BotManager:
             # ───➤ بررسی عضویت در کانال
             try:
                 member = await context.bot.get_chat_member(
-                    chat_id="@BlockchainBotTrades",
+                    chat_id="@Daobank",
                     user_id=chat_id
                 )
                 if member.status in ("left", "kicked"):
                     join_kb = InlineKeyboardMarkup([[
                         # InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
-                        InlineKeyboardButton("➕ عضویت در کانال", url="tg://resolve?domain=BlockchainBotTrades"),
+                        InlineKeyboardButton("➕ عضویت در کانال", url="tg://resolve?domain=DaobankChannel"),
                         InlineKeyboardButton("✅ ادامه", callback_data="check_join")
                     ]])
                     text = "🔒 لطفاً ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
@@ -516,11 +516,21 @@ class BotManager:
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
             
+            
+            # بعد از ثبت help_details_callback
+            self.application.add_handler(
+                CallbackQueryHandler(
+                    self.help_handler.hide_details_callback,
+                    pattern="^hide_details_help$"
+                ),
+                group=0
+            )
+            
             #######-------------------------------------------------------------------------------------------########
             # Help & Guide Section
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_details_callback, pattern="^show_details_help$"), group=0)
             self.application.add_handler(CallbackQueryHandler(self.help_handler.show_help_command, pattern="^help_details$"), group=0)
-            self.application.add_handler(CallbackQueryHandler(self.exit_bot, pattern="^exit_help$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.exit_help_callback, pattern="^exit_help$"), group=0)
 
             # Individual help buttons
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_payment_callback, pattern="^help_payment$"), group=0)
