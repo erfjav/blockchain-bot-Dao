@@ -65,18 +65,6 @@ class TranslatedKeyboards:
             user_lang = 'en'
         return await self._translate_buttons(raw_buttons, user_lang, resize, one_time)
 
-    # # ----------------- منوی اصلی نسخه ۲ -----------------
-    # def main_menu_keyboard_v2(self) -> List[List[str]]:
-    #     """
-    #     لیست دکمه‌های منوی اصلی به زبان انگلیسی (برای ترجمه شدن خودکار)
-    #     """
-    #     return [
-    #         ["🚀 Start", "📘 Guide"],
-    #         ["💰 Trade", "💳 Payment"],
-    #         ["🎧 Support", "📊 Token Price"],
-    #         ["👤 Profile", "🌐 Language"],
-    #         ["🔄 Convert Token", "💼 Earn Money"]
-    #     ]
     # ----------------- منوی اصلی نسخه ۲ -----------------
     def main_menu_keyboard_v2(self) -> List[List[str]]:
         """

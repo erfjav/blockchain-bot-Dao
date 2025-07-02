@@ -41,7 +41,7 @@ class Database:
         except Exception as e:
             self.logger.error(f"❌ Database connection failed: {e}")
             raise
-
+    #-------------------------------------------------------------------------------------   
     async def check_connection(self):
         """Ping MongoDB to ensure it’s up."""
         try:
@@ -51,7 +51,7 @@ class Database:
             self.logger.error(f"❌ MongoDB ping failed: {e}")
             raise
 
-
+    #-------------------------------------------------------------------------------------   
     async def initialize_all_connections(self):
         """Initialize and verify all database connections"""
         try:
@@ -78,9 +78,7 @@ class Database:
             self.logger.error(f"Error initializing database connections: {e}")
             raise
 
-
     # ------------------- User Language Management -----------------------
-
     async def update_user_language(self, chat_id: int, language_code: str):
         """Set or update user's preferred language"""
         try:
@@ -95,7 +93,8 @@ class Database:
         except Exception as e:
             self.logger.error(f"❌ update_user_language({chat_id}) failed: {e}")
             raise
-
+        
+    #-------------------------------------------------------------------------------------   
     async def get_user_language(self, chat_id: int) -> str:
         """Get stored language for user (fallback: 'en')"""
         try:
@@ -106,7 +105,8 @@ class Database:
         except Exception as e:
             self.logger.error(f"❌ get_user_language({chat_id}) failed: {e}")
             return "en"
-
+        
+    #-------------------------------------------------------------------------------------   
     async def is_language_set(self, chat_id: int) -> bool:
         """Check if language was set for this user"""
         doc = await self.collection_languages.find_one(
@@ -115,7 +115,6 @@ class Database:
         return bool(doc and doc.get("language"))
 
     # ------------------- User Profile -----------------------
-
     async def insert_user(self, chat_id: int, first_name: str):
         """Insert or update user info"""
         try:
@@ -130,7 +129,8 @@ class Database:
         except Exception as e:
             self.logger.error(f"❌ insert_user({chat_id}) failed: {e}")
             raise
-
+        
+    #-------------------------------------------------------------------------------------   
     async def insert_user_if_not_exists(self, chat_id, first_name):
         await self.collection_users.update_one(
             {"user_id": chat_id},
@@ -143,7 +143,8 @@ class Database:
             }},
             upsert=True
         )
-
+        
+    #-------------------------------------------------------------------------------------   
     async def is_language_prompt_done(self, chat_id) -> bool:
         doc = await self.collection_users.find_one(
             {"user_id": chat_id}, {"_id":0,"promoted_language":1}
@@ -157,7 +158,6 @@ class Database:
         )
 
     # ------------------- Translation Cache -----------------------
-
     async def get_cached_translation(self, text: str, target_lang: str) -> Optional[str]:
         try:
             key = f"{text}_{target_lang}"
@@ -168,7 +168,8 @@ class Database:
         except PyMongoError as e:
             self.logger.error(f"❌ Error getting cached translation: {e}")
             return None
-
+        
+    #-------------------------------------------------------------------------------------   
     async def update_translation_cache(self, text: str, target_lang: str, translation: str):
         try:
             key = f"{text}_{target_lang}"
@@ -186,7 +187,8 @@ class Database:
             )
         except PyMongoError as e:
             self.logger.error(f"❌ Error updating translation cache: {e}")
-
+            
+    #-------------------------------------------------------------------------------------   
     async def get_original_text_by_translation(self, translated_text: str, target_lang: str) -> Optional[str]:
         """
         برعکس get_cached_translation عمل می‌کند.
@@ -206,15 +208,7 @@ class Database:
                 return doc["original_text"]
 
         return None
-    
-        
 
-    # async def get_user_balance(self, user_id: int) -> int:
-    #     doc = await self.collection_users.find_one({"user_id": user_id}, {"tokens": 1})
-    #     return doc.get("tokens", 0) if doc else 0
-        
-        
-# myproject_database.py  ← داخل class Database
 # -------------------------------------------------------------
     async def get_user_balance(self, user_id: int) -> int:
         """
@@ -372,34 +366,39 @@ class Database:
         )
         return counter["seq"]
     
-    ########################------------------------------------------------------
+    #----------------------------------------------------------------------------------------
     # موجودی دلاری (پس از فروش توکن)
     async def get_fiat_balance(self, user_id: int) -> float:
         doc = await self.collection_users.find_one({"user_id": user_id}, {"usd_balance": 1})
         return float(doc.get("usd_balance", 0)) if doc else 0.0
-
+    
+    #-------------------------------------------------------------------------------------   
     async def credit_fiat_balance(self, user_id: int, amount: float):
         await self.collection_users.update_one(
             {"user_id": user_id},
             {"$inc": {"usd_balance": amount}},
             upsert=True,
         )
-
+        
+    #-------------------------------------------------------------------------------------   
     async def set_fiat_balance(self, user_id: int, amount: float):
         await self.collection_users.update_one(
             {"user_id": user_id}, {"$set": {"usd_balance": amount}}, upsert=True
         )
-##########----------------------------------------------------------------------------------------------
+        
+    #----------------------------------------------------------------------------------------------
     # آدرس برداشت
     async def set_withdraw_address(self, user_id: int, address: str):
         await self.collection_users.update_one(
             {"user_id": user_id}, {"$set": {"withdraw_address": address}}, upsert=True
         )
-
+        
+    #-------------------------------------------------------------------------------------   
     async def get_withdraw_address(self, user_id: int) -> str | None:
         doc = await self.collection_users.find_one({"user_id": user_id}, {"withdraw_address": 1})
         return doc.get("withdraw_address") if doc else None
-
+    
+    #-------------------------------------------------------------------------------------   
     # درج درخواست برداشت
     async def create_withdraw_request(self, user_id: int, amount: float, address: str) -> int:
         wid = await self._get_next_sequence("withdraw_id")
@@ -471,7 +470,7 @@ class Database:
                     session=session,
                 )
 
-#################################################################################################
+    #-------------------------------------------------------------------------------------   
     async def set_wallet_address(self, user_id: int, address: str) -> None:
         """ذخیره یا به‌روزرسانی آدرس کیف پول کاربر."""
         await self.collection_users.update_one(
@@ -479,7 +478,8 @@ class Database:
             {"$set": {"wallet_address": address}},
             upsert=True
         )
-
+        
+    #-------------------------------------------------------------------------------------   
     async def get_wallet_address(self, user_id: int) -> str | None:
         """بازیابی آدرس کیف پول کاربر یا None اگر ذخیره نشده باشد."""
         doc = await self.collection_users.find_one(
@@ -487,7 +487,8 @@ class Database:
             {"wallet_address": 1}
         )
         return doc.get("wallet_address") if doc else None
-
+    
+    #-------------------------------------------------------------------------------------   
     async def get_user_by_wallet(self, address: str) -> Optional[int]:
         """
         If this address is already taken, return the owner’s chat_id.
@@ -506,7 +507,8 @@ class Database:
             {"_id": 0, "tokens": 1}
         )
         return float(doc.get("tokens", 0.0)) if doc else 0.0
-
+    
+    #-------------------------------------------------------------------------------------   
     async def adjust_balance(self, user_id: int, delta: float):
         """اضافه یا کم کردن اتمیک مقدار delta در موجودی."""
         await self.collection_users.update_one(
@@ -514,7 +516,8 @@ class Database:
             {"$inc": {"tokens": delta}},
             upsert=True
         )
-
+        
+    #-------------------------------------------------------------------------------------   
     async def record_wallet_event(
         self, user_id: int, amount: float, event_type: str, description: str = ""
     ) -> None:
@@ -540,8 +543,7 @@ class Database:
         ).sort("timestamp", -1).limit(limit)
         return await cursor.to_list(length=limit)
     
-    ########------------------------------------------------------------------------------------
-    
+    #------------------------------------------------------------------------------------
     async def close(self):
             """
             بستن اتصال به MongoDB هنگام خاموشی بات

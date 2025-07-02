@@ -352,8 +352,7 @@ class ProfileHandler:
         """
         await update.callback_query.answer()
         
-#################################################################################################################
-
+    #-------------------------------------------------------------------------------------    
     async def edit_wallet(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         نمایش آدرس فعلی (اگر وجود دارد) و درخواست آدرس جدید کیف‌پول
@@ -396,7 +395,6 @@ class ProfileHandler:
             )
 
     #------------------------------------------------------------------------------------------------------
-    
     async def handle_wallet_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         بررسی فرمت، تکراری نبودن و ثبت آدرس کیف‌پول
@@ -472,8 +470,7 @@ class ProfileHandler:
                 parse_mode="HTML"
             )
     
-####################################################################################################
-
+    #-------------------------------------------------------------------------------------   
     async def view_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         نمایش موجودی توکن با ترجمه و فرمت‌بندی
@@ -498,7 +495,7 @@ class ProfileHandler:
             translated_text = await self.translation_manager.translate_for_user(error_text, chat_id)
             await update.message.reply_text(translated_text, parse_mode="HTML")
 
-
+    #-------------------------------------------------------------------------------------   
     async def view_history(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         نمایش تاریخچه‌ی تغییرات کیف‌پول با ترجمه
@@ -535,7 +532,6 @@ class ProfileHandler:
             await update.message.reply_text(translated_text, parse_mode="HTML")
 
     #---------------------------------------------------------------------------------------------------   
-
     async def initiate_transfer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Step 1: Check wallet address and balance, then ask for transfer amount.
@@ -598,7 +594,7 @@ class ProfileHandler:
                 parse_mode="HTML"
             )
         
-    ##-----------------------------------------------------------------------------------------------------
+    #-----------------------------------------------------------------------------------------------------
     async def handle_transfer_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Step 2: Validate user input amount and process token transfer

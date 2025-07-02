@@ -169,9 +169,7 @@ class TradeHandler:
             )
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_start")
-
-    #--------------------------------------------------------------------------
-
+            
     # -----------------------------------------------------------------
     async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -206,37 +204,7 @@ class TradeHandler:
 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_amount")
-    
-    
-    # async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     try:
-    #         chat_id = update.effective_chat.id
-    #         txt     = update.message.text.strip()
-
-    #         if not txt.isdigit() or int(txt) <= 0:
-    #             await update.message.reply_text(
-    #                 await self.translation_manager.translate_for_user("Please send a valid number.", chat_id)
-    #             )
-    #             return  # در همان state می‌مانیم
-
-    #         # مقدار را ذخیره می‌کنیم و state بعدی را ست می‌کنیم
-    #         context.user_data["sell_amount"] = int(txt)
-    #         pop_state(context)                      # خارج از awaiting_sell_amount
-    #         push_state(context, SELL_PRICE)
-    #         context.user_data["state"] = SELL_PRICE
-
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user(
-    #                 "At what price (USD) per token are you willing to sell?", chat_id
-    #             ),
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #         )
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="sell_amount")
             
-    # #-------------------------------------------------------------------------
-    
     # -----------------------------------------------------------------
     async def sell_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -478,7 +446,6 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="buy_price")
 
-
     # ───────────────────────────────────────────────────────────────────
     async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -555,53 +522,6 @@ class TradeHandler:
         payout = order["amount"] * order["price"]
         await self.db.credit_fiat_balance(seller_id, payout)
         self.logger.info(f"Credited fiat balance of seller {seller_id} by ${payout:.2f}")
-
-
-    # ───────────────────────────────────────────────────────────────────
-    # async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     query = update.callback_query
-    #     await query.answer()
-    #     seller_id = query.from_user.id
-
-    #     order_id = int(query.data.split("_")[-1])
-    #     order = await self.db.collection_orders.find_one({"order_id": order_id})
-    #     if not order or order["status"] != "open":
-    #         return await query.edit_message_reply_markup(None)   # Order closed / already taken
-
-    #     if seller_id == order.get("buyer_id"):
-    #         return await query.answer("You cannot sell to yourself.", show_alert=True)
-
-    #     # ── Check token balance of seller ──────────────────────────────
-    #     balance = await self.db.get_user_balance(seller_id)
-    #     if balance < order["amount"]:
-    #         return await query.answer("Insufficient token balance.", show_alert=True)
-
-    #     # ── Transfer tokens & close order ──────────────────────────────
-    #     await self.db.transfer_tokens(seller_id, order["buyer_id"], order["amount"])
-    #     await self.db.collection_orders.update_one(
-    #         {"order_id": order_id},
-    #         {"$set": {
-    #             "status":     "completed",
-    #             "seller_id":  seller_id,
-    #             "remaining":  0,
-    #             "updated_at": datetime.utcnow()
-    #         }}
-    #     )
-
-    #     # ── Notify parties ─────────────────────────────────────────────
-    #     await query.edit_message_text("✅ FILLED by seller.")
-    #     await context.bot.send_message(
-    #         order["buyer_id"], "🎉 Your buy order was filled! Tokens credited."
-    #     )
-    #     await context.bot.send_message(
-    #         seller_id,
-    #         "✅ You sold your tokens. Admin will send USDT to your withdraw balance soon."
-    #     )
-
-    #     # ── Credit seller’s fiat balance for payout ───────────────────
-    #     await self.db.credit_fiat_balance(seller_id, order["amount"] * order["price"])
-        
-
 
     # =========================================================================
     #  ب) دریافت و تأیید TxID خریدار
@@ -742,73 +662,3 @@ class TradeHandler:
 
         # ── پاک‌سازی state ──────────────────────────────────────────
         context.user_data.clear()
-
-#     async def paid_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-#         query = update.callback_query
-#         await query.answer("لطفاً TXID خود را ارسال کنید.", show_alert=False)
-
-#         # ذخیره order_id و تنظیم state
-#         order_id = int(query.data.split("_")[-1])
-#         context.user_data["pending_order"] = order_id
-#         context.user_data["state"] = "awaiting_trade_txid"
-
-    
-#     async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-#         """
-#         پس از زدن «💳 I Paid»:
-#         1) انتظار دریافت TXID
-#         2) تأیید در بلاک‌چین (مثال ساده)
-#         3) انتقال توکن در DB و بستن Order
-#         """
-#         buyer_id  = update.effective_chat.id
-#         order_id  = context.user_data.get("pending_order")
-#         if not order_id:
-#             return  # سفارشی در انتظار نیست
-
-#         txid = update.message.text.strip()
-#         if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
-#             return await update.message.reply_text("Invalid TXID, try again.")
-
-#         # ─── تأیید تراکنش در بلاک‌چین (Pseudo) ───────────────────
-#         order = await self.db.collection_orders.find_one({"order_id": order_id})
-#         expected_amount = order["amount"] * order["price"]
-#         confirmed = await self.blockchain.verify_txid(txid, TRON_WALLET, expected_amount)
-
-#         if not confirmed:
-#             return await update.message.reply_text("Payment not confirmed yet.")
-
-#         # ─── انتقال توکن در DB (اتمیک) ───────────────────────────
-#         await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
-#         await self.db.collection_orders.update_one(
-#             {"order_id": order_id},
-#             {"$set": {
-#                 "status":     "completed",
-#                 "buyer_id":   buyer_id,
-#                 "txid":       txid,
-#                 "updated_at": datetime.utcnow(),
-#             }}
-#         )
-
-#         # ─── ویرایش پیام کانال ──────────────────────────────────
-#         try:
-#             await update.get_bot().edit_message_text(
-#                 chat_id=TRADE_CHANNEL_ID,
-#                 message_id=order["channel_msg_id"],
-#                 text=(
-#                     f"✅ SOLD\n"
-#                     f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>"
-#                 ),
-#                 parse_mode="HTML",
-#             )
-#         except Exception:
-#             pass  # اگر پیام حذف یا ویرایش شده بود نادیده بگیر
-
-#         # ─── اعلان به طرفین ─────────────────────────────────────
-#         await update.get_bot().send_message(
-#             order["seller_id"], "🎉 Your tokens were sold! ✅"
-#         )
-#         await update.message.reply_text("Payment confirmed, tokens credited. ✅")
-
-#         # پاک‌سازی state
-#         context.user_data.clear()  
-# ##############################################################################################################

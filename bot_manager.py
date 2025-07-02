@@ -178,7 +178,6 @@ class BotManager:
                 referral_manager=self.referral_manager,
                 error_handler=self.error_handler,
                 blockchain=self.blockchain,          # ← جدید
-                # trade_wallet=TRADE_WALLET_ADDRESS,   # ← جدید
             )
             # لاگِ راه‌اندازی TradeHandler
             self.logger.info(
@@ -683,9 +682,6 @@ class BotManager:
             elif text_lower == '🌐 language':   
                 return await self.handle_language_button(update, context)  # ← اضافه کردن return  
             #######-------------------------------------------------------------------------------------
-               
-            # elif text_lower == '👤 profile':   
-            #     return await self.profile_handler.show_profile(update, context)  # ← اضافه کردن return  
 
             elif text_lower == '👤 profile':   
                 return await self.profile_handler.show_profile_menu(update, context)  # ← اضافه کردن return        
@@ -783,9 +779,7 @@ class BotManager:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="handle_private_message")
  
-             
 ###################################################################################################################
-
     async def handle_help_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """نمایش توضیح گزینه‌های Help & Support + تغییر state به «help_support_menu»"""
         try:
@@ -874,8 +868,6 @@ class BotManager:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="show_main_menu")          
             
-#######################################################################################################
-
     # ────────────────────────────────────────────────────────────
     async def back_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -955,97 +947,7 @@ class BotManager:
             "awaiting_language_detection": self.handle_language_button,
         }
 
-    # async def back_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     دکمهٔ «⬅️ Back» را هندل می‌کند:
-    #     • یک پله از پشتهٔ state کم می‌کند
-    #     • اگر handler مربوط وجود داشت همان را صدا می‌زند
-    #     • در غیر این صورت کاربر را به منوی اصلی می‌برد
-    #     """
-    #     try:
-    #         chat_id = update.effective_chat.id
-
-    #         prev_state = pop_state(context)      # یک قدم عقب
-    #         if prev_state is None:               # پشته خالی ➜ منوی اصلی
-    #             await self.show_main_menu(update, context)
-    #             return
-
-    #         # روتِر را (یک بار) بسازیم
-    #         router: dict[str, Callable] = getattr(self, "_state_router", {})
-    #         handler = router.get(prev_state)
-
-    #         if handler:
-    #             await handler(update, context)
-    #             self.logger.info(f"User {chat_id} navigated back to '{prev_state}'.")
-    #         else:
-    #             # هندلر ناشناخته ➜ منوی اصلی
-    #             self.logger.warning(f"No handler mapped for state '{prev_state}'. Sent main menu instead.")
-    #             await self.show_main_menu(update, context)
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="back_handler")
-         
-    # # ────────────────────────────────
-    # # ۱) جدول مسیریابی همهٔ state‌ها
-    # # ────────────────────────────────
-    # def _build_state_router(self) -> dict[str, Callable]:
-    #     return {
-            
-    #         # منوی عمومی
-            
-    #         "starting":                        self.start_command,
-            
-    #         # ───── مراحل خرید/فروش ────────────────────────────────────────────────────────────        
-               
-    #         "trade_menu":                      self.trade_handler.trade_menu,
-    #         "awaiting_sell_amount":            self.trade_handler.sell_start,
-    #         "awaiting_sell_price":             self.trade_handler.sell_price,
-    #         "awaiting_buy_amount":             self.trade_handler.buy_start,
-    #         "awaiting_buy_price":              self.trade_handler.buy_price,
-    #         "awaiting_txid":                   self.trade_handler.prompt_trade_txid,
-            
-    #         # ───── payment ─────────────────────────────────────────────────────────────────      
-    #         "showing_payment":                 self.payment_handler.show_payment_instructions,
-    #         "awaiting_sub_txid":               self.payment_handler.prompt_for_txid,
-    #         "sub_txid_received":               self.payment_handler.handle_txid,
-            
-    #         # ───── support / guide ─────────────────────────────────────────────────────────────────      
-    #         "help_support_menu":               self.handle_help_support,
-    #         "support_menu":                    self.support_handler.show_support_info,        
-    #         "showing_guide":                   self.help_handler.show_Guide,            
-            
-    #         "show_withdraw":                   self.withdraw_handler.show_withdraw,
-    #         "awaiting_withdraw_confirm":       self.withdraw_handler.confirm_withdraw_callback,            
-            
-    #         # ───── language─────────────────────────────────────────────────────────────────      
-    #         "awaiting_language_detection":     self.handle_language_button,
-            
-    #         # ───── profile ─────────────────────────────────────────────────────────────────      
-    #         "showing_profile":                 self.profile_handler.show_profile,
-            
-    #         "profile_menu":                     self.profile_handler.show_profile_menu,
-    #         "profile_wallet_menu":              self.profile_handler.show_wallet_menu,
-            
-    #         # ───── wallet ─────────────────────────────────────────────────────────────────      
-    #         "prompting_wallet":                self.profile_handler.edit_wallet,
-    #         "awaiting_wallet":                 self.profile_handler.handle_wallet_input,       
-    #         "initiating_transfer":             self.profile_handler.initiate_transfer,
-    #         "awaiting_transfer_amount":        self.profile_handler.handle_transfer_amount,
-    #         "view_balance":                    self.profile_handler.view_balance,
-    #         "view_history":                    self.profile_handler.view_history,
-     
-    #         # ───── showing_token_price ─────────────────────────────────────────────────────────────────      
-    #         "showing_token_price":             self.token_price_handler.show_price,
-            
-    #         # ───── convert_token ─────────────────────────────────────────────────────────────────      
-    #         "convert_token":                   self.convert_token_handler.coming_soon,
-            
-    #         # ───── earn_money_menu ─────────────────────────────────────────────────────────────────      
-    #         "earn_money_menu":                 self.earn_money_handler.coming_soon,
-            
-    #         # (در صورت نیاز وضعیت‌های دیگری هم اضافه کنید)
-    #     }
-
+    #----------------------------------------------------------------------------------------------------------
     async def handle_text(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.lower()
         menu_map = {
@@ -1166,30 +1068,6 @@ class BotManager:
             self.logger.error(f"Error during shutdown: {e}", exc_info=True)
             raise
         
-    # async def shutdown(self):
-    #     """پاکسازی منابع هنگام shutdown."""
-    #     try:
-    #         # توقف برنامه تلگرام
-    #         if self.application:
-    #             self.logger.info("Shutting down Telegram application...")
-    #             await self.application.stop()
-    #             await self.application.shutdown()
-    #             self.logger.info("Telegram application stopped successfully.")
-
-    #         # بستن اتصال به دیتابیس
-    #         if self.db:
-    #             self.logger.info("Closing database connection...")
-    #             await self.db.close()
-    #             self.logger.info("Database connection closed.")
-
-    #         # به‌روزرسانی وضعیت برنامه
-    #         self.is_running = False
-    #         self.logger.info("BotManager shutdown completed successfully.")
-
-    #     except Exception as e:
-    #         self.logger.error(f"Error during shutdown: {e}", exc_info=True)
-    #         raise
-        
     #---------------------------------------------------------------------------------------------------------        
     async def process_update(self, update: Update):
             """Process incoming update from Telegram."""
@@ -1239,92 +1117,4 @@ class BotManager:
             self.logger.error(f"Error during cleanup: {e}", exc_info=True)
             raise
               
-              
-              
-           
-    # async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     /start handler:
-    #     1) بررسی می‌کند کاربر عضو کانال @BlockchainBotTrades شده یا نه.
-    #        - اگر نباشد: پیام عضویت با دکمه‌های «➕ عضویت» و «✅ ادامه» می‌فرستد (state = awaiting_join_check)
-    #     2) اگر عضو است:
-    #        a) مطمئن می‌شود رکورد کاربر در دیتابیس وجود دارد.
-    #        b) اگر زبان تنظیم نشده: کیبورد انتخاب زبان می‌فرستد (state = awaiting_language_selection)
-    #        c) در غیر این صورت: منوی اصلی را نمایش می‌دهد (state = main_menu)
-    #     """
-    #     try:
-    #         chat_id    = update.effective_chat.id
-    #         first_name = update.effective_user.first_name
-
-    #         # ── ➊ بررسی عضویت در کانال ───────────────────────────────
-    #         try:
-    #             member = await context.bot.get_chat_member(
-    #                 chat_id="@BlockchainBotTrades",
-    #                 user_id=chat_id
-    #             )
-    #             if member.status in ("left", "kicked"):
-    #                 # ست‌کردن state برای Awaiting Join Check
-    #                 push_state(context, "awaiting_join_check")
-    #                 context.user_data['state'] = "awaiting_join_check"
-
-    #                 join_kb = InlineKeyboardMarkup([[ 
-    #                     InlineKeyboardButton("➕ Join Channel", url="https://t.me/BlockchainBotTrades"),
-    #                     InlineKeyboardButton("✅ Continue",     callback_data="check_join")
-    #                 ]])
-    #                 text = "🔒 Please join our official channel first, then click \"✅ Continue\"."
-
-                    
-    #                 if update.message:
-    #                     await update.message.reply_text(text, reply_markup=join_kb)
-    #                 else:
-    #                     await context.bot.send_message(chat_id, text, reply_markup=join_kb)
-    #                 return
-    #         except Exception:
-    #             # اگر بررسی عضویت با خطا روبرو شد، ادامه می‌دهیم
-    #             pass
-
-    #         # ── ➋ اطمینان از وجود کاربر در DB ──────────────────────
-    #         await self.db.insert_user_if_not_exists(chat_id, first_name)
-
-    #         # ── ➌ اگر زبان هنوز انتخاب نشده ───────────────────────
-    #         if not await self.db.is_language_prompt_done(chat_id):
-    #             # ست‌کردن state برای awaiting_language_detection
-    #             push_state(context, "awaiting_language_detection")
-    #             context.user_data['state'] = "awaiting_language_detection"
-
-    #             keyboard = [[
-    #                 InlineKeyboardButton("🌐 Change Language", callback_data="choose_language"),
-    #                 InlineKeyboardButton("⏭️ Skip",           callback_data="skip_language"),
-    #             ]]
-    #             msg = (
-    #                 "🛠️ <b>The default language of this bot is English.</b>\n\n"
-    #                 "If you'd like to use the bot in another language, tap <b>🌐 Change Language</b>.\n"
-    #                 "Otherwise, tap <b>⏭️ Skip</b> to continue in English.\n\n"
-    #                 "You can always change later with /language."
-    #             )
-    #             markup = InlineKeyboardMarkup(keyboard)
-    #             if update.message:
-    #                 await update.message.reply_text(msg, parse_mode="HTML", reply_markup=markup)
-    #             else:
-    #                 await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=markup)
-    #             return
-
-    #         # ── ➍ نمایش منوی اصلی ────────────────────────────────────
-    #         push_state(context, "main_menu")
-    #         context.user_data['state'] = "main_menu"
-
-    #         main_kb = await self.keyboards.build_main_menu_keyboard_v2(chat_id)
-    #         tpl = (
-    #             "Hello <b>{name}</b>!! Welcome to <b>Bot</b>. "
-    #             "I'm here to assist you — just choose an option from the menu below to begin. 👇"
-    #         )
-    #         msg = (await self.translation_manager.translate_for_user(tpl, chat_id)).format(name=first_name)
-
-    #         if update.message:
-    #             await update.message.reply_text(msg, parse_mode="HTML", reply_markup=main_kb)
-    #         else:
-    #             await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=main_kb)
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="start_command")
-              
+      
