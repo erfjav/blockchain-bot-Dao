@@ -23,7 +23,7 @@ class EarnMoneyHandler:
         translation_manager: TranslationManager,
     ) -> None:
         self.keyboards = keyboards
-        self.t = translation_manager
+        self.translation_manager = translation_manager
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def coming_soon(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -34,6 +34,6 @@ class EarnMoneyHandler:
         chat_id = update.effective_chat.id
         msg_en = "🚧 This feature is coming soon."
         await update.message.reply_text(
-            await self.t.translate_for_user(msg_en, chat_id),
+            await self.translation_manager.translate_for_user(msg_en, chat_id),
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
         )

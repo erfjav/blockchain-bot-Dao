@@ -12,6 +12,7 @@ from language_Manager import TranslationManager
 
 class ErrorHandler:
     def __init__(self, translation_manager: TranslationManager, keyboards: TranslatedKeyboards):
+        
         self.logger = logging.getLogger(__name__)
         self.translation_manager = translation_manager
         self.keyboards = keyboards

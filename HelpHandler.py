@@ -238,8 +238,10 @@ class HelpHandler:
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
+            
             msg_final = await self.translation_manager.translate_for_user(text, chat_id)
             await query.edit_message_text(msg_final, reply_markup=reply_markup, parse_mode="HTML")
+            
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_withdraw_callback")
 
@@ -265,7 +267,9 @@ class HelpHandler:
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
+            
             msg_final = await self.translation_manager.translate_for_user(text, chat_id)
+            
             await query.edit_message_text(msg_final, reply_markup=reply_markup, parse_mode="HTML")
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_trade_callback")

@@ -395,6 +395,7 @@ class PaymentHandler:
             # ➋ اعتبارسنجی فرمت TxID
             if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
                 msg = "❌ <b>Invalid TxID format.</b>\nPlease send a valid 64-character hash."
+                
                 translated = await self.translation_manager.translate_for_user(msg, chat_id)
                 return await update.message.reply_text(translated, parse_mode="HTML")
 
@@ -402,6 +403,7 @@ class PaymentHandler:
             order = await self.db.collection_orders.find_one({"order_id": order_id})
             if not order:
                 msg = "❌ <b>Order not found or expired.</b>\nPlease start a new trade."
+                
                 translated = await self.translation_manager.translate_for_user(msg, chat_id)
                 return await update.message.reply_text(translated, parse_mode="HTML")
 
@@ -411,6 +413,7 @@ class PaymentHandler:
             confirmed = await self.blockchain.verify_txid(txid, TRON_WALLET, expected_amount)
             if not confirmed:
                 msg = "⏳ <b>Payment not confirmed yet.</b>\nPlease wait a few moments and try again."
+                
                 translated = await self.translation_manager.translate_for_user(msg, chat_id)
                 return await update.message.reply_text(translated, parse_mode="HTML")
 

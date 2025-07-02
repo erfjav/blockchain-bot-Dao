@@ -32,8 +32,8 @@ class TokenPriceHandler:
     ) -> None:
         self.price_provider = price_provider
         self.keyboards = keyboards
-        self.t = translation_manager
-        self.eh = error_handler
+        self.translation_manager= translation_manager
+        self.error_handler = error_handler
         self.logger = logging.getLogger(self.__class__.__name__)
 
     async def show_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -48,8 +48,8 @@ class TokenPriceHandler:
             price = await self.price_provider.get_price()
             msg_en = f"Current token price: ${price:.4f}"
             await update.message.reply_text(
-                await self.t.translate_for_user(msg_en, chat_id),
+                await self.translation_manager.translate_for_user(msg_en, chat_id),
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
             )
         except Exception as e:
-            await self.eh.handle(update, context, e, context_name="show_price")
+            await self.error_handler.handle(update, context, e, context_name="show_price")

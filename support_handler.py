@@ -32,8 +32,8 @@ class SupportHandler:
         error_handler: ErrorHandler,
     ) -> None:
         self.keyboards = keyboards
-        self.t = translation_manager
-        self.eh = error_handler
+        self.translation_manager = translation_manager
+        self.error_handler = error_handler
         self.support_username = os.getenv("SUPPORT_USER_USERNAME", "YourSupportUser")
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -49,15 +49,17 @@ class SupportHandler:
                 "For any questions about payments, tokens, or technical issues, "
                 "message our support team at @" + self.support_username + "."
             )
+            
+            translated_msg = await self.translation_manager.translate_for_user(msg_en, chat_id)
             # استفاده از کیبورد Back/Exit
             reply_kb = await self.keyboards.build_back_exit_keyboard(chat_id)
 
             await update.message.reply_text(
-                await self.t.translate_for_user(msg_en, chat_id),
+                translated_msg,
                 parse_mode="HTML",
                 reply_markup=reply_kb,
             )
         except Exception as e:
-            await self.eh.handle(update, context, e, context_name="show_support_info")
+            await self.error_handler.handle(update, context, e, context_name="show_support_info")
 
 
