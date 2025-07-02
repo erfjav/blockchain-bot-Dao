@@ -676,7 +676,7 @@ class BotManager:
             elif text_lower == '💳 payment':
                 return await self.payment_handler.show_payment_instructions(update, context)  # ← اضافه کردن return
                 
-            elif text_lower == 'txid (transaction hash)':
+            elif text_lower == '#️⃣ txid (transaction hash)':
                 return await self.payment_handler.prompt_for_txid(update, context)  # ← اضافه کردن return               
 
             elif text_lower == '🌐 language':   
@@ -686,16 +686,15 @@ class BotManager:
             elif text_lower == '👤 profile':   
                 return await self.profile_handler.show_profile_menu(update, context)  # ← اضافه کردن return        
 
-            # وقتی کاربر از منوی پروفایل «See Profile» را می‌زند:
-            elif text_lower == 'see profile':
+            elif text_lower == '🕵️‍♂️ see profile':
                 return await self.profile_handler.show_profile(update, context)
 
             # وقتی کاربر از منوی پروفایل «Wallet» را می‌زند:
-            elif text_lower == 'wallet':
+            elif text_lower == '🏦 wallet':
                 return await self.profile_handler.show_wallet_menu(update, context)
             
             ###################################################################################################
-            elif text_lower == '👛 set wallet':
+            elif text_lower == '💼 set wallet':
                 return await self.profile_handler.edit_wallet(update, context)
 
             elif text_lower == '💼 edit wallet':
@@ -914,6 +913,10 @@ class BotManager:
             "support_menu":                self.support_handler.show_support_info,
             "showing_guide":               self.help_handler.show_Guide,
             "showing_payment":             self.payment_handler.show_payment_instructions,
+            
+                    # ▼ اضافه کردن state گم‌شده
+            "prompt_txid":                 self.payment_handler.show_payment_instructions,
+        
             "awaiting_sub_txid":           self.payment_handler.prompt_for_txid,
             "sub_txid_received":           self.payment_handler.handle_txid,
 
@@ -961,10 +964,10 @@ class BotManager:
             # Wallet buttons
             "👤 profile":                   "profile_menu",
 
-            "see profile":                  "showing_profile",
-            "wallet":                       "profile_wallet_menu",            
+            "🕵️‍♂️ see profile":               "showing_profile",
+            "🏦 wallet":                    "profile_wallet_menu",            
             
-            "👛 set wallet":                 "prompting_wallet",
+            "💼 set wallet":                "prompting_wallet",
             "💼 edit wallet":               "prompting_wallet",
             "🔄 transfer tokens":           "initiating_transfer",
             "💰 view balance":              "view_balance",
@@ -974,7 +977,7 @@ class BotManager:
             "🔄 convert token":             "convert_token",
             "💼 earn money":                "earn_money_menu",
             "💸 withdraw":                  "show_withdraw",        
-            "txid (transaction hash)":       "awaiting_sub_txid",
+            "#️⃣ txid (transaction hash)":   "awaiting_sub_txid",
             
         }
         state = menu_map.get(text)

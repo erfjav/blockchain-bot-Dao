@@ -137,7 +137,7 @@ class TranslatedKeyboards:
         کیبورد ساده شامل فقط دکمه‌های Back و Exit.
         """
         return [
-            ["TxID (transaction hash)"],
+            ["#️⃣ TxID (transaction hash)"],
             ["⬅️ Back", "➡️ Exit"]
         ]
 
@@ -169,7 +169,7 @@ class TranslatedKeyboards:
         کیبورد برای ثبت/ویرایش آدرس و عملیات کیف‌پول
         """
         return [
-            ["👛 Set Wallet", "💼 Edit Wallet"],
+            ["💼 Set Wallet", "💼 Edit Wallet"],
             ["🔄 Transfer Tokens", "💰 View Balance"],
             ["📜 View History"],
             ["⬅️ Back", "➡️ Exit"]
@@ -187,7 +187,7 @@ class TranslatedKeyboards:
         کیبورد برای ثبت/ویرایش آدرس و عملیات کیف‌پول
         """
         return [
-            ["See Profile", "Wallet"],
+            ["🕵️‍♂️ See Profile", "🏦 Wallet"],
             ["⬅️ Back", "➡️ Exit"]
         ]
 
