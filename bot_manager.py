@@ -760,6 +760,14 @@ class BotManager:
             elif current_state == 'awaiting_language_detection':
                 return await self.handle_language_detection(update, context)  # ← اضافه کردن return
 
+            # State-based handling for wallet input
+            elif current_state == 'awaiting_wallet':
+                return await self.profile_handler.handle_wallet_input(update, context)
+            
+            # State-based handling for transfer amount
+            elif current_state == 'awaiting_transfer_amount':
+                return await self.profile_handler.handle_transfer_amount(update, context)
+
             #--------------------------------------------------------------------------------
             else:
                 msg_en = "You're in the <b>main menu</b> now! I'm here to assist you — just <b>pick an option</b> below to begin. 👇"

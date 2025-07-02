@@ -95,6 +95,10 @@ class ProfileHandler:
         ["See Profile", "Wallet", "Back", "Exit"]
         """
         try:
+
+            # ➊ ثبت state در پشته
+            push_state(context, "profile_menu")
+            context.user_data["state"] = "profile_menu"            
             
             chat_id   = update.effective_chat.id
 
@@ -131,6 +135,10 @@ class ProfileHandler:
         شامل: ثبت/ویرایش آدرس، انتقال، موجودی و تاریخچه
         """
         try:
+            # ➊ ثبت state در پشته
+            push_state(context, "profile_wallet_menu")
+            context.user_data["state"] = "profile_wallet_menu"
+            
             chat_id   = update.effective_chat.id
 
             # پیام توضیح منوی کیف‌پول
@@ -351,6 +359,10 @@ class ProfileHandler:
         نمایش آدرس فعلی (اگر وجود دارد) و درخواست آدرس جدید کیف‌پول
         """
         try:
+                        # ذخیره state
+            push_state(context, "awaiting_wallet")
+            context.user_data["state"] = "awaiting_wallet"
+            
             chat_id = update.effective_chat.id
             old_address = await self.db.get_wallet_address(chat_id)
 
@@ -375,10 +387,6 @@ class ProfileHandler:
                 parse_mode="HTML",
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
-
-            # ذخیره state
-            push_state(context, "awaiting_wallet")
-            context.user_data["state"] = "awaiting_wallet"
 
         except Exception as e:
             self.logger.error(f"Error in edit_wallet: {e}")
