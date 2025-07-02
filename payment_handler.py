@@ -23,6 +23,16 @@ from blockchain_client import BlockchainClient
 from config import PAYMENT_WALLET_ADDRESS, TRADE_CHANNEL_ID
 from datetime import datetime
 
+TXID_REGEX = re.compile(r"^[0-9A-Fa-f]{64}$")   # 64-char hex
+
+# ───── ثابت‌های تنظیمی ───────────────────────────────────────────────
+JOIN_FEE_USDT   = 50
+TOKEN_SYMBOL    = "USDT"
+DECIMALS        = 6                             # USDT on TRON = 6 decimals
+POLL_INTERVAL   = 30                            # ثانیه
+MAX_ATTEMPTS    = 15                            # ≈ 7.5 دقیقه
+TREASURY_WALLET = os.getenv("TREASURY_WALLET", "").lower()  # به hex یا base58
+
 logger = logging.getLogger(__name__)
 
 
@@ -84,8 +94,8 @@ class PaymentHandler:
                 ]
             lines += [
                 "1️⃣ Send $50 USDT (TRC-20) to:",
-                f"<code>{self.wallet_address}</code>",
-                "2️⃣ When done, press the button below and select “TxID (transaction hash)”."
+                f"<code>{self.wallet_address}</code>\n\n",
+                "2️⃣ When done, press the button below and select <b>TxID (transaction hash)</b>."
             ]
             msg = "\n".join(lines)
 
@@ -149,25 +159,7 @@ class PaymentHandler:
                 parse_mode="HTML",
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
-
-    
-    # async def prompt_for_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     وقتی کاربر دکمه‌ی “TxID (transaction hash)” را می‌زند:
-    #     1) ست‌کردن state = awaiting_sub_txid
-    #     2) درخواست ارسال هش
-    #     """
-    #     chat_id = update.effective_chat.id
-
-    #     # ➊ رفتن به فاز دریافت TxID
-    #     # push_state(context, "awaiting_txid")
-    #     context.user_data["state"] = "awaiting_sub_txid"
-
-    #     await update.message.reply_text(
-    #         "🔔 لطفاً TxID (transaction hash) خود را ارسال کنید:",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-
+            
     #-------------------------------------------------------------------------------------   
     def is_valid_txid(self, txid: str) -> bool:
         """
@@ -177,161 +169,212 @@ class PaymentHandler:
         return bool(re.fullmatch(r"[0-9A-Fa-f]{64}", txid))
     
     #-------------------------------------------------------------------------------------  
-    
     async def handle_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
-        دریافت TxID از کاربر، ثبت در دیتابیس، ارسال پیام تأیید، و آغاز مانیتور پرداخت.
+        دریافت TxID از کاربر، بررسی اعتبار و تکراری نبودن، ثبت در DB،
+        و آغاز فرآیند تأیید در بلاک‌چین
         """
         chat_id = update.effective_chat.id
-        txid = update.message.text.strip()
+        txid = (update.message.text or "").strip()
 
         try:
-            # ➊ ثبت وضعیت
+            # ── ۱) ولیدیشن فرمت ───────────────────────────────
+            if not TXID_REGEX.fullmatch(txid):
+                invalid_msg = (
+                    "🚫 <b>Invalid TxID format.</b>\n"
+                    "Please send a valid 64-character hash containing only letters and numbers."
+                )
+                translated = await self.translation_manager.translate_for_user(invalid_msg, chat_id)
+                return await update.message.reply_text(
+                    translated,
+                    parse_mode="HTML",
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+                )
+
+            # ── ۲) چک تکراری‌بودن ─────────────────────────────
+            if await self.db.is_txid_used(txid):
+                duplicate_msg = (
+                    "❌ <b>This TxID has already been submitted.</b>\n"
+                    "If you think this is an error, please contact support."
+                )
+                translated = await self.translation_manager.translate_for_user(duplicate_msg, chat_id)
+                return await update.message.reply_text(
+                    translated,
+                    parse_mode="HTML",
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+                )
+
+            # ── ۳) درج در DB ─────────────────────────────────
+            try:
+                await self.db.store_payment_txid(chat_id, txid)
+            except Exception as e:
+                self.logger.error(f"[handle_txid] DB error: {e}", exc_info=True)
+                db_error_msg = (
+                    "🚫 <b>Internal error while storing your TxID.</b>\n"
+                    "Please try again later."
+                )
+                translated = await self.translation_manager.translate_for_user(db_error_msg, chat_id)
+                return await update.message.reply_text(
+                    translated,
+                    parse_mode="HTML",
+                    reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+                )
+
+            # ── ۴) ذخیره state ────────────────────────────────
             push_state(context, "sub_txid_received")
-            context.user_data["state"] = "txid_received"
+            context.user_data["state"] = "sub_txid_received"
 
-            # ➋ ذخیره TxID در دیتابیس
-            await self.db.store_payment_txid(chat_id, txid)
-
-            # ➌ پیام تأیید برای کاربر
-            confirm_text = (
+            # ── ۵) پیام تأیید به کاربر ───────────────────────
+            confirm_msg = (
                 "✅ <b>TxID received!</b>\n"
-                "We’ll notify you as soon as your payment is confirmed on the blockchain."
+                "We’ll notify you once your transaction is confirmed on the blockchain."
             )
-            translated = await self.translation_manager.translate_for_user(confirm_text, chat_id)
-
+            translated = await self.translation_manager.translate_for_user(confirm_msg, chat_id)
             await update.message.reply_text(
                 translated,
                 parse_mode="HTML",
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
-            # ➍ آغاز تسک پس‌زمینه برای مانیتور پرداخت
+            # ── ۶) آغاز پایش بلاک‌چین ─────────────────────────
             context.application.create_task(
-                self.monitor_payment(chat_id, txid, context.bot)
+                self.monitor_payment(chat_id=chat_id, txid=txid, bot=context.bot)
             )
 
         except Exception as e:
-            self.logger.error(f"Error in handle_txid: {e}", exc_info=True)
-
-            error_text = (
-                "🚫 <b>Something went wrong while processing your TxID.</b>\n"
+            self.logger.error(f"Unexpected error in handle_txid: {e}", exc_info=True)
+            error_msg = (
+                "⚠️ <b>An unexpected error occurred while processing your TxID.</b>\n"
                 "Please try again later or contact support."
             )
-            translated_error = await self.translation_manager.translate_for_user(error_text, chat_id)
-
+            translated = await self.translation_manager.translate_for_user(error_msg, chat_id)
             await update.message.reply_text(
-                translated_error,
+                translated,
                 parse_mode="HTML",
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
-    
-     
-    # async def handle_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     دریافت TxID از کاربر، درج آن در DB و آغاز مانیتور پرداخت.
-    #     به‌جای تخصیص توکن اینجا، تسکی می‌سازیم که خودکار پرداخت را تأیید و
-    #     سپس پروفایل کاربر را نهایی کند.
-    #     """
-    #     chat_id = update.effective_chat.id
-    #     txid    = update.message.text.strip()
 
-    #     # ➊ ست کردن state جدید
-    #     push_state(context, "sub_txid_received")
-    #     context.user_data["state"] = "txid_received"
-
-    #     # ➋ ذخیره TxID در DB
-    #     await self.db.store_payment_txid(chat_id, txid)
-
-    #     # ➌ پیام اولیه به کاربر
-    #     await update.message.reply_text(
-    #         "✅ TxID received! We will notify you once your payment is confirmed.",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-
-    #     # ➍ ساخت تسک پس‌زمینه برای مانیتور پرداخت
-    #     #    از context.application برای ایجاد task استفاده می‌کنیم
-    #     context.application.create_task(
-    #         self.monitor_payment(chat_id, txid, context.bot)
-    #     )
-        
-    #-------------------------------------------------------------------------------------   
-    async def monitor_payment(self, chat_id: int, txid: str, bot, context: ContextTypes.DEFAULT_TYPE):
+    # ─────────────────────────────────────────────────────────────────────
+    async def monitor_payment(self,
+                            chat_id: int,
+                            txid: str,
+                            context: ContextTypes.DEFAULT_TYPE) -> None:
         """
-        هر ۳۰ ثانیه وضعیت تراکنش TRC-20 را در ترون‌گرید چک می‌کند
-        تا ۱۰ بار؛ اگر تأیید شود:
-          1) status → 'confirmed'
-          2) ensure_user → ثبت‌نام و تخصیص توکن
-          3) ارسال پیام تأیید به کاربر
-        در غیر این صورت بعد از ۱۰ تلاش:
-          status → 'failed'
-          پیام خطا به کاربر
+        پایش تراکنش در TronGrid و تأیید همهٔ شروط امنیتی:
+        • وضعیت SUCCESS
+        • to_address == TREASURY_WALLET
+        • symbol == USDT
+        • amount >= JOIN_FEE_USDT
+        • owner_address == wallet ثبت‌شدهٔ کاربر (در صورت وجود)
+        در صورت موفقیت: status = confirmed  → تخصیص توکن  → پیام موفق
+        در غیر این صورت: پس از MAX_ATTEMPTS → status = failed → پیام خطا
         """
+        bot = context.bot
+        user_wallet = await self.db.get_wallet_address(chat_id)      # ممکن است None باشد
+
         tron_api = f"https://api.trongrid.io/wallet/gettransactionbyid?value={txid}"
-        max_attempts = 10
-        for attempt in range(max_attempts):
+
+        for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(tron_api)
                     data = resp.json()
-                # بررسی ret[0].contractRet == 'SUCCESS'
-                if data.get("ret") and data["ret"][0].get("contractRet") == "SUCCESS":
-                    # ➊ به‌روزرسانی وضعیت در DB
+
+                # ───── وضعیت تراکنش ─────────────────────────────────────
+                status_ok = (
+                    data.get("ret") and
+                    data["ret"][0].get("contractRet") == "SUCCESS"
+                )
+
+                # ───── آدرس‌های مقصد / مبدا ─────────────────────────────
+                prm_value  = data["raw_data"]["contract"][0]["parameter"]["value"]
+                to_addr    = prm_value.get("to_address", "").lower()
+                owner_addr = prm_value.get("owner_address", "").lower()
+
+                # اگر TREASURY_WALLET در base58 آمده، به hex تبدیل کنید یا برعکس
+                to_ok    = to_addr == TREASURY_WALLET
+                owner_ok = True if user_wallet is None else owner_addr == user_wallet.lower()
+
+                # ───── توکن و مبلغ ──────────────────────────────────────
+                token_ok  = data.get("tokenInfo", {}).get("symbol") == TOKEN_SYMBOL
+                amount    = int(data.get("amount_str", "0")) / 10**DECIMALS
+                amount_ok = amount >= JOIN_FEE_USDT
+
+                # ───── سناریوی موفقیت کامل ─────────────────────────────
+                if status_ok and to_ok and owner_ok and token_ok and amount_ok:
                     await self.db.update_payment_status(txid, "confirmed")
 
-                    # ➋ ثبت نهایی کاربر و تخصیص توکن
                     profile = await self.referral_manager.ensure_user(
                         chat_id,
-                        # فرض: inviter_code قبلاً در context.user_data ذخیره شده
                         inviter_code=context.user_data.get("inviter_code"),
                         first_name=bot.get_chat(chat_id).first_name
                     )
 
-                    # ➌ پیام تأیید به کاربر
-                    msg = (
+                    success_msg = (
                         f"✅ Payment confirmed!\n\n"
-                        f"Your profile is now active:\n"
                         f"• Member No: <b>{profile['member_no']}</b>\n"
                         f"• Referral Code: <code>{profile['referral_code']}</code>\n"
                         f"• Tokens Allocated: <b>{profile['tokens']:.0f}</b>"
                     )
-                    
-                    translated = await self.translation_manager.translate_for_user(msg, chat_id)
+                    translated = await self.translation_manager.translate_for_user(
+                        success_msg, chat_id
+                    )
                     await bot.send_message(
                         chat_id,
                         translated,
                         parse_mode="HTML",
                         reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id)
                     )
-                    
-                    self.logger.info(f"✅ Payment confirmed for user {chat_id}")
+                    self.logger.info(f"[monitor_payment] ✅ confirmed for {chat_id}")
+                    return
+
+                # ───── تراکنش یافت شد ولی شرایط کافی نیست ───────────────
+                if status_ok and (not to_ok or not token_ok or not amount_ok or not owner_ok):
+                    await self.db.update_payment_status(txid, "failed")
+                    fail_reason = "destination / amount / owner mismatch"
+                    self.logger.warning(f"[monitor_payment] {fail_reason} for {chat_id}")
+
+                    warn_msg = (
+                        "❌ TxID is valid but does not match the required criteria "
+                        "(destination, amount, or your wallet). Please verify and try again."
+                    )
+                    translated_warn = await self.translation_manager.translate_for_user(
+                        warn_msg, chat_id
+                    )
+                    await bot.send_message(
+                        chat_id,
+                        translated_warn,
+                        parse_mode="HTML",
+                        reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+                    )
                     return
 
             except Exception as e:
-                self.logger.warning(f"Attempt {attempt + 1} failed for txid {txid}: {e}")
+                self.logger.warning(f"[monitor_payment] attempt {attempt}: {e}")
 
-            await asyncio.sleep(30)
+            # ───── صبر و تلاش مجدد ──────────────────────────────────────
+            await asyncio.sleep(POLL_INTERVAL)
 
-        # پس از شکست در تمام تلاش‌ها
+        # ───── پس از تلاش‌های بی‌نتیجه ─────────────────────────────────
         await self.db.update_payment_status(txid, "failed")
-        fail_text = (
-            "❌ <b>Payment could not be confirmed automatically.</b>\n"
-            "Please contact support to resolve the issue."
+        error_msg = (
+            "❌ <b>Payment was not confirmed within the expected time.</b>\n"
+            "If you already paid, please contact support with your TxID."
         )
-        translated_error = await self.translation_manager.translate_for_user(fail_text, chat_id)
+        translated_error = await self.translation_manager.translate_for_user(
+            error_msg, chat_id
+        )
         await bot.send_message(
             chat_id,
             translated_error,
             parse_mode="HTML",
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
         )
-        self.logger.warning(f"❌ Payment confirmation failed after {max_attempts} tries for txid {txid}")
-
+        self.logger.warning(f"[monitor_payment] FAILED after {MAX_ATTEMPTS} for {chat_id}")    
+        
     # =========================================================================
     #  ب) دریافت و تأیید TxID خریدار
     # =========================================================================
-    
-    
     async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         پس از زدن «💳 I Paid»:
@@ -424,63 +467,131 @@ class PaymentHandler:
             # 🧼 پاک‌سازی state
             context.user_data.clear()
     
+   
+   
+
+
+###################################################################################################################
+    # async def monitor_payment(self, chat_id: int, txid: str, bot, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     هر ۳۰ ثانیه وضعیت تراکنش TRC-20 را در ترون‌گرید چک می‌کند
+    #     تا ۱۰ بار؛ اگر تأیید شود:
+    #       1) status → 'confirmed'
+    #       2) ensure_user → ثبت‌نام و تخصیص توکن
+    #       3) ارسال پیام تأیید به کاربر
+    #     در غیر این صورت بعد از ۱۰ تلاش:
+    #       status → 'failed'
+    #       پیام خطا به کاربر
+    #     """
+    #     tron_api = f"https://api.trongrid.io/wallet/gettransactionbyid?value={txid}"
+    #     max_attempts = 10
+    #     for attempt in range(max_attempts):
+    #         try:
+    #             async with httpx.AsyncClient(timeout=10) as client:
+    #                 resp = await client.get(tron_api)
+    #                 data = resp.json()
+    #             # بررسی ret[0].contractRet == 'SUCCESS'
+    #             if data.get("ret") and data["ret"][0].get("contractRet") == "SUCCESS":
+    #                 # ➊ به‌روزرسانی وضعیت در DB
+    #                 await self.db.update_payment_status(txid, "confirmed")
+
+    #                 # ➋ ثبت نهایی کاربر و تخصیص توکن
+    #                 profile = await self.referral_manager.ensure_user(
+    #                     chat_id,
+    #                     # فرض: inviter_code قبلاً در context.user_data ذخیره شده
+    #                     inviter_code=context.user_data.get("inviter_code"),
+    #                     first_name=bot.get_chat(chat_id).first_name
+    #                 )
+
+    #                 # ➌ پیام تأیید به کاربر
+    #                 msg = (
+    #                     f"✅ Payment confirmed!\n\n"
+    #                     f"Your profile is now active:\n"
+    #                     f"• Member No: <b>{profile['member_no']}</b>\n"
+    #                     f"• Referral Code: <code>{profile['referral_code']}</code>\n"
+    #                     f"• Tokens Allocated: <b>{profile['tokens']:.0f}</b>"
+    #                 )
+                    
+    #                 translated = await self.translation_manager.translate_for_user(msg, chat_id)
+    #                 await bot.send_message(
+    #                     chat_id,
+    #                     translated,
+    #                     parse_mode="HTML",
+    #                     reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id)
+    #                 )
+                    
+    #                 self.logger.info(f"✅ Payment confirmed for user {chat_id}")
+    #                 return
+
+    #         except Exception as e:
+    #             self.logger.warning(f"Attempt {attempt + 1} failed for txid {txid}: {e}")
+
+    #         await asyncio.sleep(30)
+
+    #     # پس از شکست در تمام تلاش‌ها
+    #     await self.db.update_payment_status(txid, "failed")
+    #     fail_text = (
+    #         "❌ <b>Payment could not be confirmed automatically.</b>\n"
+    #         "Please contact support to resolve the issue."
+    #     )
+    #     translated_error = await self.translation_manager.translate_for_user(fail_text, chat_id)
+    #     await bot.send_message(
+    #         chat_id,
+    #         translated_error,
+    #         parse_mode="HTML",
+    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #     )
+    #     self.logger.warning(f"❌ Payment confirmation failed after {max_attempts} tries for txid {txid}")   
     
-    # async def prompt_trade_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     پس از زدن «💳 I Paid»:
-    #     1) انتظار دریافت TXID
-    #     2) تأیید در بلاک‌چین (مثال ساده)
-    #     3) انتقال توکن در DB و بستن Order
-    #     """
-    #     buyer_id  = update.effective_chat.id
-    #     order_id  = context.user_data.get("pending_order")
-    #     if not order_id:
-    #         return  # سفارشی در انتظار نیست
 
+
+   
+    # async def handle_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     دریافت TxID از کاربر، ثبت در دیتابیس، ارسال پیام تأیید، و آغاز مانیتور پرداخت.
+    #     """
+    #     chat_id = update.effective_chat.id
     #     txid = update.message.text.strip()
-    #     if not re.fullmatch(r"[0-9A-Fa-f]{64}", txid):
-    #         return await update.message.reply_text("Invalid TXID, try again.")
 
-    #     # ─── تأیید تراکنش در بلاک‌چین (Pseudo) ───────────────────
-    #     order = await self.db.collection_orders.find_one({"order_id": order_id})
-    #     expected_amount = order["amount"] * order["price"]
-    #     confirmed = await self.blockchain.verify_txid(txid, TRON_WALLET, expected_amount)
-
-    #     if not confirmed:
-    #         return await update.message.reply_text("Payment not confirmed yet.")
-
-    #     # ─── انتقال توکن در DB (اتمیک) ───────────────────────────
-    #     await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
-    #     await self.db.collection_orders.update_one(
-    #         {"order_id": order_id},
-    #         {"$set": {
-    #             "status":     "completed",
-    #             "buyer_id":   buyer_id,
-    #             "txid":       txid,
-    #             "updated_at": datetime.utcnow(),
-    #         }}
-    #     )
-
-    #     # ─── ویرایش پیام کانال ──────────────────────────────────
     #     try:
-    #         await update.get_bot().edit_message_text(
-    #             chat_id=TRADE_CHANNEL_ID,
-    #             message_id=order["channel_msg_id"],
-    #             text=(
-    #                 f"✅ SOLD\n"
-    #                 f"Buyer: <a href='tg://user?id={buyer_id}'>link</a>"
-    #             ),
-    #             parse_mode="HTML",
+    #         # ➊ ثبت وضعیت
+    #         push_state(context, "sub_txid_received")
+    #         context.user_data["state"] = "sub_txid_received"
+
+    #         # ➋ ذخیره TxID در دیتابیس
+    #         await self.db.store_payment_txid(chat_id, txid)
+
+    #         # ➌ پیام تأیید برای کاربر
+    #         confirm_text = (
+    #             "✅ <b>TxID received!</b>\n"
+    #             "We’ll notify you as soon as your payment is confirmed on the blockchain."
     #         )
-    #     except Exception:
-    #         pass  # اگر پیام حذف یا ویرایش شده بود نادیده بگیر
+    #         translated = await self.translation_manager.translate_for_user(confirm_text, chat_id)
 
-    #     # ─── اعلان به طرفین ─────────────────────────────────────
-    #     await update.get_bot().send_message(
-    #         order["seller_id"], "🎉 Your tokens were sold! ✅"
-    #     )
-    #     await update.message.reply_text("Payment confirmed, tokens credited. ✅")
+    #         await update.message.reply_text(
+    #             translated,
+    #             parse_mode="HTML",
+    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #         )
 
-    #     # پاک‌سازی state
-    #     context.user_data.clear()
+    #         # ➍ آغاز تسک پس‌زمینه برای مانیتور پرداخت
+    #         context.application.create_task(
+    #             self.monitor_payment(chat_id, txid, context.bot)
+    #         )
 
+    #     except Exception as e:
+    #         self.logger.error(f"Error in handle_txid: {e}", exc_info=True)
+
+    #         error_text = (
+    #             "🚫 <b>Something went wrong while processing your TxID.</b>\n"
+    #             "Please try again later or contact support."
+    #         )
+    #         translated_error = await self.translation_manager.translate_for_user(error_text, chat_id)
+
+    #         await update.message.reply_text(
+    #             translated_error,
+    #             parse_mode="HTML",
+    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #         )
+            
+    #-------------------------------------------------------------------------------------       

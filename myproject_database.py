@@ -11,6 +11,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError
 from pymongo import ReturnDocument, ASCENDING
 
+
 class Database:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -72,6 +73,12 @@ class Database:
                 sparse=True,
                 name="unique_wallet_address"
             )         
+            
+            await self.collection_payments.create_index(
+                [("txid", ASCENDING)],
+                unique=True,
+                name="unique_txid"          # prevents duplicate hashes
+            )            
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
@@ -247,7 +254,7 @@ class Database:
             {"$set": {"tokens": max(0, new_balance)}},
             upsert=True
         )
-        
+############---------------------------------------------------------------------------------------     
     async def store_payment_txid(self, user_id: int, txid: str) -> None:
         """
         ذخیره‌ی Hash تراکنش (TxID) برای پرداخت join fee.
@@ -267,10 +274,9 @@ class Database:
             "txid":       txid,
             "timestamp":  datetime.utcnow(),
             "status":     "pending"
-        })        
-        
-# در کلاس Database ...
-
+        })    
+            
+    #-----------------------------------------------------------------------------
     async def update_payment_status(self, txid: str, status: str) -> None:
         """
         به‌روزرسانی وضعیت سند پرداخت:
@@ -284,7 +290,12 @@ class Database:
                 "updated_at": datetime.utcnow()
             }}
         )
+    #-----------------------------------------------------------------------------
+    async def is_txid_used(self, txid: str) -> bool:
+        """Return True if this TxID already exists in payments."""
+        return await self.collection_payments.count_documents({"txid": txid}) > 0
 
+############################################################################################################
     # ------------------------------------------------------------------
     async def _generate_member_no(self) -> int:
         """
@@ -542,7 +553,7 @@ class Database:
             {"_id": 0, "amount": 1, "event_type": 1, "description": 1, "timestamp": 1}
         ).sort("timestamp", -1).limit(limit)
         return await cursor.to_list(length=limit)
-    
+      
     #------------------------------------------------------------------------------------
     async def close(self):
             """
