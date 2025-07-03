@@ -274,23 +274,43 @@ class ProfileHandler:
                 start_idx: int = (page - 1) * PAGE_SIZE + 1
                 
                 for idx, member in enumerate(downline, start=start_idx):
-                    # ✅ FIX: Sanitize and limit button text length
-                    first_name_clean = sanitize_button_text(str(member.get('first_name', 'Unknown')), 20)
-                    referral_code_clean = sanitize_button_text(str(member.get('referral_code', 'N/A')), 15)
+                    # ✅ FIX: Properly handle and sanitize member data
+                    first_name_raw = member.get('first_name', '')
+                    referral_code_raw = member.get('referral_code', '')
                     
-                    # Create button text with length limit
+                    # Clean and validate first_name
+                    if not first_name_raw or not str(first_name_raw).strip():
+                        first_name_clean = "Unknown"
+                    else:
+                        first_name_clean = sanitize_button_text(str(first_name_raw), 20)
+                    
+                    # Clean and validate referral_code
+                    if not referral_code_raw or not str(referral_code_raw).strip():
+                        referral_code_clean = "N/A"
+                    else:
+                        referral_code_clean = sanitize_button_text(str(referral_code_raw), 15)
+                    
+                    # Create button text with proper formatting
                     button_text = f"{idx}. {first_name_clean} — {referral_code_clean}"
                     
-                    # Double-check final length
+                    # Final validation - ensure text is not empty and within limits
+                    if not button_text.strip():
+                        button_text = f"{idx}. Member #{idx}"
+                    
+                    # Double-check final length (Telegram limit is 64 characters)
                     if len(button_text) > 60:
                         button_text = button_text[:57] + "..."
                     
-                    rows.append([
-                        InlineKeyboardButton(
-                            button_text,
-                            callback_data="noop",
-                        )
-                    ])
+                    # Final safety check - ensure no empty or invalid characters
+                    button_text = ''.join(c for c in button_text if c.isprintable() and ord(c) < 65536)
+                    
+                    if button_text.strip():  # Only add if button text is valid
+                        rows.append([
+                            InlineKeyboardButton(
+                                button_text,
+                                callback_data="noop",
+                            )
+                        ])
 
                 # Pagination
                 total_pages = max(1, math.ceil(downline_count / PAGE_SIZE))
