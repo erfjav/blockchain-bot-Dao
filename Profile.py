@@ -55,7 +55,21 @@ def valid_wallet_format(address: str, chain: str = "ETH") -> bool:
         # برای سایر زنجیره‌ها فقط از coinaddrvalidator بهره ببر
         return validate(address, chain.upper())
 
-
+def sanitize_button_text(text: str, max_length: int = 60) -> str:
+    """
+    تمیز کردن و کوتاه کردن متن دکمه‌های inline keyboard
+    """
+    if not text:
+        return "Unknown"
+    
+    # حذف کاراکترهای ممنوعه
+    sanitized = ''.join(c for c in text if c.isprintable() and c not in ['<', '>', '&', '"', "'"])
+    
+    # کوتاه کردن متن
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length-3] + "..."
+    
+    return sanitized or "Unknown"
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
 logger = logging.getLogger(__name__)
@@ -169,7 +183,6 @@ class ProfileHandler:
 
 #########----------------------------------------------------------------------------------------------------
 
-    # -----------------------------------------------------------------
     async def show_profile(
         self,
         update: Update,
@@ -190,7 +203,7 @@ class ProfileHandler:
             else:
                 chat_id = update.effective_chat.id
                 page = 1
-                reply_func = update.message.reply_text  # type: ignore[attr-defined]
+                reply_func = update.message.reply_text
 
             first_name: str = (
                 update.effective_user.first_name if update.effective_user else "Friend"
@@ -235,14 +248,14 @@ class ProfileHandler:
                 lines += [
                     "",
                     (
-                        "<b>You don’t have a profile yet.</b> To view your full profile details — "
+                        "<b>You don't have a profile yet.</b> To view your full profile details — "
                         "including your <b>tokens</b>, <b>commissions</b>, and <b>down-line statistics</b> — "
                         "please <b>join a plan</b> first."
                     )
                 ]
 
             # 6) Inline keyboard – share link always first
-            bot_username: str = context.bot.username  # e.g. AskGenieAIbot
+            bot_username: str = context.bot.username
             deep_link: str = f"https://t.me/{bot_username}?start={referral_code}"
 
             share_url: str = (
@@ -255,17 +268,27 @@ class ProfileHandler:
                 [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
             ]
 
-            # 7) Down-line list (only if joined & has referrals)
+            # 7) Down-line list (only if joined & has referrals) - FIXED VERSION
             if joined and downline_count:
                 downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
                 start_idx: int = (page - 1) * PAGE_SIZE + 1
+                
                 for idx, member in enumerate(downline, start=start_idx):
-
-                    # ⬇️ فقط این سطر اصلاح شده است:  <code> … </code> حذف شد
+                    # ✅ FIX: Sanitize and limit button text length
+                    first_name_clean = sanitize_button_text(str(member.get('first_name', 'Unknown')), 20)
+                    referral_code_clean = sanitize_button_text(str(member.get('referral_code', 'N/A')), 15)
+                    
+                    # Create button text with length limit
+                    button_text = f"{idx}. {first_name_clean} — {referral_code_clean}"
+                    
+                    # Double-check final length
+                    if len(button_text) > 60:
+                        button_text = button_text[:57] + "..."
+                    
                     rows.append([
                         InlineKeyboardButton(
-                            f"{idx}. {member['first_name']} — {member['referral_code']}",
-                            callback_data="noop",  # informational only
+                            button_text,
+                            callback_data="noop",
                         )
                     ])
 
@@ -289,12 +312,11 @@ class ProfileHandler:
                 InlineKeyboardButton("Exit", callback_data="exit"),
             ])
 
-            inline_kb = InlineKeyboardMarkup(rows)
+            # 9) Build inline keyboard with translation
             inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
-
             translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
 
-            # 9) Send / edit
+            # 10) Send / edit
             await reply_func(
                 translated_text,
                 parse_mode="HTML",
@@ -306,7 +328,7 @@ class ProfileHandler:
                 chat_id
             )
 
-            # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit)
+            # 11) Reply-Keyboard (⬅️ Back / ➡️ Exit)
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=translated_note,
@@ -314,6 +336,7 @@ class ProfileHandler:
             )
 
         except Exception as exc:
+            self.logger.error(f"Error in show_profile: {exc}")
             await self.error_handler.handle(update, context, exc, context_name="show_profile")
 
     # async def show_profile(
