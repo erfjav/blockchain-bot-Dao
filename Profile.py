@@ -265,7 +265,7 @@ class ProfileHandler:
                     
                     rows.append([
                         InlineKeyboardButton(
-                            f"{idx}. {member['first_name']} — <code>{member['referral_code']}</code>",
+                            f"{idx}. {member['first_name']} — {member['referral_code']}",
                             callback_data="noop",  # informational only
                         )
                     ])
@@ -291,6 +291,7 @@ class ProfileHandler:
             ])
 
             # inline_kb = InlineKeyboardMarkup(rows)
+            
             inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
 
             translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
