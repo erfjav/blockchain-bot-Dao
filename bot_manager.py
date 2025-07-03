@@ -172,7 +172,7 @@ class BotManager:
                 translation_manager=self.translation_manager,
                 inline_translator=self.inline_translator,
                 error_handler=self.error_handler,
-                # blockchain_client=self.blockchain   # فقط اگر تسویهٔ آنی دارید
+                blockchain_client=self.blockchain   # فقط اگر تسویهٔ آنی دارید
             )
             self.logger.info("WithdrawHandler initialized.")
 ############################################################################################################

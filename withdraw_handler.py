@@ -14,10 +14,16 @@ from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
+from blockchain_client import BlockchainClient
 from state_manager import push_state, pop_state
 
+import config
 
 # ───── پیکربندی ثابت‌ها ────────────────────────────────────────────
+
+SPLIT_WALLET_A      = config.SPLIT_WALLET_A.lower()
+SPLIT_WALLET_A_PRIV = config.SPLIT_WALLET_A_PRIV
+
 WITHDRAW_AMOUNT_USD   = 50               # مبلغ ثابت عضویت
 REQUIRED_REFERRALS    = 2                # حداقل زیرمجموعهٔ مستقیم
 PROCESSING_NOTE       = (
@@ -45,7 +51,7 @@ class WithdrawHandler:
         translation_manager: TranslationManager,
         error_handler: ErrorHandler,
         # blockchain (اختیاری – اگر تسویه خودکار دارید)
-        # blockchain_client: BlockchainClient | None = None,
+        blockchain_client: BlockchainClient | None = None,
     ) -> None:
         self.db = db
         self.referral_manager = referral_manager
@@ -53,7 +59,7 @@ class WithdrawHandler:
         self.translation_manager = translation_manager
         self.inline_translator = inline_translator
         self.error_handler = error_handler
-        # self.blockchain = blockchain_client
+        self.blockchain = blockchain_client
         self.logger = logging.getLogger(self.__class__.__name__)
 
     # ───────────────────────────────── Telegram entry-point ───────────────────
@@ -127,26 +133,29 @@ class WithdrawHandler:
         except Exception as exc:
             await self.error_handler.handle(update, context, exc, "show_withdraw_menu")
 
-    # ─────────────────────────────── تأیید نهایی ───────────────────────────────
+
+    # ──────────────────────────────────────────────────────────────────
     async def confirm_withdraw_callback(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         """
-        کاربر دکمهٔ «Confirm Withdraw» را می‌زند.
-        • درخواست در DB ثبت می‌شود
-        • زیرمجموعه‌ها حذف و عضویت به حالت «withdrawn» می‌رود
-        • پیام موفقیت و زمان‌بندی پرداخت ارسال می‌شود
+        هنگامی که کاربر «✔️ Confirm Withdraw» می‌زند:
+        1) شرایط دوباره چک می‌شود
+        2) درخواست در DB ثبت می‌گردد
+        3) ۵۰ USDT از کیف‌پول A به آدرس کاربر ارسال می‌شود
+        4) txid در DB ذخیره و پیام موفقیت به کاربر نمایش داده می‌شود
         """
         query = update.callback_query
         await query.answer()
         chat_id = query.from_user.id
 
         try:
-            wallet = await self.db.get_wallet_address(chat_id)
+            # ─── اطلاعات کاربر
+            wallet       = await self.db.get_wallet_address(chat_id)
             downline_cnt = await self.db.get_downline_count(chat_id)
 
-            # آخرین چک سریع
-            if downline_cnt < REQUIRED_REFERRALS:
+            # ─── شرایط برداشت
+            if downline_cnt < REQUIRED_REFERRALS or not wallet:
                 text = (
                     "❌ Withdrawal conditions are no longer satisfied.\n"
                     "Please refresh the page and try again."
@@ -154,37 +163,113 @@ class WithdrawHandler:
                 await query.edit_message_text(text, parse_mode="HTML")
                 return
 
-            # ➊ ثبت درخواست برداشت در DB
-            await self.db.create_withdraw_request(
-                chat_id,
-                wallet,
-                WITHDRAW_AMOUNT_USD,
-            )
+            # ➊ ثبت درخواست در DB (status=pending)
+            await self.db.create_withdraw_request(chat_id, wallet, WITHDRAW_AMOUNT_USD)
 
-            # ➋ پاک‌سازی زیرمجموعه‌ها + تغییر وضعیت عضویت
+            # ➋ پاک‌سازی زیرمجموعه‌ها و وضعیت
             await self.db.clear_downline(chat_id)
             await self.db.mark_membership_withdrawn(chat_id)
 
-            # ➌ (اختیاری) انتقال آنی روی بلاک‌چین
-            # tx_id = await self.blockchain.transfer_usdt(wallet, WITHDRAW_AMOUNT_USD)
-
-            # ➍ پیام موفقیت
-            translated = await self.translation_manager.translate_for_user(
-                f"✅ Withdrawal request registered.\n{PROCESSING_NOTE}", chat_id
+            # ➌ انتقال آنی روی بلاک‌چین (از SPLIT_WALLET_A)
+            tx_id: str = await self.blockchain.transfer_trc20(
+                from_private_key=SPLIT_WALLET_A_PRIV,
+                to_address=wallet,
+                amount=WITHDRAW_AMOUNT_USD,
+                memo=f"withdraw-{chat_id}",
             )
+
+            # ➍ ثبت txid و تغییر وضعیت در DB
+            await self.db.mark_withdraw_paid(chat_id, tx_id)
+
+            # ➎ پیام موفقیت به کاربر
+            success_msg = (
+                f"✅ Withdrawal successful!\n\n"
+                f"• Amount: <b>{WITHDRAW_AMOUNT_USD:.2f} USDT</b>\n"
+                f"• TxID: <code>{tx_id}</code>\n\n"
+                "Funds will appear after network confirmations."
+            )
+            translated = await self.translation_manager.translate_for_user(success_msg, chat_id)
             await query.edit_message_text(translated, parse_mode="HTML")
 
-            # ➎ Reply-keyboard Back/Exit
+            # ➏ برگشت به منوی اصلی
             await context.bot.send_message(
                 chat_id,
                 text="🏠 Returning to main menu…",
                 reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id),
             )
 
-            self.logger.info(f"[withdraw] user {chat_id} requested withdrawal of ${WITHDRAW_AMOUNT_USD}")
+            self.logger.info(f"[withdraw] {chat_id} paid out {WITHDRAW_AMOUNT_USD} USDT (txid={tx_id})")
 
         except Exception as exc:
-            await self.error_handler.handle(update, context, exc, "confirm_withdraw_callback")
+            # در صورت خطا، وضعیت را failed کنید تا مدیر بتواند دستی بررسی کند
+            await self.db.mark_withdraw_failed(chat_id, str(exc))
+            self.logger.error(f"withdraw error: {exc}", exc_info=True)
+
+            error_text = (
+                "🚫 <b>Automatic payout failed.</b>\n"
+                "Support has been notified and will process your withdrawal manually."
+            )
+            translated = await self.translation_manager.translate_for_user(error_text, chat_id)
+            await query.edit_message_text(translated, parse_mode="HTML")
+
+    # # ─────────────────────────────── تأیید نهایی ───────────────────────────────
+    # async def confirm_withdraw_callback(
+    #     self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    # ) -> None:
+    #     """
+    #     کاربر دکمهٔ «Confirm Withdraw» را می‌زند.
+    #     • درخواست در DB ثبت می‌شود
+    #     • زیرمجموعه‌ها حذف و عضویت به حالت «withdrawn» می‌رود
+    #     • پیام موفقیت و زمان‌بندی پرداخت ارسال می‌شود
+    #     """
+    #     query = update.callback_query
+    #     await query.answer()
+    #     chat_id = query.from_user.id
+
+    #     try:
+    #         wallet = await self.db.get_wallet_address(chat_id)
+    #         downline_cnt = await self.db.get_downline_count(chat_id)
+
+    #         # آخرین چک سریع
+    #         if downline_cnt < REQUIRED_REFERRALS:
+    #             text = (
+    #                 "❌ Withdrawal conditions are no longer satisfied.\n"
+    #                 "Please refresh the page and try again."
+    #             )
+    #             await query.edit_message_text(text, parse_mode="HTML")
+    #             return
+
+    #         # ➊ ثبت درخواست برداشت در DB
+    #         await self.db.create_withdraw_request(
+    #             chat_id,
+    #             wallet,
+    #             WITHDRAW_AMOUNT_USD,
+    #         )
+
+    #         # ➋ پاک‌سازی زیرمجموعه‌ها + تغییر وضعیت عضویت
+    #         await self.db.clear_downline(chat_id)
+    #         await self.db.mark_membership_withdrawn(chat_id)
+
+    #         # ➌ (اختیاری) انتقال آنی روی بلاک‌چین
+    #         # tx_id = await self.blockchain.transfer_usdt(wallet, WITHDRAW_AMOUNT_USD)
+
+    #         # ➍ پیام موفقیت
+    #         translated = await self.translation_manager.translate_for_user(
+    #             f"✅ Withdrawal request registered.\n{PROCESSING_NOTE}", chat_id
+    #         )
+    #         await query.edit_message_text(translated, parse_mode="HTML")
+
+    #         # ➎ Reply-keyboard Back/Exit
+    #         await context.bot.send_message(
+    #             chat_id,
+    #             text="🏠 Returning to main menu…",
+    #             reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id),
+    #         )
+
+    #         self.logger.info(f"[withdraw] user {chat_id} requested withdrawal of ${WITHDRAW_AMOUNT_USD}")
+
+    #     except Exception as exc:
+    #         await self.error_handler.handle(update, context, exc, "confirm_withdraw_callback")
 
     # ────────────────────────── util: پاسخ با ترجمه ────────────────────────────
     async def _reply(self, update: Update, context: ContextTypes.DEFAULT_TYPE,

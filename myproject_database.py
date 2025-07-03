@@ -458,6 +458,19 @@ class Database:
         cursor = self.collection_withdrawals.find({"status": "pending"})
         return await cursor.to_list(length=None)
     
+    async def mark_withdraw_failed(self, chat_id: int, reason: str) -> None:
+        """
+        آخرین درخواست برداشتِ کاربر را به حالت «failed» می‌برد و دلیل خطا را ذخیره می‌کند.
+        """
+        await self.collection_withdrawals.update_one(
+            {"chat_id": chat_id, "status": "pending"},       # آخرین رکورد در انتظار
+            {"$set": {
+                "status": "failed",
+                "fail_reason": reason,
+                "updated_at": datetime.utcnow(),
+            }}
+        )    
+    
     # ------------------------------------------------------------------
     async def create_withdraw_request(
         self,

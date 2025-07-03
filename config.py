@@ -28,6 +28,8 @@ REQUIRED_VARS = [
     "SPLIT_WALLET_B",
     "SPLIT_WALLET_C",    
     
+    "SPLIT_WALLET_A_PRIV",     
+    
     "TRADE_WALLET_ADDRESS",      
     "POOL_WALLET_ADDRESS",
     "PAYMENT_WALLET_ADDRESS",
@@ -55,6 +57,8 @@ TREASURY_PRIVATE_KEY: str = os.getenv("TREASURY_PRIVATE_KEY")
 SPLIT_WALLET_A: str = os.getenv("SPLIT_WALLET_A").lower()
 SPLIT_WALLET_B: str = os.getenv("SPLIT_WALLET_B").lower()
 SPLIT_WALLET_C: str = os.getenv("SPLIT_WALLET_C").lower()
+
+SPLIT_WALLET_A_PRIV: str = os.getenv("SPLIT_WALLET_A_PRIV")
 
 # Trading & Pool
 POOL_WALLET_ADDRESS: str = os.getenv("POOL_WALLET_ADDRESS")
@@ -99,6 +103,8 @@ __all__ = [
     "SPLIT_WALLET_A",
     "SPLIT_WALLET_B",
     "SPLIT_WALLET_C",
+    "SPLIT_WALLET_A_PRIV",
+    
     "POOL_WALLET_ADDRESS",
     "PAYMENT_WALLET_ADDRESS",
     "TRADE_WALLET_ADDRESS",
