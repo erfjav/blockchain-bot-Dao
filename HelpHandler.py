@@ -231,7 +231,12 @@ class HelpHandler:
                 "2. Enter your wallet address.\n"
                 "3. Confirm your request.\n\n"
                 "Once confirmed, your request will be processed and you’ll receive tokens in your wallet.\n\n"
-                "⏳ Processing time depends on blockchain congestion, but usually takes a few minutes."
+                "⚠️ <b>Common Mistakes to Watch Out For:</b>\n"
+                "• Make sure you’ve completed the $50 membership payment and have at least 2 direct referrals — otherwise you won’t be eligible.\n\n"
+                "• **Double-check your wallet address** before confirming. Sending to the wrong address results in permanent loss.\n\n"
+                "• Don’t close the bot or navigate away while your withdrawal is in progress — that can interrupt processing.\n\n"
+                "• If the blockchain network is congested, withdrawals can be delayed. **Wait a few minutes** before retrying.\n\n"
+                "⏳ Processing time depends on network congestion, but usually takes a few minutes."
             )
             keyboard = [
                 [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
@@ -245,6 +250,7 @@ class HelpHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_withdraw_callback")
 
+#########-------------------------------------------------------------------------------------------------------
 
     # ✅ Trade
     async def help_trade_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -262,11 +268,15 @@ class HelpHandler:
                 "• Your trades are logged and trackable in your history\n\n"
                 "Ensure your wallet is set and you have sufficient balance before using this feature."
             )
-            keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
-                InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            
+            raw_keyboard = [
+                [InlineKeyboardButton("🛒 Buy", callback_data="help_trade_buy"),
+                 InlineKeyboardButton("💸 Sell", callback_data="help_trade_sell")],
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details_help"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
-            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
+            
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
             
             msg_final = await self.translation_manager.translate_for_user(text, chat_id)
             
@@ -274,6 +284,64 @@ class HelpHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_trade_callback")
 
+
+    # 🛒 Trade: Buy Explanation
+    async def help_trade_buy_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            query = update.callback_query
+            await query.answer()
+            chat_id = query.message.chat.id
+
+            text = (
+                "<b>🛒 Buy Tokens</b>\n\n"
+                "Use this option to purchase tokens using your balance or linked payment method.\n\n"
+                "<b>Steps:</b>\n"
+                "1. Enter the amount of tokens you wish to buy.\n"
+                "2. Review the total cost at current rate.\n"
+                "3. Confirm your purchase.\n\n"
+                "Once confirmed, tokens will be credited to your wallet instantly."
+            )
+
+            raw_keyboard = [
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_trade"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            ]
+
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
+            msg = await self.translation_manager.translate_for_user(text, chat_id)
+            await query.edit_message_text(text=msg, reply_markup=reply_markup, parse_mode="HTML")
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="help_trade_buy_callback")
+
+    # 💸 Trade: Sell Explanation
+    async def help_trade_sell_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            query = update.callback_query
+            await query.answer()
+            chat_id = query.message.chat.id
+
+            text = (
+                "<b>💸 Sell Tokens</b>\n\n"
+                "Use this option to sell your tokens back into your balance or preferred payout method.\n\n"
+                "<b>Steps:</b>\n"
+                "1. Enter the amount of tokens you wish to sell.\n\n"
+                "2. Review the total you will receive after fees.\n\n"
+                "3. Confirm your sale.\n\n"
+                "Once confirmed, proceeds will be added to your balance immediately."
+            )
+
+            raw_keyboard = [
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_trade"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            ]
+
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
+            msg = await self.translation_manager.translate_for_user(text, chat_id)
+            await query.edit_message_text(text=msg, reply_markup=reply_markup, parse_mode="HTML")
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="help_trade_sell_callback")
+
+#########-------------------------------------------------------------------------------------------------------
 
     # ✅ Token Price
     async def help_token_price_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -328,6 +396,7 @@ class HelpHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_convert_callback")
 
+#########-------------------------------------------------------------------------------------------------------
 
     # ✅ Payment
     async def help_payment_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -344,16 +413,44 @@ class HelpHandler:
                 "• Send transaction and submit TxID\n\n"
                 "Your membership or service access will activate automatically after confirmation."
             )
-            keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
-                InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            raw_kb = [
+                [InlineKeyboardButton("#️⃣ TxID (transaction hash)", callback_data="help_payment_txid")],
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details_help"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
-            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_kb, chat_id)
             msg_final = await self.translation_manager.translate_for_user(text, chat_id)
             await query.edit_message_text(msg_final, reply_markup=reply_markup, parse_mode="HTML")
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_payment_callback")
 
+    # 🔗 Help: TxID Details
+    async def help_payment_txid_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            query = update.callback_query
+            await query.answer()
+            chat_id = query.message.chat.id
+
+            text = (
+                "<b>#️⃣ TxID (transaction hash)</b>\n\n"
+                "After sending your $50 USDT payment, you’ll receive a unique 64-character TxID in your wallet transaction history.\n\n"
+                "<b>Steps:</b>\n"
+                "1. Copy the full TxID from your wallet.\n"
+                "2. Paste it here to confirm your payment.\n"
+                "3. The bot will verify the transaction on-chain and activate your profile.\n\n"
+                "Use Back to return or Exit to cancel."
+            )
+            raw_kb = [
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_payment")],
+                [InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            ]
+            kb = await self.inline_translator.build_inline_keyboard_for_user(raw_kb, chat_id)
+            msg = await self.translation_manager.translate_for_user(text, chat_id)
+            await query.edit_message_text(text=msg, reply_markup=kb, parse_mode="HTML")
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="help_payment_txid_callback")
+
+#########-------------------------------------------------------------------------------------------------------
 
     # ✅ Earn Money
     async def help_earn_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -380,6 +477,7 @@ class HelpHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_earn_callback")
 
+#########-------------------------------------------------------------------------------------------------------
 
     # ✅ Profile
     async def help_profile_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -397,16 +495,72 @@ class HelpHandler:
                 "• See your referral link and invite count\n\n"
                 "Manage your account details from one place."
             )
-            keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
-                InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            raw_keyboard = [
+                [InlineKeyboardButton("🕵️‍♂️ See Profile", callback_data="help_profile_see"),
+                 InlineKeyboardButton("🏦 Wallet", callback_data="help_profile_wallet")],
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details_help"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
-            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
+            reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
             msg_final = await self.translation_manager.translate_for_user(text, chat_id)
             await query.edit_message_text(msg_final, reply_markup=reply_markup, parse_mode="HTML")
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="help_profile_callback")
 
+
+    # 🕵️‍♂️ Help: See Profile Details
+    async def help_profile_see_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            query = update.callback_query
+            await query.answer()
+            chat_id = query.message.chat.id
+
+            text = (
+                "<b>🕵️‍♂️ See Profile</b>\n\n"
+                "This section shows your:"
+                "• Member Number and Referral Code \n"
+                "• Registered Wallet Address\n"
+                "• Token Balance, Pending Commissions, and Down‑line Count\n\n"
+                "Use this information to share your referral link and track your earnings."
+            )
+            raw_keyboard = [
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_profile"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            ]
+            kb = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
+            msg = await self.translation_manager.translate_for_user(text, chat_id)
+            await query.edit_message_text(text=msg, reply_markup=kb, parse_mode="HTML")
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="help_profile_see_callback")
+
+    # 🏦 Help: Wallet Menu Details
+    async def help_profile_wallet_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        try:
+            query = update.callback_query
+            await query.answer()
+            chat_id = query.message.chat.id
+
+            text = (
+                "<b>🏦 Wallet Menu</b>\n\n"
+                "Manage your crypto wallet and perform key operations:\n\n"
+                "• Set Wallet: Register your wallet address.\n"
+                "• Edit Wallet: Update your existing address.\n"
+                "• Transfer Tokens: Send tokens to another address.\n"
+                "• View Balance: Check your current token balance.\n"
+                "• View History: See your recent wallet transactions.\n\n"
+                "Select any option from your profile menu to use these features."
+            )
+            raw_keyboard = [
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_profile"),
+                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
+            ]
+            kb = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
+            msg = await self.translation_manager.translate_for_user(text, chat_id)
+            await query.edit_message_text(text=msg, reply_markup=kb, parse_mode="HTML")
+        except Exception as e:
+            await self.error_handler.handle(update, context, e, context_name="help_profile_wallet_callback")
+
+#########-------------------------------------------------------------------------------------------------------
 
     # ✅ Language
     async def help_language_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

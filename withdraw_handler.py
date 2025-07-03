@@ -211,6 +211,15 @@ class WithdrawHandler:
             )
             translated = await self.translation_manager.translate_for_user(error_text, chat_id)
             await query.edit_message_text(translated, parse_mode="HTML")
+            
+    # ────────────────────────── util: پاسخ با ترجمه ────────────────────────────
+    async def _reply(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
+                     text: str, chat_id: int) -> None:
+        translated = await self.translation_manager.translate_for_user(text, chat_id)
+        await update.message.reply_text(
+            translated, parse_mode="HTML",
+            reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+        )
 
     # # ─────────────────────────────── تأیید نهایی ───────────────────────────────
     # async def confirm_withdraw_callback(
@@ -270,13 +279,3 @@ class WithdrawHandler:
 
     #     except Exception as exc:
     #         await self.error_handler.handle(update, context, exc, "confirm_withdraw_callback")
-
-    # ────────────────────────── util: پاسخ با ترجمه ────────────────────────────
-    async def _reply(self, update: Update, context: ContextTypes.DEFAULT_TYPE,
-                     text: str, chat_id: int) -> None:
-        translated = await self.translation_manager.translate_for_user(text, chat_id)
-        await update.message.reply_text(
-            translated, parse_mode="HTML",
-            reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-        )
-

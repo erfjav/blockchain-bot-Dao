@@ -621,12 +621,22 @@ class BotManager:
 
             # Individual help buttons
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_payment_callback, pattern="^help_payment$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_payment_txid_callback, pattern="^help_payment_txid$"), group=0)            
+            
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_withdraw_callback, pattern="^help_withdraw$"), group=0)
+        
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_trade_callback, pattern="^help_trade$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_trade_buy_callback, pattern="^help_trade_buy$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_trade_sell_callback, pattern="^help_trade_sell$"), group=0)            
+            
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_convert_callback, pattern="^help_convert$"), group=0)
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_token_price_callback, pattern="^help_token_price$"), group=0)
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_earn_callback, pattern="^help_earn$"), group=0)
+           
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_profile_callback, pattern="^help_profile$"), group=0)
+            self.application.add_handler( CallbackQueryHandler(self.help_handler.help_profile_see_callback, pattern="^help_profile_see$"), group=0)
+            self.application.add_handler( CallbackQueryHandler(self.help_handler.help_profile_wallet_callback, pattern="^help_profile_wallet$"), group=0)            
+                        
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_language_callback, pattern="^help_language$"), group=0)
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_support_callback, pattern="^help_support$"), group=0)
 
