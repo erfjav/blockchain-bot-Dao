@@ -239,7 +239,7 @@ class HelpHandler:
                 "⏳ Processing time depends on network congestion, but usually takes a few minutes."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -272,7 +272,7 @@ class HelpHandler:
             raw_keyboard = [
                 [InlineKeyboardButton("🛒 Buy", callback_data="help_trade_buy"),
                  InlineKeyboardButton("💸 Sell", callback_data="help_trade_sell")],
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                  InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             
@@ -360,7 +360,7 @@ class HelpHandler:
                 "Prices are updated every few seconds for accuracy."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -387,7 +387,7 @@ class HelpHandler:
                 "Your conversion history will be saved and shown in the history section."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -415,7 +415,7 @@ class HelpHandler:
             )
             raw_kb = [
                 [InlineKeyboardButton("#️⃣ TxID (transaction hash)", callback_data="help_payment_txid")],
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                  InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_kb, chat_id)
@@ -468,7 +468,7 @@ class HelpHandler:
                 "Grow your community and earn more each time others join."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -498,7 +498,7 @@ class HelpHandler:
             raw_keyboard = [
                 [InlineKeyboardButton("🕵️‍♂️ See Profile", callback_data="help_profile_see"),
                  InlineKeyboardButton("🏦 Wallet", callback_data="help_profile_wallet")],
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                  InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(raw_keyboard, chat_id)
@@ -578,7 +578,7 @@ class HelpHandler:
                 "Multilingual support ensures a smooth experience for everyone."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
@@ -604,7 +604,7 @@ class HelpHandler:
                 "Our team responds to issues as quickly as possible."
             )
             keyboard = [
-                [InlineKeyboardButton("⬅️ Back", callback_data="hide_details_help"),
+                [InlineKeyboardButton("⬅️ Back", callback_data="help_details"),
                 InlineKeyboardButton("➡️ Exit", callback_data="exit_help")]
             ]
             reply_markup = await self.inline_translator.build_inline_keyboard_for_user(keyboard, chat_id)
