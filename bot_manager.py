@@ -8,7 +8,8 @@ import logging
 from typing import Optional, Dict, Callable
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from telegram import Bot
-from telegram.ext import Application, DispatcherHandlerStop 
+from telegram.ext import Application, ApplicationHandlerStop
+
 from telegram import Update, Bot, Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
     Application,
@@ -420,7 +421,7 @@ class BotManager:
         """
         اگر کاربر در چت خصوصی عضو کانال نباشد:
           • پیام دعوت را می‌فرستیم/به‌روزرسانی می‌کنیم
-          • اجرا را با DispatcherHandlerStop متوقف می‌کنیم
+          • اجرا را با ApplicationHandlerStop متوقف می‌کنیم
         در غیر این صورت اجازه عبور می‌دهیم.
         """
         # فقط PM را محدود کن
@@ -439,7 +440,7 @@ class BotManager:
 
         # عضو نیست → پیام دعوت + توقف زنجیره
         await self._prompt_join_channel(update, context, chat_id)
-        raise DispatcherHandlerStop
+        raise ApplicationHandlerStop
     
     
     ###########################################  start_command  ####################################################
@@ -1083,7 +1084,7 @@ class BotManager:
             "view_history":                self.profile_handler.view_history,
 
             # ــ Finance
-            "show_withdraw":               self.withdraw_handler.show_withdraw,
+            "show_withdraw":               self.withdraw_handler.show_withdraw_menu,
             "awaiting_withdraw_confirm":   self.withdraw_handler.confirm_withdraw_callback,
             "showing_token_price":         self.token_price_handler.show_price,
             "convert_token":               self.convert_token_handler.coming_soon,
