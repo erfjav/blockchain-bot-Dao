@@ -647,11 +647,7 @@ class BotManager:
 
 
             self.application.add_handler(
-                MessageHandler(filters.ChatType.PRIVATE, self._membership_gate),
-                group=0
-            )
-            self.application.add_handler(
-                CallbackQueryHandler(self._membership_gate),
+                MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND, self._membership_gate),
                 group=0
             )
 
@@ -663,6 +659,11 @@ class BotManager:
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
             
+            
+            self.application.add_handler(
+                CallbackQueryHandler(self._membership_gate),
+                group=0
+            )            
             
             # بعد از ثبت help_details_callback
             self.application.add_handler(
