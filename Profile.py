@@ -169,6 +169,7 @@ class ProfileHandler:
 
 #########----------------------------------------------------------------------------------------------------
 
+    # -----------------------------------------------------------------
     async def show_profile(
         self,
         update: Update,
@@ -176,7 +177,6 @@ class ProfileHandler:
         page: int = 1,
     ) -> None:
         """Main handler for both */profile* command and pagination callbacks."""
-
         try:
             # 1) Detect origin (fresh /profile vs. pagination callback)
             if update.callback_query:
@@ -199,12 +199,12 @@ class ProfileHandler:
             # 2) Persist FSM state (optional)
             push_state(context, "showing_profile")
             context.user_data["state"] = "showing_profile"
-            
+
             # 3) fetch profile – second fetch after ensure_user guarantees completeness
             profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
             if profile is None or "member_no" not in profile or "referral_code" not in profile:
                 await self.referral_manager.ensure_user(chat_id, first_name)
-                profile = await self.db.get_profile(chat_id)  # now assured to be complete               
+                profile = await self.db.get_profile(chat_id)
 
             joined: bool = bool(profile.get("joined", False))
             member_no: int = profile["member_no"]
@@ -213,7 +213,7 @@ class ProfileHandler:
             commission: float | None = profile.get("commission_usd")
             downline_count: int = profile.get("downline_count", 0)
             wallet_address = await self.db.get_wallet_address(chat_id)
-            
+
             # 5) Compose message body
             placeholder = "—"
             lines: List[str] = [
@@ -223,13 +223,12 @@ class ProfileHandler:
                 "─────────────",
                 f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
                 f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
-                f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}\n\n",
+                f"<b>{('Down-line Count')}:</b> {downline_count if joined else placeholder}\n\n",
 
                 # ✦ Explanation of referral link
                 f"To invite friends and grow your <b>Down-line</b>, simply tap on \n\n "
                 f"<b>🔗 Share&nbsp;Referral&nbsp;Link</b>.\n\n "
-                f"Your personal referral link will be automatically sent to the selected contact. 🚀",                
-                            
+                f"Your personal referral link will be automatically sent to the selected contact. 🚀",
             ]
 
             if not joined:
@@ -241,12 +240,11 @@ class ProfileHandler:
                         "please <b>join a plan</b> first."
                     )
                 ]
-       
+
             # 6) Inline keyboard – share link always first
             bot_username: str = context.bot.username  # e.g. AskGenieAIbot
-            deep_link: str   = f"https://t.me/{bot_username}?start={referral_code}"
+            deep_link: str = f"https://t.me/{bot_username}?start={referral_code}"
 
-            # لینک «Share» بومی تلگرام؛ کاربر لیست مخاطبان را می‌بیند و می‌تواند لینک را مستقیماً بفرستد
             share_url: str = (
                 "https://t.me/share/url"
                 f"?url={deep_link}"
@@ -257,12 +255,13 @@ class ProfileHandler:
                 [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
             ]
 
-            # 7) Down‑line list (only if joined & has referrals)
+            # 7) Down-line list (only if joined & has referrals)
             if joined and downline_count:
                 downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
                 start_idx: int = (page - 1) * PAGE_SIZE + 1
                 for idx, member in enumerate(downline, start=start_idx):
-                    
+
+                    # ⬇️ فقط این سطر اصلاح شده است:  <code> … </code> حذف شد
                     rows.append([
                         InlineKeyboardButton(
                             f"{idx}. {member['first_name']} — {member['referral_code']}",
@@ -286,15 +285,15 @@ class ProfileHandler:
 
             # 8) Back & Exit (always)
             rows.append([
-                InlineKeyboardButton(("Back"), callback_data="back"),
-                InlineKeyboardButton(("Exit"), callback_data="exit"),
+                InlineKeyboardButton("Back", callback_data="back"),
+                InlineKeyboardButton("Exit", callback_data="exit"),
             ])
 
-            # inline_kb = InlineKeyboardMarkup(rows)
-            
+            inline_kb = InlineKeyboardMarkup(rows)
             inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
 
             translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
+
             # 9) Send / edit
             await reply_func(
                 translated_text,
@@ -307,15 +306,163 @@ class ProfileHandler:
                 chat_id
             )
 
-            # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit) — همیشه پایین صفحه بماند
+            # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit)
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=translated_note,  
+                text=translated_note,
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
         except Exception as exc:
             await self.error_handler.handle(update, context, exc, context_name="show_profile")
+
+    # async def show_profile(
+    #     self,
+    #     update: Update,
+    #     context: ContextTypes.DEFAULT_TYPE,
+    #     page: int = 1,
+    # ) -> None:
+    #     """Main handler for both */profile* command and pagination callbacks."""
+
+    #     try:
+    #         # 1) Detect origin (fresh /profile vs. pagination callback)
+    #         if update.callback_query:
+    #             query = update.callback_query
+    #             await query.answer()
+    #             chat_id = query.from_user.id
+    #             callback_parts = query.data.split("_")
+    #             if len(callback_parts) == 3 and callback_parts[1] == "page":
+    #                 page = int(callback_parts[2])
+    #             reply_func = query.edit_message_text
+    #         else:
+    #             chat_id = update.effective_chat.id
+    #             page = 1
+    #             reply_func = update.message.reply_text  # type: ignore[attr-defined]
+
+    #         first_name: str = (
+    #             update.effective_user.first_name if update.effective_user else "Friend"
+    #         )
+
+    #         # 2) Persist FSM state (optional)
+    #         push_state(context, "showing_profile")
+    #         context.user_data["state"] = "showing_profile"
+            
+    #         # 3) fetch profile – second fetch after ensure_user guarantees completeness
+    #         profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
+    #         if profile is None or "member_no" not in profile or "referral_code" not in profile:
+    #             await self.referral_manager.ensure_user(chat_id, first_name)
+    #             profile = await self.db.get_profile(chat_id)  # now assured to be complete               
+
+    #         joined: bool = bool(profile.get("joined", False))
+    #         member_no: int = profile["member_no"]
+    #         referral_code: str = profile["referral_code"]
+    #         tokens: int | None = profile.get("tokens")
+    #         commission: float | None = profile.get("commission_usd")
+    #         downline_count: int = profile.get("downline_count", 0)
+    #         wallet_address = await self.db.get_wallet_address(chat_id)
+            
+    #         # 5) Compose message body
+    #         placeholder = "—"
+    #         lines: List[str] = [
+    #             f"<b>{('Member No')}:</b> {member_no}",
+    #             f"<b>{('Referral Code')}:</b> <code>{referral_code}</code>",
+    #             f"<b>Wallet Address:</b> <code>{wallet_address or placeholder}</code>",
+    #             "─────────────",
+    #             f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
+    #             f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
+    #             f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}\n\n",
+
+    #             # ✦ Explanation of referral link
+    #             f"To invite friends and grow your <b>Down-line</b>, simply tap on \n\n "
+    #             f"<b>🔗 Share&nbsp;Referral&nbsp;Link</b>.\n\n "
+    #             f"Your personal referral link will be automatically sent to the selected contact. 🚀",                
+                            
+    #         ]
+
+    #         if not joined:
+    #             lines += [
+    #                 "",
+    #                 (
+    #                     "<b>You don’t have a profile yet.</b> To view your full profile details — "
+    #                     "including your <b>tokens</b>, <b>commissions</b>, and <b>down-line statistics</b> — "
+    #                     "please <b>join a plan</b> first."
+    #                 )
+    #             ]
+       
+    #         # 6) Inline keyboard – share link always first
+    #         bot_username: str = context.bot.username  # e.g. AskGenieAIbot
+    #         deep_link: str   = f"https://t.me/{bot_username}?start={referral_code}"
+
+    #         # لینک «Share» بومی تلگرام؛ کاربر لیست مخاطبان را می‌بیند و می‌تواند لینک را مستقیماً بفرستد
+    #         share_url: str = (
+    #             "https://t.me/share/url"
+    #             f"?url={deep_link}"
+    #             "&text=🚀 Join me on Bot!"
+    #         )
+
+    #         rows: List[List[InlineKeyboardButton]] = [
+    #             [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
+    #         ]
+
+    #         # 7) Down‑line list (only if joined & has referrals)
+    #         if joined and downline_count:
+    #             downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
+    #             start_idx: int = (page - 1) * PAGE_SIZE + 1
+    #             for idx, member in enumerate(downline, start=start_idx):
+                    
+    #                 rows.append([
+    #                     InlineKeyboardButton(
+    #                         f"{idx}. {member['first_name']} — {member['referral_code']}",
+    #                         callback_data="noop",  # informational only
+    #                     )
+    #                 ])
+
+    #             # Pagination
+    #             total_pages = max(1, math.ceil(downline_count / PAGE_SIZE))
+    #             nav_row: List[InlineKeyboardButton] = []
+    #             if page > 1:
+    #                 nav_row.append(
+    #                     InlineKeyboardButton("⬅️ Prev", callback_data=f"profile_page_{page - 1}")
+    #                 )
+    #             if page < total_pages:
+    #                 nav_row.append(
+    #                     InlineKeyboardButton("Next ➡️", callback_data=f"profile_page_{page + 1}")
+    #                 )
+    #             if nav_row:
+    #                 rows.append(nav_row)
+
+    #         # 8) Back & Exit (always)
+    #         rows.append([
+    #             InlineKeyboardButton(("Back"), callback_data="back"),
+    #             InlineKeyboardButton(("Exit"), callback_data="exit"),
+    #         ])
+
+    #         # inline_kb = InlineKeyboardMarkup(rows)
+            
+    #         inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
+
+    #         translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
+    #         # 9) Send / edit
+    #         await reply_func(
+    #             translated_text,
+    #             parse_mode="HTML",
+    #             reply_markup=inline_kb,
+    #         )
+
+    #         translated_note = await self.translation_manager.translate_for_user(
+    #             "📋 Profile loaded. You can use the buttons below to continue.",
+    #             chat_id
+    #         )
+
+    #         # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit) — همیشه پایین صفحه بماند
+    #         await context.bot.send_message(
+    #             chat_id=chat_id,
+    #             text=translated_note,  
+    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
+    #         )
+
+    #     except Exception as exc:
+    #         await self.error_handler.handle(update, context, exc, context_name="show_profile")
 
     # -----------------------------------------------------------------
     async def back_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
