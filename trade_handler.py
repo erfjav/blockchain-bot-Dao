@@ -39,13 +39,7 @@ from telegram import (
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
 )
-from telegram.ext import (
-    ContextTypes,
-    ConversationHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-    filters,
-)
+from telegram.ext import ContextTypes
 
 from keyboards import TranslatedKeyboards
 from language_Manager import TranslationManager
@@ -122,6 +116,7 @@ class TradeHandler:
             context.user_data['state'] = "trade_menu"
 
             chat_id = update.effective_chat.id
+            
             kb: ReplyKeyboardMarkup = await self.keyboards.build_trade_menu_keyboard(chat_id)
 
             # ───➤ متن خوش‌آمدگویی و راهنمایی

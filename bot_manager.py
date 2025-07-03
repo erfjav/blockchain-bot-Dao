@@ -152,7 +152,7 @@ class BotManager:
             # 2️⃣ ProfileHandler
             self.profile_handler = ProfileHandler(
                 db=self.db,
-                # inline_translator=self.inline_translator,
+                inline_translator=self.inline_translator,
                 referral_manager=self.referral_manager,
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
@@ -170,6 +170,7 @@ class BotManager:
                 referral_manager=self.referral_manager,
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
+                inline_translator=self.inline_translator,
                 error_handler=self.error_handler,
                 # blockchain_client=self.blockchain   # فقط اگر تسویهٔ آنی دارید
             )
@@ -456,21 +457,28 @@ class BotManager:
         except Exception:
             # هر خطایی (مثل دسترسی‌نداشتن ربات) را عضو نبودن در نظر می‌گیریم
             return False
-
-
-    async def _prompt_join_channel(self,
-                                update: Update,
-                                context: ContextTypes.DEFAULT_TYPE,
-                                chat_id: int) -> None:
+        
+    #--------------------------------------------------------------------------------------------------
+    async def _prompt_join_channel(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+        chat_id: int
+    ) -> None:
         """
-        یک بار پیام دعوت به عضویت + دکمه‌ی بررسی مجدد را می‌فرستد/به‌روزرسانی می‌کند.
+        Sends or updates a message prompting the user to join the official channel
+        with a button to recheck membership.
         """
-        join_kb = InlineKeyboardMarkup([[
-            InlineKeyboardButton("➕ عضویت در کانال", url=f"tg://resolve?domain={CHANNEL_USERNAME[1:]}"),
-            InlineKeyboardButton("✅ ادامه", callback_data="check_join")
+        join_kb = InlineKeyboardMarkup([[ 
+            InlineKeyboardButton("➕ Join the Daobank Channel", url=f"tg://resolve?domain={CHANNEL_USERNAME[1:]}"),
+            InlineKeyboardButton("✅ Continue", callback_data="check_join")
         ]])
 
-        text = "🔒 ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
+        text = (
+            "🔒 <b>Access Restricted</b>\n\n"
+            "To use this bot, please <b>join our official channel</b> first.\n"
+            "Once you've joined, tap <b>✅ Continue</b> to verify your membership."
+        )
 
         if update.message:
             await update.message.reply_text(text, reply_markup=join_kb)
@@ -479,6 +487,29 @@ class BotManager:
         else:
             await context.bot.send_message(chat_id, text, reply_markup=join_kb)
 
+
+    # async def _prompt_join_channel(self,
+    #                             update: Update,
+    #                             context: ContextTypes.DEFAULT_TYPE,
+    #                             chat_id: int) -> None:
+    #     """
+    #     یک بار پیام دعوت به عضویت + دکمه‌ی بررسی مجدد را می‌فرستد/به‌روزرسانی می‌کند.
+    #     """
+    #     join_kb = InlineKeyboardMarkup([[
+    #         InlineKeyboardButton("➕ عضویت در کانال", url=f"tg://resolve?domain={CHANNEL_USERNAME[1:]}"),
+    #         InlineKeyboardButton("✅ ادامه", callback_data="check_join")
+    #     ]])
+
+    #     text = "🔒 ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
+
+    #     if update.message:
+    #         await update.message.reply_text(text, reply_markup=join_kb)
+    #     elif update.callback_query:
+    #         await update.callback_query.edit_message_text(text, reply_markup=join_kb)
+    #     else:
+    #         await context.bot.send_message(chat_id, text, reply_markup=join_kb)
+            
+    #--------------------------------------------------------------------------------------------------
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         - بررسی عضویت در کانال
@@ -549,93 +580,7 @@ class BotManager:
         else:
             # هنوز عضو نیست؛ صفحهٔ دعوت را مجدداً به‌روز کن
             await self._prompt_join_channel(update, context, chat_id)
-
-      
-####################################################################################################################
-    # async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     ابتدا بررسی می‌کند که کاربر عضو کانال @BlockchainBotTrades شده یا نه.
-    #     اگر عضو نباشد، پیام عضویت با دو دکمه ارسال می‌شود:
-    #       1) لینک عضویت
-    #       2) دکمه «✅ ادامه» برای چک مجدد عضویت
-    #     در صورت عضویت، ادامهٔ منطق معمول /start اجرا می‌شود.
-    #     """
-    #     try:
-    #         chat_id    = update.effective_chat.id
-    #         first_name = update.effective_user.first_name
-
-    #         # ───➤ بررسی عضویت در کانال
-    #         try:
-    #             member = await context.bot.get_chat_member(
-    #                 chat_id="@Daobank",
-    #                 user_id=chat_id
-    #             )
-    #             if member.status in ("left", "kicked"):
-    #                 join_kb = InlineKeyboardMarkup([[
-    #                     # InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
-    #                     InlineKeyboardButton("➕ عضویت در کانال", url="tg://resolve?domain=DaobankChannel"),
-    #                     InlineKeyboardButton("✅ ادامه", callback_data="check_join")
-    #                 ]])
-    #                 text = "🔒 لطفاً ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
-    #                 if update.message:
-    #                     await update.message.reply_text(text, reply_markup=join_kb)
-    #                 else:
-    #                     await context.bot.send_message(chat_id, text, reply_markup=join_kb)
-    #                 return
-    #         except Exception:
-    #             # در صورت خطا در بررسی عضویت (مثلاً دسترسی نداشتن ربات)، عبور می‌کنیم
-    #             pass
-
-    #         # ───➤ ➊ مطمئن شو رکورد کاربر وجود دارد
-    #         await self.db.insert_user_if_not_exists(chat_id, first_name)
-
-    #         # ───➤ ➋ اگر هنوز پرسش زبان نمایش داده نشده، فقط همان را بفرست
-    #         if not await self.db.is_language_prompt_done(chat_id):
-    #             keyboard = [[
-    #                 InlineKeyboardButton("🌐 Change Language", callback_data="choose_language"),
-    #                 InlineKeyboardButton("⏭️ Skip",           callback_data="skip_language"),
-    #             ]]
-    #             msg = (
-    #                 "🛠️ <b>The default language of this bot is English.</b>\n\n"
-    #                 "If you'd like to use the bot in another language, tap <b>🌐 Change Language</b>.\n"
-    #                 "Otherwise, tap <b>⏭️ Skip</b> to continue in English.\n\n"
-    #                 "You can always change later with /language."
-    #             )
-    #             markup = InlineKeyboardMarkup(keyboard)
-    #             if update.message:
-    #                 await update.message.reply_text(msg, parse_mode="HTML", reply_markup=markup)
-    #             else:
-    #                 await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=markup)
-    #             return
-
-    #         # ───➤ ➌ نمایش منوی اصلی
-    #         context.user_data['state'] = 'main_menu'
-    #         main_kb = await self.keyboards.build_main_menu_keyboard_v2(chat_id)
-
-    #         tpl = (
-    #             "Hello <b>{name}</b>!! Welcome to <b>Bot</b>. "
-    #             "I'm here to assist you — just choose an option from the menu below to begin. 👇"
-    #         )
-    #         msg = (await self.translation_manager.translate_for_user(tpl, chat_id)).format(name=first_name)
-
-    #         if update.message:
-    #             await update.message.reply_text(msg, parse_mode="HTML", reply_markup=main_kb)
-    #         else:
-    #             await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=main_kb)
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="start_command")
  
-    # #-------------------------------------------------------------------------------------------------------
-    # async def check_join_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     وقتی کاربر روی «✅ ادامه» کلیک کرد:
-    #     دوباره start_command فراخوانی می‌شود تا عضویت را چک و در صورت اوکی
-    #     مراحل بعدی اجرا گردد.
-    #     """
-    #     query = update.callback_query
-    #     await query.answer()
-    #     await self.start_command(update, context)   
        
 #######################################################################################################         
     async def setup_telegram_handlers(self):
@@ -973,7 +918,7 @@ class BotManager:
             # پیام خداحافظی
             template = (
                 "👋 Goodbye, <b>{name}</b>!\n\n"
-                "Thank you for using <b>blockchain-bot</b>. "
+                "Thank you for using <b>Daobank-bot</b>. "
                 "Feel free to come back anytime. 😊"
             )
             # ترجمهٔ قالب به زبان کاربر
@@ -1266,3 +1211,88 @@ class BotManager:
             raise
               
       
+####################################################################################################################
+    # async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     ابتدا بررسی می‌کند که کاربر عضو کانال @BlockchainBotTrades شده یا نه.
+    #     اگر عضو نباشد، پیام عضویت با دو دکمه ارسال می‌شود:
+    #       1) لینک عضویت
+    #       2) دکمه «✅ ادامه» برای چک مجدد عضویت
+    #     در صورت عضویت، ادامهٔ منطق معمول /start اجرا می‌شود.
+    #     """
+    #     try:
+    #         chat_id    = update.effective_chat.id
+    #         first_name = update.effective_user.first_name
+
+    #         # ───➤ بررسی عضویت در کانال
+    #         try:
+    #             member = await context.bot.get_chat_member(
+    #                 chat_id="@Daobank",
+    #                 user_id=chat_id
+    #             )
+    #             if member.status in ("left", "kicked"):
+    #                 join_kb = InlineKeyboardMarkup([[
+    #                     # InlineKeyboardButton("➕ عضویت در کانال", url="https://t.me/BlockchainBotTrades"),
+    #                     InlineKeyboardButton("➕ عضویت در کانال", url="tg://resolve?domain=DaobankChannel"),
+    #                     InlineKeyboardButton("✅ ادامه", callback_data="check_join")
+    #                 ]])
+    #                 text = "🔒 لطفاً ابتدا در کانال رسمی ما عضو شوید، سپس روی «✅ ادامه» بزنید."
+    #                 if update.message:
+    #                     await update.message.reply_text(text, reply_markup=join_kb)
+    #                 else:
+    #                     await context.bot.send_message(chat_id, text, reply_markup=join_kb)
+    #                 return
+    #         except Exception:
+    #             # در صورت خطا در بررسی عضویت (مثلاً دسترسی نداشتن ربات)، عبور می‌کنیم
+    #             pass
+
+    #         # ───➤ ➊ مطمئن شو رکورد کاربر وجود دارد
+    #         await self.db.insert_user_if_not_exists(chat_id, first_name)
+
+    #         # ───➤ ➋ اگر هنوز پرسش زبان نمایش داده نشده، فقط همان را بفرست
+    #         if not await self.db.is_language_prompt_done(chat_id):
+    #             keyboard = [[
+    #                 InlineKeyboardButton("🌐 Change Language", callback_data="choose_language"),
+    #                 InlineKeyboardButton("⏭️ Skip",           callback_data="skip_language"),
+    #             ]]
+    #             msg = (
+    #                 "🛠️ <b>The default language of this bot is English.</b>\n\n"
+    #                 "If you'd like to use the bot in another language, tap <b>🌐 Change Language</b>.\n"
+    #                 "Otherwise, tap <b>⏭️ Skip</b> to continue in English.\n\n"
+    #                 "You can always change later with /language."
+    #             )
+    #             markup = InlineKeyboardMarkup(keyboard)
+    #             if update.message:
+    #                 await update.message.reply_text(msg, parse_mode="HTML", reply_markup=markup)
+    #             else:
+    #                 await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=markup)
+    #             return
+
+    #         # ───➤ ➌ نمایش منوی اصلی
+    #         context.user_data['state'] = 'main_menu'
+    #         main_kb = await self.keyboards.build_main_menu_keyboard_v2(chat_id)
+
+    #         tpl = (
+    #             "Hello <b>{name}</b>!! Welcome to <b>Bot</b>. "
+    #             "I'm here to assist you — just choose an option from the menu below to begin. 👇"
+    #         )
+    #         msg = (await self.translation_manager.translate_for_user(tpl, chat_id)).format(name=first_name)
+
+    #         if update.message:
+    #             await update.message.reply_text(msg, parse_mode="HTML", reply_markup=main_kb)
+    #         else:
+    #             await context.bot.send_message(chat_id, msg, parse_mode="HTML", reply_markup=main_kb)
+
+    #     except Exception as e:
+    #         await self.error_handler.handle(update, context, e, context_name="start_command")
+ 
+    # #-------------------------------------------------------------------------------------------------------
+    # async def check_join_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     وقتی کاربر روی «✅ ادامه» کلیک کرد:
+    #     دوباره start_command فراخوانی می‌شود تا عضویت را چک و در صورت اوکی
+    #     مراحل بعدی اجرا گردد.
+    #     """
+    #     query = update.callback_query
+    #     await query.answer()
+    #     await self.start_command(update, context)        

@@ -30,7 +30,7 @@ from keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
-# from Translated_Inline_Keyboards import TranslatedInlineKeyboards
+from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
 from coinaddrvalidator import validate
 from web3 import Web3
@@ -70,7 +70,7 @@ class ProfileHandler:
         referral_manager: ReferralManager,
         keyboards: TranslatedKeyboards,
         translation_manager: TranslationManager,
-        # inline_translator: TranslatedInlineKeyboards,
+        inline_translator: TranslatedInlineKeyboards,
         error_handler: ErrorHandler,
         
     ) -> None:
@@ -78,7 +78,7 @@ class ProfileHandler:
         self.referral_manager = referral_manager
         self.keyboards = keyboards
         self.translation_manager = translation_manager
-        # self.inline_translator = inline_translator
+        self.inline_translator = inline_translator
         self.error_handler = error_handler
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -143,7 +143,7 @@ class ProfileHandler:
 
             # پیام توضیح منوی کیف‌پول
             wallet_text = (
-                "👛 *Welcome to Your Wallet Menu!*\n\n"
+                "🏦 *Welcome to Your Wallet Menu!*\n\n"
                 "Here you can manage your wallet and perform key operations:\n\n"
                 "🔹 *Set Wallet* – Register your crypto wallet address for the first time.\n\n"
                 "🔹 *Edit Wallet* – Update or change your existing wallet address.\n\n"
@@ -290,18 +290,26 @@ class ProfileHandler:
                 InlineKeyboardButton(("Exit"), callback_data="exit"),
             ])
 
-            inline_kb = InlineKeyboardMarkup(rows)
+            # inline_kb = InlineKeyboardMarkup(rows)
+            inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
+
+            translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
             # 9) Send / edit
             await reply_func(
-                "\n".join(lines),
+                translated_text,
                 parse_mode="HTML",
                 reply_markup=inline_kb,
+            )
+
+            translated_note = await self.translation_manager.translate_for_user(
+                "📋 Profile loaded. You can use the buttons below to continue.",
+                chat_id
             )
 
             # 10) Reply-Keyboard (⬅️ Back / ➡️ Exit) — همیشه پایین صفحه بماند
             await context.bot.send_message(
                 chat_id=chat_id,
-                text="ℹ️ No profile information available.",  
+                text=translated_note,  
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 

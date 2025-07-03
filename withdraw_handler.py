@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 
 from language_Manager import TranslationManager
 from keyboards import TranslatedKeyboards
+from Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
@@ -40,6 +41,7 @@ class WithdrawHandler:
         db: Database,
         referral_manager: ReferralManager,
         keyboards: TranslatedKeyboards,
+        inline_translator: TranslatedInlineKeyboards,
         translation_manager: TranslationManager,
         error_handler: ErrorHandler,
         # blockchain (اختیاری – اگر تسویه خودکار دارید)
@@ -49,6 +51,7 @@ class WithdrawHandler:
         self.referral_manager = referral_manager
         self.keyboards = keyboards
         self.translation_manager = translation_manager
+        self.inline_translator = inline_translator
         self.error_handler = error_handler
         # self.blockchain = blockchain_client
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -113,7 +116,10 @@ class WithdrawHandler:
                 [InlineKeyboardButton("⬅️ Back", callback_data="back"),
                  InlineKeyboardButton("Exit ➡️", callback_data="exit")],
             ]
-            kb = InlineKeyboardMarkup(rows)
+            
+            # kb = InlineKeyboardMarkup(rows)
+
+            kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
 
             translated = await self.translation_manager.translate_for_user(msg, chat_id)
             await update.message.reply_text(translated, parse_mode="HTML", reply_markup=kb)
