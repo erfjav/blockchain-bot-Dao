@@ -480,9 +480,9 @@ class ProfileHandler:
                 InlineKeyboardButton(("Exit"), callback_data="exit"),
             ])
 
-            inline_kb = InlineKeyboardMarkup(rows)
+            # inline_kb = InlineKeyboardMarkup(rows)
             
-            # inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
+            inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
 
             translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
             # 9) Send / edit
