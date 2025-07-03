@@ -9,13 +9,13 @@ if TYPE_CHECKING:
     from translation import SimpleTranslator
     from myproject_database import Database
 
-# model_names = {
-#     "gpt-4o", "🎨 Gemini 2.5 Flash", "⚖️ GPT-4.1 Mini",
-#     "Grok 3 Mini Beta", "Gemini 2.5 Pro", "Llama 4 Maverick",
-#     "Llama 4 Scout", "🧠 GPT-o3", "🤖 Grok 3 Beta", "🆓 Freemium",
-#     "⚡o3 Mini High", "⚡o4 Mini High", "🧠 Asha Reasoning",
-#     "🚀 Gemini 2.5 Pro Vision", "⚡ Gemini 2.5 Flash Vision", "🧠 GPT-4o Vision"
-# }
+model_names = {
+    "gpt-4o", "🎨 Gemini 2.5 Flash", "⚖️ GPT-4.1 Mini",
+    "Grok 3 Mini Beta", "Gemini 2.5 Pro", "Llama 4 Maverick",
+    "Llama 4 Scout", "🧠 GPT-o3", "🤖 Grok 3 Beta", "🆓 Freemium",
+    "⚡o3 Mini High", "⚡o4 Mini High", "🧠 Asha Reasoning",
+    "🚀 Gemini 2.5 Pro Vision", "⚡ Gemini 2.5 Flash Vision", "🧠 GPT-4o Vision"
+}
 
 
 class TranslatedInlineKeyboards:
@@ -27,9 +27,9 @@ class TranslatedInlineKeyboards:
         """
         self.translator = translator
         self.db = db
-        # # لیست استثنا: می‌توانید به دلخواه خود مقادیر اضافه یا تغییر دهید.
-        # self.exceptions = exceptions if exceptions is not None else model_names
-        self.exceptions = exceptions if exceptions is not None else []
+        # لیست استثنا: می‌توانید به دلخواه خود مقادیر اضافه یا تغییر دهید.
+        self.exceptions = exceptions if exceptions is not None else model_names
+
     async def _translate_inline_buttons(self, raw_buttons: List[List[InlineKeyboardButton]], user_lang: str) -> InlineKeyboardMarkup:
         """
         یک لیست دوبعدی از دکمه‌های اینلاین دریافت می‌کند و متن دکمه‌های آن‌ها را به زبان کاربر ترجمه می‌کند.
