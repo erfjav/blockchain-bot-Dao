@@ -605,10 +605,19 @@ class BotManager:
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
             
             
+            # ⛔ دقت کنید: block=False  ⬅️ این کلیدِ حل مشکل است
             self.application.add_handler(
-                CallbackQueryHandler(self._membership_gate),
-                group=0
+                CallbackQueryHandler(
+                    self._membership_gate,
+                    block=False          # اجازه بدهد هندلرهای بعدی هم اجرا شوند
+                ),
+                group=0                 # می‌تواند group=0 بماند
             )            
+                        
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self._membership_gate),
+            #     group=0
+            # )            
             
             # بعد از ثبت help_details_callback
             self.application.add_handler(
