@@ -33,7 +33,7 @@ from Referral_logic_code import ReferralManager
 from Profile import ProfileHandler
 from trade_handler import TradeHandler
 from admin_handler import AdminHandler 
-from price_provider import PriceProvider          # ← NEW
+from price_provider import DynamicPriceProvider          # ← NEW
 from trade_handler import TradeHandler            # ← NEW
 
 from token_price_handler import TokenPriceHandler
@@ -43,6 +43,7 @@ from blockchain_client import BlockchainClient
 from withdraw_handler import WithdrawHandler
 from payment_handler import PaymentHandler
 from support_handler import SupportHandler
+from crypto_handler import CryptoHandler
 
 from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
 #, TRADE_WALLET_ADDRESS
@@ -71,7 +72,7 @@ class BotManager:
         
         self.referral_manager: Optional[ReferralManager] = None
         self.profile_handler: Optional[ProfileHandler] = None
-        self.price_provider: Optional[PriceProvider] = None
+        self.price_provider: Optional[DynamicPriceProvider] = None
         self.admin_handler: Optional[AdminHandler] = None
         
         self.convert_token_handler: Optional[ConvertTokenHandler] = None
@@ -82,7 +83,9 @@ class BotManager:
         self.payment_handler: Optional[PaymentHandler] = None          
         self.blockchain: Optional[BlockchainClient] = None
         self.withdraw_handler: Optional[WithdrawHandler] = None
-    
+        
+        self.crypto_handler: Optional[CryptoHandler] = None
+        
         self.bot: Optional[Bot] = None
         self.application: Optional[Application] = None
 
@@ -106,9 +109,24 @@ class BotManager:
 
         try:
             
-            # باید قبل از TradeHandler ساخته شود
-            self.price_provider = PriceProvider(self.db)     # ← NEW
-            self.logger.info("PriceProvider initialized (manual mode).")
+            # ──────────────────────────────────────────────────────────────
+            # 0️⃣ CryptoHandler  (قبل از PriceProvider باید ساخته شود)  ⚠️ NEW
+            # ----------------------------------------------------------------
+            tron_network = os.getenv("TRON_NETWORK", "mainnet")
+            self.crypto_handler = CryptoHandler(network=tron_network)
+            self.logger.info("CryptoHandler initialized (network=%s).", tron_network)            
+
+            # 1️⃣ DynamicPriceProvider  (به‌جای PriceProvider دستی)       ⚠️ NEW
+            # ----------------------------------------------------------------
+            self.price_provider = DynamicPriceProvider(
+                db=self.db,
+                crypto=self.crypto_handler
+            )
+            self.logger.info("DynamicPriceProvider initialized (auto-pricing).")       
+                
+            # # باید قبل از TradeHandler ساخته شود
+            # self.price_provider = PriceProvider(self.db)     # ← NEW
+            # self.logger.info("PriceProvider initialized (manual mode).")
             
             # 1. SimpleTranslator (بدون وابستگی خاص)
             self.translator = SimpleTranslator(model_type="gpt-4o", db=self.db)
