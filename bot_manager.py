@@ -672,8 +672,8 @@ class BotManager:
             self.application.add_handler(
                 CallbackQueryHandler( self.profile_handler.show_profile, pattern=r'^profile_page_\\d+$'), group=0)
 
-            self.application.add_handler(
-                CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
+            # self.application.add_handler(
+            #     CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
 
             ############---------------------------------------------------------------------------------------######
 
