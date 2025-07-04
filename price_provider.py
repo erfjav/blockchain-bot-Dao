@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 """
-dynamic_price_provider.py  –  Auto-pricing for proprietary token
+price_provider.py  –  Auto-pricing for proprietary token
 ----------------------------------------------------------------
 • Price = USD balance of backing wallet ÷ circulating tokens
   (falls back to TOTAL_SUPPLY until first sale).

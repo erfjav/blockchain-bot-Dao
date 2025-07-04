@@ -10,7 +10,7 @@ from decimal import Decimal
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 
-from dynamic_price_provider import DynamicPriceProvider
+from price_provider import DynamicPriceProvider
 from language_Manager import TranslationManager
 from config import ADMIN_USER_IDS
 
@@ -32,7 +32,7 @@ class AdminHandler:
     async def price_snapshot_cmd(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """‎/price_snapshot → وضعیت جاری ولت + قیمت."""
+        """/price_snapshot → وضعیت جاری ولت + قیمت."""
         if not self._is_admin(update):  # مجوز
             return
 
@@ -53,7 +53,7 @@ class AdminHandler:
     async def set_total_supply_cmd(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """‎/set_total_supply 15000000 → اصلاح سقف عرضه."""
+        """/set_total_supply 15000000 → اصلاح سقف عرضه."""
         if not self._is_admin(update):
             return
 
@@ -80,7 +80,7 @@ class AdminHandler:
     async def flush_price_cache_cmd(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
-        """‎/flush_price_cache → پاک‌کردن کش قیمت (برای تست)."""
+        """/flush_price_cache → پاک‌کردن کش قیمت (برای تست)."""
         if not self._is_admin(update):
             return
         await self._flush_cache()
@@ -98,14 +98,6 @@ class AdminHandler:
             return False
         return True
 
-    # ─────────────────────── handler factory ────────────────────────────
-    def get_handlers(self) -> list[CommandHandler]:
-        """استفاده در setup: application.add_handlers(...)."""
-        return [
-            CommandHandler("price_snapshot", self.price_snapshot_cmd),
-            CommandHandler("set_total_supply", self.set_total_supply_cmd),
-            CommandHandler("flush_price_cache", self.flush_price_cache_cmd),
-        ]
 
 
 
