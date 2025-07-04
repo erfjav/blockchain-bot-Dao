@@ -837,9 +837,9 @@ class TradeHandler:
             if seller_id == order["buyer_id"]:
                 return await query.answer("🚫 You cannot sell to yourself.", show_alert=True)
 
-            balance = await self.db.get_user_balance(seller_id)
-            if balance < order["amount"]:
-                return await query.answer("🚫 Insufficient token balance.", show_alert=True)
+            # balance = await self.db.get_user_balance(seller_id)
+            # if balance < order["amount"]:
+            #     return await query.answer("🚫 Insufficient token balance.", show_alert=True)
 
             # ➊ قفل سفارش موقتاً در حالت pending_seller_confirm
             await self.db.collection_orders.update_one(
@@ -1183,113 +1183,3 @@ class TradeHandler:
             self.logger.warning(f"Cannot edit buy-order {order['order_id']}: {e}")
 
 
-
-##############################################################################################################    
-    
-
-    # # # ───────────────────────────────────────────────────────────────────
-    # async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     Called when a seller clicks the 'Sell' button for a buy order.
-    #     Verifies order validity, seller's token balance, transfers tokens, and notifies both parties.
-    #     """
-    #     try:
-    #         query = update.callback_query
-    #         self.logger.info(f"🔔 CALLBACK sell_order: {query.data}")
-
-    #         # 1️⃣ Show spinner/loading message
-    #         await query.answer(
-    #             text="⏳ Processing your sell request...",
-    #             show_alert=False
-    #         )
-
-    #         seller_id = query.from_user.id
-    #         order_id = int(query.data.split("_")[-1])
-
-    #         # 2️⃣ Fetch order from DB
-    #         order = await self.db.collection_orders.find_one({"order_id": order_id})
-    #         if not order or order["status"] != "open":
-    #             self.logger.warning(f"Order {order_id} not open or not found")
-    #             return await query.edit_message_reply_markup(None)
-
-    #         # 3️⃣ Prevent self-trade
-    #         if seller_id == order.get("buyer_id"):
-    #             msg = await self.translation_manager.translate_for_user(
-    #                 "🚫 You cannot fulfill your own buy order.", seller_id
-    #             )                
-    #             return await query.answer(msg,show_alert=True)
-
-    #         # 4️⃣ Check seller token balance
-    #         balance = await self.db.get_user_balance(seller_id)
-    #         if balance < order["amount"]:
-    #             msg = await self.translation_manager.translate_for_user(
-    #                 "🚫 Insufficient token balance!\n"
-    #                 "Please make sure your balance is at least equal to the requested amount.",
-    #                 seller_id
-    #             )
-    #             return await query.answer(msg, show_alert=True)
-
-
-    #         # 5️⃣ Transfer tokens and close the order
-    #         await self.db.transfer_tokens(seller_id, order["buyer_id"], order["amount"])
-    #         await self.db.collection_orders.update_one(
-    #             {"order_id": order_id},
-    #             {"$set": {
-    #                 "status":     "completed",
-    #                 "seller_id":  seller_id,
-    #                 "remaining":  0,
-    #                 "updated_at": datetime.utcnow()
-    #             }}
-    #         )
-    #         self.logger.info(
-    #             f"Transferred {order['amount']} tokens from seller {seller_id} to buyer {order['buyer_id']} for order {order_id}"
-    #         )
-
-    #         # 6️⃣ Edit channel message to mark order completed
-    #         await query.edit_message_text(
-    #             "✅ <b>This buy order has been fulfilled by a seller.</b>\n\n"
-    #             "The tokens have been transferred securely via escrow.",
-    #             parse_mode="HTML"
-    #         )
-
-    #         # 7️⃣ Notify the buyer privately
-    #         buyer_id = order["buyer_id"]
-            
-    #         text_buyer = (
-    #             "🎉 <b>Your buy order has been successfully fulfilled!</b>\n\n"
-    #             "💰 The tokens have been securely transferred to your account.\n\n"
-    #             "Thank you for using the marketplace!"
-    #         )
-    #         await context.bot.send_message(
-    #             chat_id=buyer_id,
-    #             text=await self.translation_manager.translate_for_user(text_buyer, buyer_id),
-    #             parse_mode="HTML"
-    #         )
-
-    #         # 8️⃣ Notify the seller privately
-    #         text_seller = (
-    #             "✅ <b>Your tokens have been sold successfully!</b>\n\n"
-    #             "💵 The equivalent USDT amount will be credited to your account shortly.\n\n"
-    #             "Thank you for completing the transaction."
-    #         )
-    #         await context.bot.send_message(
-    #             chat_id=seller_id,
-    #             text=await self.translation_manager.translate_for_user(text_seller, seller_id),
-    #             parse_mode="HTML"
-    #         )
-    #         self.logger.info(f"Notified buyer {buyer_id} and seller {seller_id} about completion of order {order_id}")
-
-    #         # 9️⃣ Credit seller’s fiat balance
-    #         payout = order["amount"] * order["price"]
-    #         await self.db.credit_fiat_balance(seller_id, payout)
-    #         self.logger.info(f"Credited fiat balance of seller {seller_id} by ${payout:.2f}")
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="sell_order_callback")
-    
-
-
-    # def _sell_button_markup(self, order_id:int):
-    #     return InlineKeyboardMarkup(
-    #         [[InlineKeyboardButton("💸 Sell", callback_data=f"sell_order_{order_id}")]]
-    #     )
