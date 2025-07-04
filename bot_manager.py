@@ -618,7 +618,12 @@ class BotManager:
             self.application.add_handler(CommandHandler('start', self.start_command), group=0)
             self.application.add_handler(CommandHandler('guide', self.help_handler.show_help_command), group=0)
             self.application.add_handler(CommandHandler('language', self.handle_language_button), group=0)
-            self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
+            
+            self.application.add_handler(CommandHandler("price_snapshot", self.admin_handler.price_snapshot_cmd), group=0)
+            self.application.add_handler(CommandHandler("set_total_supply", self.admin_handler.set_total_supply_cmd), group=0)
+            self.application.add_handler(CommandHandler("flush_price_cache", self.admin_handler.flush_price_cache_cmd) , group=0)                    
+            
+            # self.application.add_handler(CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
             self.application.add_handler(CommandHandler("exit", self.exit_bot), group=0)
             self.application.add_handler(CommandHandler('profile', self.profile_handler.show_profile), group=0)
             

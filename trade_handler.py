@@ -50,7 +50,7 @@ from keyboards import TranslatedKeyboards
 from language_Manager import TranslationManager
 from error_handler import ErrorHandler
 from Referral_logic_code import ReferralManager
-from price_provider import PriceProvider          # ← NEW
+from price_provider import DynamicPriceProvider          # ← NEW
 
 from myproject_database import Database  # Async wrapper
 from state_manager import push_state, pop_state
@@ -79,7 +79,7 @@ class TradeHandler:
         bot: Bot,       
         keyboards: TranslatedKeyboards,
         translation_manager: TranslationManager,
-        price_provider: PriceProvider,
+        price_provider: DynamicPriceProvider,
         referral_manager: ReferralManager,
         blockchain : BlockchainClient,
         error_handler: ErrorHandler,
