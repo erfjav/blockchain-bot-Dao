@@ -177,6 +177,7 @@ class BotManager:
             self.logger.info("WithdrawHandler initialized.")
 
             self.trade_handler = TradeHandler(
+                bot=self.bot, 
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
                 db=self.db,
@@ -633,8 +634,8 @@ class BotManager:
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_earn_callback, pattern="^help_earn$"), group=0)
            
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_profile_callback, pattern="^help_profile$"), group=0)
-            self.application.add_handler( CallbackQueryHandler(self.help_handler.help_profile_see_callback, pattern="^help_profile_see$"), group=0)
-            self.application.add_handler( CallbackQueryHandler(self.help_handler.help_profile_wallet_callback, pattern="^help_profile_wallet$"), group=0)            
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_profile_see_callback, pattern="^help_profile_see$"), group=0)
+            self.application.add_handler(CallbackQueryHandler(self.help_handler.help_profile_wallet_callback, pattern="^help_profile_wallet$"), group=0)            
                         
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_language_callback, pattern="^help_language$"), group=0)
             self.application.add_handler(CallbackQueryHandler(self.help_handler.help_support_callback, pattern="^help_support$"), group=0)
@@ -642,69 +643,48 @@ class BotManager:
             #######-------------------------------------------------------------------------------------------########
             # درون متد setup_telegram_handlers، در بخشی که سایر CallbackQueryHandler ها را اضافه کرده‌اید:
             self.application.add_handler(
-                CallbackQueryHandler(
-                    self.language_choice_callback,
-                    pattern=r"^(choose_language|skip_language)$"
-                ),
-                group=0
-            )
+                CallbackQueryHandler( self.language_choice_callback, pattern=r"^(choose_language|skip_language)$" ), group=0)
 
             # صفحه‌بندی (pattern = profile_page_⟨n⟩)
-            self.application.add_handler(CallbackQueryHandler(
-                self.profile_handler.show_profile,
-                pattern=r'^profile_page_\\d+$'
-            ), group=0)
+            self.application.add_handler(
+                CallbackQueryHandler( self.profile_handler.show_profile, pattern=r'^profile_page_\\d+$'), group=0)
 
             self.application.add_handler(
-                CommandHandler("set_price", self.admin_handler.set_price_cmd),
-                group=0
-            )
+                CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
 
 
             self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.buy_order_callback, pattern=r"^buy_order_\d+$"),
-                group=0
-            )
+                CallbackQueryHandler(self.trade_handler.buy_order_callback, pattern=r"^buy_order_\d+$"), group=0 )
 
 
             self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"),
-                group=0
-            )
+                CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"), group=0)
 
             self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"),
-                group=0
-            )
+                CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"), group=0)
+           
+            self.application.add_handler(
+                CallbackQueryHandler(self.trade_handler.cancel_order_callback, pattern=r"^cancel_\d+$"), group=0)           
             
             #######-------------------------------------------------------------------------------------------########
             self.application.add_handler(
-                CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"),
-                group=1
-            )
+                CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"), group=1)
 
             self.application.add_handler(
-                CallbackQueryHandler(self.profile_handler.back_callback, pattern="^back$"),
-                group=1
-            )
+                CallbackQueryHandler(self.profile_handler.back_callback, pattern="^back$"), group=1)
 
             self.application.add_handler(
-                CallbackQueryHandler(self.profile_handler.exit_callback, pattern="^exit$"),
-                group=1
-            )
+                CallbackQueryHandler(self.profile_handler.exit_callback, pattern="^exit$"), group=1)
 
-            # اختیاری: جلوگیری از انتظار طولانی روی دکمه‌های نمایشی
             self.application.add_handler(
-                CallbackQueryHandler(self.profile_handler.noop_callback, pattern="^noop$"),
-                group=1
-            )
+                CallbackQueryHandler(self.profile_handler.noop_callback, pattern="^noop$"), group=1)
+
+            #######-------------------------------------------------------------------------------------------########
 
             # 3️⃣ Message Handler for private text
             private_text_filter = filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND
-            self.application.add_handler(
-                MessageHandler(private_text_filter, self.handle_private_message),
-                group=1
-            )
+            
+            self.application.add_handler( MessageHandler(private_text_filter, self.handle_private_message), group=1 )
             
             #######-------------------------------------------------------------------------------------------########
             # 4️⃣ Global error handler

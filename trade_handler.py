@@ -32,13 +32,18 @@ trade_handler.py – 💰 Trade module (Buy / Sell) for your Telegram bot
 import logging
 import os, re
 from typing import Tuple, List
-from datetime import datetime
+import asyncio
 from telegram import (
     Update,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
+    Bot
 )
+
+            
+from datetime import datetime, timedelta   # اگر بالای فایل ندارید، اضافه کنید
+
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest
 from keyboards import TranslatedKeyboards
@@ -52,6 +57,8 @@ from state_manager import push_state, pop_state
 from blockchain_client import BlockchainClient
 
 from config import TRADE_WALLET_ADDRESS as TRON_WALLET
+
+
 
 TRADE_CHANNEL_ID = int(os.getenv("TRADE_CHANNEL_ID", "0"))
 SUPPORT_USER_USERNAME = os.getenv("SUPPORT_USER_USERNAME", "YourSupportUser")
@@ -67,7 +74,8 @@ class TradeHandler:
 
     def __init__(
         self,
-        db: Database,        
+        db: Database,  
+        bot: Bot,       
         keyboards: TranslatedKeyboards,
         translation_manager: TranslationManager,
         price_provider: PriceProvider,
@@ -78,6 +86,7 @@ class TradeHandler:
     ) -> None:
         
         self.db = db
+        self.bot = bot      
         self.keyboards = keyboards
         self.translation_manager = translation_manager
         self.price_provider = price_provider
@@ -301,8 +310,7 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_price")
 
-
- 
+    #####-------------------------------------------------------------------------------------##########
     async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             query = update.callback_query
@@ -332,9 +340,18 @@ class TradeHandler:
                 f"📥 <b>Payment Wallet (USDT-TRC20):</b>\n<code>{TRON_WALLET}</code>\n\n"
                 "After sending the payment, please press <b>I Paid</b> and submit your <b>TXID (Transaction Hash)</b>."
             )
+            
+            # kb = InlineKeyboardMarkup(
+            #     [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
+            # )
+            
             kb = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
-            )
+                [
+                    [InlineKeyboardButton("💳 I Paid",  callback_data=f"paid_{order_id}")],
+                    [InlineKeyboardButton("❌ Cancel", callback_data=f"cancel_{order_id}")]
+                ]
+            )            
+                        
             await context.bot.send_message(
                 chat_id=buyer_id,
                 text=text_en,
@@ -343,22 +360,126 @@ class TradeHandler:
             )
 
             self.logger.info(f"Sent payment instructions for order {order_id} to user {buyer_id}")
-
+            
             # ── به‌روزرسانی وضعیت سفارش در دیتابیس ─────────────
-            await self.db.collection_orders.update_one(
-                {"order_id": order_id},
+            expire_after = timedelta(minutes=15)          # مدت رزرو
+            now          = datetime.utcnow()
+
+            result = await self.db.collection_orders.update_one(
+                {"order_id": order_id, "status": "open"},   # قفل اتمیک
                 {"$set": {
                     "status":     "pending_payment",
                     "buyer_id":   buyer_id,
-                    "updated_at": datetime.utcnow()
+                    "expires_at": now + expire_after,
+                    "updated_at": now
                 }}
             )
 
+            if result.modified_count == 0:                 # اگر کسی زودتر قفل کرد
+                await query.answer("⚠️ This order is no longer available.", show_alert=True)
+                return await query.edit_message_reply_markup(None)
+
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="buy_order_callback")
+            
+    #######-------------------------------------------------------------------------------------------########
+    async def cancel_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Buyer-initiated cancellation of a pending_payment order."""
+        query = update.callback_query
+        await query.answer()
+        buyer_id = query.from_user.id
+        order_id = int(query.data.split("_")[-1])
+
+        # پیدا کردن سفارشی که خریدار خودش آن را قفل کرده
+        order = await self.db.collection_orders.find_one({
+            "order_id": order_id,
+            "status":   "pending_payment",
+            "buyer_id": buyer_id
+        })
+        if not order:
+            return await query.answer("⛔️ You have no rights to cancel this order.", show_alert=True)
+
+        # آزادسازی سفارش با همان متد کمکی
+        await self._revert_order(order)
+
+        # پاک‌سازی state کاربر
+        context.user_data.clear()
+
+        # پیام نهایی به خریدار
+        await query.edit_message_text(
+            "❌ Your reservation for this order is cancelled. The order is open again."
+        )
+            
+    #######-------------------------------------------------------------------------------------------------
+    def _buy_button_markup(self, order_id: int) -> InlineKeyboardMarkup:
+        """Inline keyboard with single ‘Buy’ button for a given order."""
+        return InlineKeyboardMarkup(
+            [[InlineKeyboardButton("🛒 Buy", callback_data=f"buy_order_{order_id}")]]
+        )
+    #-----------------------------------------------------------------------------------------
+    async def expire_pending_orders(self):
+        """Background task: unlock orders whose 15-minute window expired."""
+        while True:
+            now = datetime.utcnow()
+            cursor = self.db.collection_orders.find({
+                "status": "pending_payment",
+                "expires_at": {"$lt": now}
+            })
+
+            async for order in cursor:
+                await self._revert_order(order)
+
+            await asyncio.sleep(30)      # هر ۳۰ ثانیه چک کن
+            
+    #-----------------------------------------------------------------------------------------
+    async def _revert_order(self, order: dict):
+        """Return an expired order to 'open' status and notify parties."""
+        await self.db.collection_orders.update_one(
+            {"order_id": order["order_id"], "status": "pending_payment"},
+            {"$set": {
+                "status":    "open",
+                "buyer_id":  None,
+                "updated_at": datetime.utcnow()
+            },
+             "$unset": {"expires_at": ""}}
+        )
+
+        # # ۱) ویرایش پیام کانال: دوباره دکمۀ «Buy» را برگردان
+        # try:
+        #     await self.bot.edit_message_reply_markup(
+        #         chat_id=TRADE_CHANNEL_ID,
+        #         message_id=order["channel_msg_id"],
+        #         reply_markup=self._buy_button_markup(order["order_id"])
+        #     )
+        # except Exception as e:
+        #     self.logger.warning(f"Cannot unlock order {order['order_id']}: {e}")
+
+        # ۲) ویرایش پیام کانال: عنوان جدید + دکمه Buy
+        try:
+            await self.bot.edit_message_text(
+                chat_id=TRADE_CHANNEL_ID,
+                message_id=order["channel_msg_id"],
+                text=(
+                    f"🔓 <b>ORDER #{order['order_id']} OPEN AGAIN</b>\n"
+                    f"{order['amount']} tokens @ ${order['price']}"
+                ),
+                parse_mode="HTML",
+                reply_markup=self._buy_button_markup(order["order_id"])
+            )
+        except Exception as e:
+            self.logger.warning(
+                f"Cannot unlock order {order['order_id']} in channel: {e}"
+            )
+
+        # ۲) اطلاع به خریدار
+        if order.get("buyer_id"):
+            txt = (f"⏳ Your 15-minute window for order #{order['order_id']} expired.\n"
+                   "The order is now open again.")
+            await self.bot.send_message(order["buyer_id"], txt)
+
+        self.logger.info(f"Order {order['order_id']} reverted to OPEN")
 
     # ─────────────────────────── BUY FLOW ─────────────────────────────────
-    
     async def buy_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         گام اول خرید: ست‌کردن state و درخواست تعداد توکن مورد نیاز از کاربر.
@@ -389,8 +510,6 @@ class TradeHandler:
             await self.error_handler.handle(update, context, e, context_name="buy_start")
     
     #------------------------------------------------------------------------------------------------------
-    
-    
     async def buy_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         گام دوم خرید: دریافت تعداد توکن از خریدار و رفتن به مرحله تعیین قیمت پیشنهادی.
@@ -704,11 +823,11 @@ class TradeHandler:
             
             # پیام TXID نامعتبر
             msg = await self.translation_manager.translate_for_user(
-                "❗️ The TXID format is invalid.\n"
-                "It must be a 64-character code containing only numbers and letters A–F.",
+                "❗️ <b>The TXID format is invalid.</b>\n\n"
+                "It must be a 64-character code containing only numbers and letters <b>A–F</b>.",
                 buyer_id
             )
-            return await update.message.reply_text(msg)
+            return await update.message.reply_text(msg, parse_mode="HTML")
 
         # اطمینان از اینکه سفارش همچنان در انتظار پرداخت است
         order = await self.db.collection_orders.find_one({
@@ -721,11 +840,11 @@ class TradeHandler:
             
             # پیام وقتی سفارش دیگر در انتظار پرداخت نیست  
             msg = await self.translation_manager.translate_for_user(
-                "⛔️ This order is no longer pending payment.\n"
+                "⛔️ <b>This order is no longer pending payment.</b>\n\n"
                 "Please make sure you're submitting a valid and active order.",
                 buyer_id
             )
-            return await update.message.reply_text(msg)
+            return await update.message.reply_text(msg, parse_mode="HTML")
 
         expected_amount = order["amount"] * order["price"]
 
@@ -733,56 +852,30 @@ class TradeHandler:
         try:
             confirmed = await self.blockchain.verify_txid(
                 txid=txid,
-                destination=TRON_WALLET,
+                to_address=TRON_WALLET,
                 expected_usdt=expected_amount
             )
         except Exception as e:
             self.logger.error(f"Blockchain verification failed: {e}", exc_info=True)
             err = await self.translation_manager.translate_for_user(
-                "⚠️ We're unable to verify your payment on the blockchain right now.\n"
-                "Please wait a moment and try again shortly.", buyer_id
+                "⚠️ <b>We're unable to verify your payment on the blockchain right now.</b>\n\n"
+                "Please wait a moment and try again shortly.",
+                buyer_id
             )
-            return await update.message.reply_text(err)
+            return await update.message.reply_text(err, parse_mode="HTML")
 
         if not confirmed:
             warn = await self.translation_manager.translate_for_user(
-                "⛔️ Payment not found or amount mismatch on blockchain.\n"
-                "Please double-check your TXID and try again.", buyer_id
+                "⛔️ <b>Payment not found or amount mismatch on blockchain.</b>\n\n"
+                "Please double-check your TXID and try again.",
+                buyer_id
             )
             self.logger.warning(f"TXID {txid} not confirmed for order {order_id}")
-            return await update.message.reply_text(warn)
-
-        # # ── تأیید TXID روی بلاک‌چین ───────────────────────────────────
-        # try:
-        #     confirmed = await self.blockchain.verify_txid(
-        #         txid=txid,
-        #         destination=TRON_WALLET,
-        #         expected_usdt=expected_amount
-        #     )
-        # except Exception as e:
-        #     self.logger.error(f"Blockchain verification failed: {e}", exc_info=True)
-            
-        #     # خطای اتصال به بلاک‌چین
-        #     msg = await self.translation_manager.translate_for_user(
-        #         "⚠️ We're unable to verify your payment on the blockchain right now.\n"
-        #         "Please wait a moment and try again shortly.",
-        #         buyer_id
-        #     )
-        #     return await update.message.reply_text(msg)
-
-        # if not confirmed:
-            
-        #     # پیام خصوصی به خریدار
-        #     msg_buyer = await self.translation_manager.translate_for_user(
-        #         "✅ Your payment has been confirmed.\n"
-        #         "🎯 The purchased tokens are now in your account.\n"
-        #         "Thank you for using our platform!",
-        #         buyer_id
-        #     )
-        #     await update.message.reply_text(msg_buyer)
+            return await update.message.reply_text(warn, parse_mode="HTML")
 
         # ── انتقال توکن و بستن سفارش ───────────────────────────────────
         await self.db.transfer_tokens(order["seller_id"], buyer_id, order["amount"])
+        
         await self.db.collection_orders.update_one(
             {"order_id": order_id},
             {"$set": {
@@ -816,7 +909,8 @@ class TradeHandler:
         )        
         await context.bot.send_message(     
             chat_id=order["seller_id"],
-            text=msg_seller
+            text=msg_seller,
+            parse_mode="HTML"
         )
         
         # ── اعلان به خریدار ───────────────────────────────────────────
@@ -827,7 +921,8 @@ class TradeHandler:
             update.effective_user.id
         )
         await update.message.reply_text(
-            msg_buyer
+            msg_buyer,
+            parse_mode="HTML"
         )
         # ── پاک‌سازی state ──────────────────────────────────────────
         context.user_data.clear()
