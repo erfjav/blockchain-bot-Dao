@@ -106,7 +106,7 @@ class TradeHandler:
             return str(user_id)
         return str(profile.get("member_no") or profile.get("referral_code") or user_id)
     
-    #---------------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     def _support_inline_keyboard(self) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [[InlineKeyboardButton("🆘 Support", url=f"https://t.me/{SUPPORT_USER_USERNAME}")]]
@@ -178,7 +178,7 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_start")
             
-    # -----------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     async def sell_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         گام اول فروش: دریافت تعداد، سپس عبور به گام قیمت.
@@ -224,7 +224,7 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_amount")
             
-    # -----------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     async def sell_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         گام دومِ فروش: دریافت قیمت از فروشنده، ثبت Order، ارسال پیام کانال
@@ -255,7 +255,7 @@ class TradeHandler:
 
             # ── پیام کانال + دکمهٔ Buy ────────────────────────────────
             text_channel = (
-                f"🔥 <b>New Sell Offer Available!</b>\n\n"
+                f"🔥 <b>New Sell Offer Available! #{order_id}</b>\n\n"
                 f"👤 <b>Seller:</b> {identifier}\n"
                 f"📦 <b>Amount:</b> {amount} tokens\n"
                 f"💵 <b>Price:</b> ${price_per_token:.4f} per token\n\n"
@@ -339,15 +339,11 @@ class TradeHandler:
             # ── ارسال دستورالعمل پرداخت به خریدار ─────────────
             text_en = (
                 f"🧾 <b>Order Summary</b>\n"
-                f"💰 <b>Total to Pay:</b> ${total:.2f}\n"
+                f"💰 <b>Total to Pay:</b> ${total:.2f}\n\n"
                 f"📥 <b>Payment Wallet (USDT-TRC20):</b>\n<code>{TRON_WALLET}</code>\n\n"
                 "After sending the payment, please press <b>I Paid</b> and submit your <b>TXID (Transaction Hash)</b>."
             )
-            
-            # kb = InlineKeyboardMarkup(
-            #     [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
-            # )
-            
+
             kb = InlineKeyboardMarkup(
                 [
                     [InlineKeyboardButton("💳 I Paid",  callback_data=f"paid_{order_id}")],
@@ -419,7 +415,7 @@ class TradeHandler:
         return InlineKeyboardMarkup(
             [[InlineKeyboardButton("🛒 Buy", callback_data=f"buy_order_{order_id}")]]
         )
-    #-----------------------------------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     async def expire_pending_orders(self):
         """Background task: unlock orders whose 15-minute window expired."""
         while True:
@@ -434,7 +430,7 @@ class TradeHandler:
 
             await asyncio.sleep(30)      # هر ۳۰ ثانیه چک کن
             
-    #-----------------------------------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     async def _revert_order(self, order: dict):
         """Return an expired order to 'open' status and notify parties."""
         
@@ -688,7 +684,7 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="buy_start")
     
-    #------------------------------------------------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     async def buy_amount(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         گام دوم خرید: دریافت تعداد توکن از خریدار و رفتن به مرحله تعیین قیمت پیشنهادی.
@@ -731,7 +727,7 @@ class TradeHandler:
             await self.error_handler.handle(update, context, e, context_name="buy_amount")
     
     
-    # ---------------------------------------------------------------------------
+    #####--------------------------------------------------------------------------------------######
     async def buy_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         گام دوم خرید: دریافت قیمت هر توکن، ایجاد BUY-Order و افزودن دکمه «💸 Sell».
@@ -760,9 +756,9 @@ class TradeHandler:
             amount     = context.user_data.get("buy_amount", 0)
             identifier = await self._get_user_identifier(chat_id)
 
-            # ─── ارسال پیام به کانال ترید ─────────────────────────────────
+            # ─── ارسال پیام به کانال ترید ───────────────────────────────
             text_channel = (
-                f"📢 <b>New Buy Request</b>\n\n"
+                f"📢 <b>New Buy Request #{order_id}</b>\n\n"
                 f"🧑‍💼 <b>Buyer:</b> {identifier}\n"
                 f"📦 <b>Amount:</b> {amount} tokens\n"
                 f"💰 <b>Price:</b> ${price_per_token:.4f} per token\n\n"
@@ -776,7 +772,7 @@ class TradeHandler:
                 reply_markup=self._support_inline_keyboard(),
             )
 
-            # ─── ایجاد رکورد Order در DB ─────────────────────────────────
+            # ─── ایجاد رکورد Order در DB ──────────────────────────
             order_id = await self.db.create_buy_order(
                 {
                     "buyer_id":      chat_id,
@@ -786,7 +782,7 @@ class TradeHandler:
                 }
             )
 
-            # ─── افزودن دکمه «💸 Sell» به پیام کانال ─────────────────────
+            # ─── افزودن دکمه «💸 Sell» به پیام کانال ──────────────
             sell_kb = InlineKeyboardMarkup(
                 [
                     [InlineKeyboardButton("💸 Sell", callback_data=f"sell_order_{order_id}")],
@@ -799,7 +795,7 @@ class TradeHandler:
             )
             await msg.edit_reply_markup(sell_kb)
             
-            # ─── تأیید برای خریدار ───────────────────────────────────────
+            # ─── تأیید برای خریدار ────────────────────────────────
             confirmation_msg = (
                 "✅ <b>Your buy order has been submitted!</b>\n\n"
                 "📡 It is now visible in the trade channel for potential sellers.\n\n"
@@ -811,14 +807,14 @@ class TradeHandler:
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
             )
 
-            # ─── پاک‌سازی state ─────────────────────────────────────────
+            # ─── پاک‌سازی state ───────────────────────────────────────────────────────────────
             context.user_data.clear()
             pop_state(context)
 
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="buy_price")
 
-    # ───────────────────────────── فروشنده روی «Sell» می‌زند ──────────────────────────
+    # ───────────────────────────── فروشنده روی «Sell» می‌زند ────────────────────────────────────────────────
     async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         مرحله ❶ – فروشنده روی دکمۀ Sell می‌زند → از او تأیید نهایی می‌گیریم.
@@ -876,7 +872,7 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, "sell_order_callback")
 
-    # ───────────────────────── فروشنده «Confirm» یا «Cancel» ─────────────────────────
+    # ───────────────────────── فروشنده «Confirm» یا «Cancel» ───────────────────────────────────────────────
     async def seller_confirm_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         مرحله ❷ – فروشنده تأیید می‌کند؛ حالا از خریدار پول می‌خواهیم.
@@ -908,7 +904,7 @@ class TradeHandler:
         total    = order["amount"] * order["price"]
         pay_msg = (
             f"✅ <b>A seller accepted your order #{order_id}!</b>\n\n"
-            f"💰 <b>Total:</b> ${total:.2f}\n"
+            f"💰 <b>Total:</b> ${total:.2f}\n\n"
             f"📥 <b>USDT-TRC20 Wallet:</b>\n<code>{TRON_WALLET}</code>\n\n"
             "After paying, press <b>I Paid</b> and send your TXID."
         )
@@ -927,7 +923,8 @@ class TradeHandler:
 
         # ➌ اطلاع به فروشنده
         await query.edit_message_text("⏳ Waiting for buyer payment…")
-
+        
+    #####--------------------------------------------------------------------------------------######
     async def seller_cancel_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         فروشنده پشیمان می‌شود؛ سفارش را به حالت open برمی‌گردانیم.
@@ -937,16 +934,30 @@ class TradeHandler:
         seller_id = query.from_user.id
         order_id  = int(query.data.split("_")[-1])
 
+        # تغییر وضعیت سفارش
         result = await self.db.collection_orders.update_one(
             {"order_id": order_id, "seller_id": seller_id, "status": "pending_seller_confirm"},
             {"$set": {"status": "open"}, "$unset": {"seller_id": "", "expires_at": ""}}
         )
         if result.modified_count:
+            # ۱) پیام خصوصی فروشنده
             await query.edit_message_text("❌ Cancelled. Order is open again.")
+            
+            # ۲) ویرایش پیام کانال برای بازکردن دوباره سفارش
+            order = await self.db.collection_orders.find_one({"order_id": order_id})
+            await self._safe_edit_channel(
+                order,
+                text=(
+                    f"🔓 <b>BUY ORDER #{order_id} OPEN AGAIN</b>\n"
+                    f"{order['amount']} tokens @ ${order['price']}"
+                ),
+                markup=self._sell_button_markup(order_id)
+            )
         else:
             await query.answer("⛔️ Too late.", show_alert=True)
 
-    # ───────────────────── خریدار «I Paid» و ارسال TXID ─────────────────────
+
+    # ───────────────────── خریدار «I Paid» و ارسال TXID ───────────────────────────────────────────
     async def prompt_buy_payment(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         ❸ دو فاز:   (الف) کلیک «I Paid»   (ب) ارسال TXID
@@ -1051,7 +1062,7 @@ class TradeHandler:
         )
         context.user_data.clear()
 
-    # ────────────────────────── Helper keyboards ─────────────────────────────
+    # ────────────────────────── Helper keyboards ───────────────────────────────────────────────────
     def _sell_button_markup(self, order_id: int) -> InlineKeyboardMarkup:
         return InlineKeyboardMarkup(
             [
@@ -1064,7 +1075,7 @@ class TradeHandler:
         """برای پیام‌های منقضی‌شده که نباید دکمه داشته باشند."""
         return InlineKeyboardMarkup([])
 
-    # ───────────────────────── Background Tasks ──────────────────────────────
+    # ───────────────────────── Background Tasks ────────────────────────────────────────────────────
     async def monitor_buy_orders(self):
         """
         یک حلقهٔ واحد که هر ۳۰ ثانیه سه نوع سفارش را بررسی می‌کند:
@@ -1139,7 +1150,8 @@ class TradeHandler:
             )
 
         self.logger.info(f"Buy-order {order['order_id']} reopened ({reason}).")
-
+        
+    #####--------------------------------------------------------------------------------------######
     async def _expire_order(self, order: dict):
         """پس از ۹۰ دقیقه هیچ فروشنده‌ای پیدا نشد → status=expired"""
         await self.db.collection_orders.update_one(
@@ -1183,3 +1195,22 @@ class TradeHandler:
             self.logger.warning(f"Cannot edit buy-order {order['order_id']}: {e}")
 
 
+
+
+    # async def seller_cancel_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     فروشنده پشیمان می‌شود؛ سفارش را به حالت open برمی‌گردانیم.
+    #     """
+    #     query = update.callback_query
+    #     await query.answer()
+    #     seller_id = query.from_user.id
+    #     order_id  = int(query.data.split("_")[-1])
+
+    #     result = await self.db.collection_orders.update_one(
+    #         {"order_id": order_id, "seller_id": seller_id, "status": "pending_seller_confirm"},
+    #         {"$set": {"status": "open"}, "$unset": {"seller_id": "", "expires_at": ""}}
+    #     )
+    #     if result.modified_count:
+    #         await query.edit_message_text("❌ Cancelled. Order is open again.")
+    #     else:
+    #         await query.answer("⛔️ Too late.", show_alert=True)
