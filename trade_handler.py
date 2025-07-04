@@ -178,8 +178,8 @@ class TradeHandler:
             # ── اعتبارسنجی عدد ─────────────────────────────────────────
             if not txt.isdigit() or int(txt) <= 0:
                 text = (
-                    "⚠️ <b>Invalid input!</b>\n"
-                    "Please enter a <b>positive number</b> (e.g. 5, 10, 25).\n"
+                    "⚠️ <b>Invalid input!</b>\n\n"
+                    "Please enter a <b>positive number</b> (e.g. 5, 10, 25).\n\n"
                     "Only whole numbers are accepted for the amount of tokens to sell."
                 )                 
                 await update.message.reply_text(
@@ -228,8 +228,8 @@ class TradeHandler:
                     raise ValueError
             except ValueError:
                 text_invalid = (
-                    "⚠️ <b>Invalid price!</b>\n"
-                    "Please enter a <b>positive number</b> for the price per token.\n"
+                    "⚠️ <b>Invalid price!</b>\n\n"
+                    "Please enter a <b>positive number</b> for the price per token.\n\n"
                     "💡 Example: <b>0.25</b> means $0.25 per token."
                 )                 
                 await update.message.reply_text(
@@ -247,7 +247,7 @@ class TradeHandler:
                 f"👤 <b>Seller:</b> {identifier}\n"
                 f"📦 <b>Amount:</b> {amount} tokens\n"
                 f"💵 <b>Price:</b> ${price_per_token:.4f} per token\n\n"
-                "🛒 <b>Want to buy?</b> Click the <b>Buy</b> button below to place your order.\n"
+                "🛒 <b>Want to buy?</b> Click the <b>Buy</b> button below to place your order.\n\n"
                 "🆘 <i>Need help? Use the Support button.</i>"
             )
             msg = await update.get_bot().send_message(      # ← msg برای message_id
@@ -283,7 +283,7 @@ class TradeHandler:
             # ── تأیید برای فروشنده ───────────────────────────────────
             confirmation_text = (
                 "✅ <b>Your sell offer was submitted successfully!</b>\n\n"
-                "📢 Your offer has been posted in the trade channel and is now visible to potential buyers.\n"
+                "📢 Your offer has been posted in the trade channel and is now visible to potential buyers.\n\n"
                 "🛒 Interested users can click 'Buy' to proceed with the purchase.\n\n"
                 "🕒 Please wait — our support team will contact you if any follow-up is required."
             )
@@ -438,7 +438,7 @@ class TradeHandler:
 
             text_price = (
                 f"🧮 <b>You want to buy:</b> {amount} tokens\n\n"
-                "💵 <b>At what price (USD) per token are you willing to buy?</b>\n"
+                "💵 <b>At what price (USD) per token are you willing to buy?</b>\n\n"
                 "Please enter your offer (e.g. <b>0.25</b>)"
             )
 
@@ -620,7 +620,7 @@ class TradeHandler:
 
             # 6️⃣ Edit channel message to mark order completed
             await query.edit_message_text(
-                "✅ <b>This buy order has been fulfilled by a seller.</b>\n"
+                "✅ <b>This buy order has been fulfilled by a seller.</b>\n\n"
                 "The tokens have been transferred securely via escrow.",
                 parse_mode="HTML"
             )
@@ -630,7 +630,7 @@ class TradeHandler:
             
             text_buyer = (
                 "🎉 <b>Your buy order has been successfully fulfilled!</b>\n\n"
-                "💰 The tokens have been securely transferred to your account.\n"
+                "💰 The tokens have been securely transferred to your account.\n\n"
                 "Thank you for using the marketplace!"
             )
             await context.bot.send_message(
@@ -642,7 +642,7 @@ class TradeHandler:
             # 8️⃣ Notify the seller privately
             text_seller = (
                 "✅ <b>Your tokens have been sold successfully!</b>\n\n"
-                "💵 The equivalent USDT amount will be credited to your account shortly.\n"
+                "💵 The equivalent USDT amount will be credited to your account shortly.\n\n"
                 "Thank you for completing the transaction."
             )
             await context.bot.send_message(
@@ -786,7 +786,7 @@ class TradeHandler:
             # پیام شروع دریافت TXID
             msg = await self.translation_manager.translate_for_user(
                 "✅ Payment process started.\n"
-                "📨 Please send the TXID (transaction hash) here in this chat.\n"
+                "📨 Please send the TXID (transaction hash) here in this chat.\n\n"
                 "💡 It should be a 64-character code from your wallet or exchange.",
                 buyer_id
             )
