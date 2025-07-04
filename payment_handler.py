@@ -109,7 +109,7 @@ class PaymentHandler:
                     "• Referral Code: —\n"
                 ]
             lines += [
-                "1️⃣ Send $50 USDT (TRC-20) to:",
+                "1️⃣ Send $50 USDT (TRC-20) to:\n\n",
                 f"<code>{self.wallet_address}</code>\n\n",
                 "2️⃣ When done, press the button below and select <b>TxID (transaction hash)</b>."
             ]
