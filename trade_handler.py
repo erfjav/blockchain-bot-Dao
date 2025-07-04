@@ -40,7 +40,7 @@ from telegram import (
     ReplyKeyboardMarkup,
 )
 from telegram.ext import ContextTypes
-
+from telegram.error import BadRequest
 from keyboards import TranslatedKeyboards
 from language_Manager import TranslationManager
 from error_handler import ErrorHandler
@@ -303,22 +303,41 @@ class TradeHandler:
 
     # ───────────────────────────────────────────────────────────────────
     async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle buy order callback with proper error handling"""
+        query = update.callback_query
+        
         try:
-            query = update.callback_query
-            await query.answer()
+            # Check if query is valid and not too old
+            if not query or not query.data:
+                self.logger.warning("Invalid callback query received")
+                return
+                
+            # Try to answer the query first - with timeout handling
+            try:
+                await query.answer()
+            except BadRequest as e:
+                if "too old" in str(e).lower() or "expired" in str(e).lower():
+                    self.logger.warning(f"Query too old: {e}")
+                    # Don't return here, continue with processing
+                else:
+                    raise e
+            
             buyer_id = query.from_user.id
-
             order_id = int(query.data.split("_")[-1])
             order = await self.db.collection_orders.find_one({"order_id": order_id})
 
             # ── بررسی وضعیت سفارش ─────────────────────────────
             if not order or order["status"] != "open":
-                await query.answer("⚠️ This order is no longer available.", show_alert=True)
-                return await query.edit_message_reply_markup(None)
+                try:
+                    await query.edit_message_reply_markup(None)
+                except BadRequest:
+                    # Message might be already edited
+                    pass
+                return
 
             # ── جلوگیری از خرید سفارش خود ─────────────────────
             if buyer_id == order.get("seller_id"):
-                return await query.answer("🚫 You cannot buy your own order.", show_alert=True)
+                return  # Don't show alert for old queries
 
             total = order["amount"] * order["price"]
             context.user_data["pending_order"] = order_id
@@ -331,30 +350,97 @@ class TradeHandler:
                 f"📥 <b>Payment Wallet (USDT-TRC20):</b>\n<code>{TRON_WALLET}</code>\n\n"
                 "After sending the payment, please press <b>I Paid</b> and submit your <b>TXID (Transaction Hash)</b>."
             )
-            kb = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
-            )
-            await context.bot.send_message(
-                chat_id=buyer_id,
-                text=text_en,
-                reply_markup=kb,
-                parse_mode="HTML",
-            )
-
-            self.logger.info(f"Sent payment instructions for order {order_id} to user {buyer_id}")
+            
+            # Create inline keyboard with proper structure
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]
+            ])
+            
+            # Send message with proper error handling
+            try:
+                await context.bot.send_message(
+                    chat_id=buyer_id,
+                    text=text_en,
+                    reply_markup=kb,
+                    parse_mode="HTML",
+                )
+                self.logger.info(f"Sent payment instructions for order {order_id} to user {buyer_id}")
+            except BadRequest as e:
+                self.logger.error(f"Failed to send payment instructions: {e}")
+                return
 
             # ── به‌روزرسانی وضعیت سفارش در دیتابیس ─────────────
             await self.db.collection_orders.update_one(
                 {"order_id": order_id},
                 {"$set": {
-                    "status":     "pending_payment",
-                    "buyer_id":   buyer_id,
+                    "status": "pending_payment",
+                    "buyer_id": buyer_id,
                     "updated_at": datetime.utcnow()
                 }}
             )
 
         except Exception as e:
-            await self.error_handler.handle(update, context, e, context_name="buy_order_callback")
+            self.logger.error(f"Error in buy_order_callback: {e}")
+            # Only try to handle error if error_handler exists and is properly initialized
+            if hasattr(self, 'error_handler') and self.error_handler and hasattr(self.error_handler, 'handle'):
+                try:
+                    await self.error_handler.handle(update, context, e, context_name="buy_order_callback")
+                except Exception as handler_error:
+                    self.logger.error(f"Error handler failed: {handler_error}") 
+ 
+    # async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     try:
+    #         query = update.callback_query
+    #         await query.answer()
+    #         buyer_id = query.from_user.id
+
+    #         order_id = int(query.data.split("_")[-1])
+    #         order = await self.db.collection_orders.find_one({"order_id": order_id})
+
+    #         # ── بررسی وضعیت سفارش ─────────────────────────────
+    #         if not order or order["status"] != "open":
+    #             await query.answer("⚠️ This order is no longer available.", show_alert=True)
+    #             return await query.edit_message_reply_markup(None)
+
+    #         # ── جلوگیری از خرید سفارش خود ─────────────────────
+    #         if buyer_id == order.get("seller_id"):
+    #             return await query.answer("🚫 You cannot buy your own order.", show_alert=True)
+
+    #         total = order["amount"] * order["price"]
+    #         context.user_data["pending_order"] = order_id
+    #         context.user_data["state"] = "awaiting_trade_txid"
+
+    #         # ── ارسال دستورالعمل پرداخت به خریدار ─────────────
+    #         text_en = (
+    #             f"🧾 <b>Order Summary</b>\n"
+    #             f"💰 <b>Total to Pay:</b> ${total:.2f}\n"
+    #             f"📥 <b>Payment Wallet (USDT-TRC20):</b>\n<code>{TRON_WALLET}</code>\n\n"
+    #             "After sending the payment, please press <b>I Paid</b> and submit your <b>TXID (Transaction Hash)</b>."
+    #         )
+    #         kb = InlineKeyboardMarkup(
+    #             [[InlineKeyboardButton("💳 I Paid", callback_data=f"paid_{order_id}")]]
+    #         )
+    #         await context.bot.send_message(
+    #             chat_id=buyer_id,
+    #             text=text_en,
+    #             reply_markup=kb,
+    #             parse_mode="HTML",
+    #         )
+
+    #         self.logger.info(f"Sent payment instructions for order {order_id} to user {buyer_id}")
+
+    #         # ── به‌روزرسانی وضعیت سفارش در دیتابیس ─────────────
+    #         await self.db.collection_orders.update_one(
+    #             {"order_id": order_id},
+    #             {"$set": {
+    #                 "status":     "pending_payment",
+    #                 "buyer_id":   buyer_id,
+    #                 "updated_at": datetime.utcnow()
+    #             }}
+    #         )
+
+    #     except Exception as e:
+    #         await self.error_handler.handle(update, context, e, context_name="buy_order_callback")
 
     # ─────────────────────────── BUY FLOW ─────────────────────────────────
     

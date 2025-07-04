@@ -163,7 +163,7 @@ class BotManager:
             # BlockchainClient
             self.blockchain = BlockchainClient()
             self.logger.info("BlockchainClient initialized.")
-############################################################################################################
+
             # 9. 🔹 WithdrawHandler  ← NEW
             self.withdraw_handler = WithdrawHandler(
                 db=self.db,
@@ -175,7 +175,6 @@ class BotManager:
                 blockchain_client=self.blockchain   # فقط اگر تسویهٔ آنی دارید
             )
             self.logger.info("WithdrawHandler initialized.")
-############################################################################################################
 
             self.trade_handler = TradeHandler(
                 keyboards=self.keyboards,
