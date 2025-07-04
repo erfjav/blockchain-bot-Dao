@@ -652,13 +652,10 @@ class BotManager:
             self.application.add_handler(
                 CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
 
+            ############---------------------------------------------------------------------------------------######
 
             self.application.add_handler(
                 CallbackQueryHandler(self.trade_handler.buy_order_callback, pattern=r"^buy_order_\d+$"), group=0 )
-
-            ############---------------------------------------------------------------------------------------######
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"), group=0)
 
             self.application.add_handler(
                 CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"), group=0)
@@ -666,6 +663,10 @@ class BotManager:
             self.application.add_handler(
                 CallbackQueryHandler(self.trade_handler.cancel_order_callback, pattern=r"^cancel_\d+$"), group=0)           
             
+            ###########------------------------------------------------------------------------------------------------
+            
+            self.application.add_handler(
+                CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"), group=0)            
             
             self.application.add_handler(
                 CallbackQueryHandler(self.trade_handler.seller_confirm_callback, pattern=r"^confirm_sell_\d+$"), group=0)
