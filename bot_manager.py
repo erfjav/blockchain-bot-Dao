@@ -23,11 +23,11 @@ from telegram.ext import (
 from fastapi import FastAPI
 
 from myproject_database import Database
-from translation import SimpleTranslator
-from language_Manager import TranslationManager
+from bot_ui.translation import SimpleTranslator
+from bot_ui.language_Manager import TranslationManager
 from error_handler import ErrorHandler
-from keyboards import TranslatedKeyboards
-from Translated_Inline_Keyboards import TranslatedInlineKeyboards
+from bot_ui.keyboards import TranslatedKeyboards
+from bot_ui.Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from HelpHandler import HelpHandler
 from Referral_logic_code import ReferralManager
 from Profile import ProfileHandler

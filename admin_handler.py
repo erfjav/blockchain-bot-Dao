@@ -11,7 +11,7 @@ from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 
 from price_provider import DynamicPriceProvider
-from language_Manager import TranslationManager
+from bot_ui.language_Manager import TranslationManager
 from config import ADMIN_USER_IDS
 
 

@@ -46,8 +46,8 @@ from datetime import datetime, timedelta   # اگر بالای فایل ندار
 
 from telegram.ext import ContextTypes
 from telegram.error import BadRequest
-from keyboards import TranslatedKeyboards
-from language_Manager import TranslationManager
+from bot_ui.keyboards import TranslatedKeyboards
+from bot_ui.language_Manager import TranslationManager
 from error_handler import ErrorHandler
 from Referral_logic_code import ReferralManager
 from price_provider import DynamicPriceProvider          # ← NEW

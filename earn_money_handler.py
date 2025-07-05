@@ -9,8 +9,8 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from language_Manager import TranslationManager
-from keyboards import TranslatedKeyboards
+from bot_ui.language_Manager import TranslationManager
+from bot_ui.keyboards import TranslatedKeyboards
 from state_manager import push_state
 
 logger = logging.getLogger(__name__)

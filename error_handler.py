@@ -5,8 +5,8 @@ from telegram import Update
 from telegram.error import BadRequest, Forbidden
 from telegram.ext import ContextTypes
 
-from keyboards import TranslatedKeyboards
-from language_Manager import TranslationManager
+from bot_ui.keyboards import TranslatedKeyboards
+from bot_ui.language_Manager import TranslationManager
 
 
 class ErrorHandler:

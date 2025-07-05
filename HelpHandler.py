@@ -4,9 +4,9 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 from error_handler import ErrorHandler
-from language_Manager import TranslationManager
-from Translated_Inline_Keyboards import TranslatedInlineKeyboards
-from keyboards import TranslatedKeyboards
+from bot_ui.language_Manager import TranslationManager
+from bot_ui.Translated_Inline_Keyboards import TranslatedInlineKeyboards
+from bot_ui.keyboards import TranslatedKeyboards
 from myproject_database import Database
 from state_manager import pop_state, push_state, reset_state
 

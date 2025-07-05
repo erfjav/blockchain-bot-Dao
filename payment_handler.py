@@ -15,8 +15,8 @@ from typing import List, Tuple
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
-from language_Manager import TranslationManager
-from keyboards import TranslatedKeyboards
+from bot_ui.language_Manager import TranslationManager
+from bot_ui.keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler
 from state_manager import push_state
 from myproject_database import Database

@@ -6,7 +6,7 @@ from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     # این import‌ها تنها برای تایپ هینتینگ استفاده می‌شوند و در زمان اجرا وارد نمی‌شوند.
-    from translation import SimpleTranslator
+    from .translation import SimpleTranslator
     from myproject_database import Database
 
 model_names = {
