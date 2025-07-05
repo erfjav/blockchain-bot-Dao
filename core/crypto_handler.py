@@ -1,4 +1,3 @@
-
 # crypto_handler.py
 # ─────────────────────────────────────────────────────────────────────────
 from __future__ import annotations
@@ -10,8 +9,47 @@ from typing import Optional
 import config
 from .blockchain_client import BlockchainClient, DEFAULT_USDT_CONTRACT, DECIMALS
 
-# Import the ERC20 ABI that's needed for token contract interactions
-from tronpy.abi import ERC20_ABI
+# Define the ERC20 ABI manually since it's not available in this tronpy version
+ERC20_ABI = [
+    {
+        "constant": True,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "type": "function"
+    },
+    {
+        "constant": False,
+        "inputs": [
+            {"name": "_to", "type": "address"},
+            {"name": "_value", "type": "uint256"}
+        ],
+        "name": "transfer",
+        "outputs": [{"name": "", "type": "bool"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [{"name": "", "type": "string"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "name",
+        "outputs": [{"name": "", "type": "string"}],
+        "type": "function"
+    }
+]
 
 COINGECKO_SIMPLE_PRICE = "https://api.coingecko.com/api/v3/simple/price"
 
