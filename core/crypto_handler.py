@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Optional
 
 import config
-from blockchain_client import BlockchainClient, DEFAULT_USDT_CONTRACT, DECIMALS
+from .blockchain_client import BlockchainClient, DEFAULT_USDT_CONTRACT, DECIMALS
 
 
 COINGECKO_SIMPLE_PRICE = "https://api.coingecko.com/api/v3/simple/price"
