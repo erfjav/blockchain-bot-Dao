@@ -81,7 +81,7 @@ ADMIN_USER_IDS: List[int] = [int(uid.strip()) for uid in os.getenv("ADMIN_USER_I
 # Blockchain / Tron
 TRON_NETWORK: str = os.getenv("TRON_NETWORK", "mainnet")                # mainnet | nile | URL
 
-TRON_PROVIDER_URL: str | None = os.getenv("TRON_PROVIDER_URL")          # optional custom provider URI
+TRON_PROVIDER_URL: str | None = os.getenv("TRON_PROVIDER_URL", "https://api.trongrid.io")          # optional custom provider URI
 TRON_PRO_API_KEY: str | None = os.getenv("TRON_PRO_API_KEY")            # optional API key for Tron Pro services
 
 TRONSCAN_API_KEY: str | None = os.getenv("TRONSCAN_API_KEY")

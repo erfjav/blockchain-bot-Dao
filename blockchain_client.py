@@ -23,6 +23,7 @@ from typing import Optional, Tuple
 
 import httpx
 from tronpy import AsyncTron
+from tronpy.providers import AsyncHTTPProvider   # ← NEW
 from tronpy.exceptions import TransactionError
 
 import config
@@ -86,18 +87,36 @@ class BlockchainClient:
                 await _sleep_backoff(attempt)
         return None
 
-
+    #───────────────────────────────────────────────────────────
     async def _get_tron(self) -> AsyncTron:
-        """Singleton AsyncTron with custom provider + API-Key."""
+        """
+        Singleton AsyncTron with custom HTTP provider + API-Key.
+        برای هر فراخوانی بعدی همان شیء کش‌شده برگردانده می‌شود.
+        """
         if self._tron is None:
-            self._tron = AsyncTron(
-                network=self.network,
-                # ← URL اختصاصی؛ اگر None باشد tronpy پیش‌فرض خودش را می‌زند
-                provider_uri=TRON_PROVIDER_URL,
-                # ← کلید برای هدر TRON-PRO-API-KEY
-                api_key=TRON_PRO_API_KEY,
+            provider = AsyncHTTPProvider(
+                endpoint_uri=TRON_PROVIDER_URL,  # مثلاً https://api.trongrid.io
+                api_key=TRON_PRO_API_KEY,        # هدر TRON-PRO-API-KEY
             )
+
+            self._tron = AsyncTron(
+                provider=provider,
+                network=self.network,            # "mainnet" یا "nile"
+            )
+
         return self._tron
+
+    # async def _get_tron(self) -> AsyncTron:
+    #     """Singleton AsyncTron with custom provider + API-Key."""
+    #     if self._tron is None:
+    #         self._tron = AsyncTron(
+    #             network=self.network,
+    #             # ← URL اختصاصی؛ اگر None باشد tronpy پیش‌فرض خودش را می‌زند
+    #             provider_uri=TRON_PROVIDER_URL,
+    #             # ← کلید برای هدر TRON-PRO-API-KEY
+    #             api_key=TRON_PRO_API_KEY,
+    #         )
+    #     return self._tron
 
     # async def _get_tron(self) -> AsyncTron:
     #     if self._tron is None:
