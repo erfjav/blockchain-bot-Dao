@@ -32,6 +32,10 @@ import config
 # ────────────────────────────────────────────────────────────
 TRONSCAN_BASE = "https://apilist.tronscan.org/api"
 DEFAULT_USDT_CONTRACT = config.USDT_CONTRACT  # USDT-TRC20 (mainnet)
+
+TRON_PRO_API_KEY = config.TRON_PRO_API_KEY
+TRON_PROVIDER_URL = config.TRON_PROVIDER_URL
+
 DECIMALS = 6  # USDT has 6 decimals
 
 
@@ -82,11 +86,24 @@ class BlockchainClient:
                 await _sleep_backoff(attempt)
         return None
 
+
     async def _get_tron(self) -> AsyncTron:
+        """Singleton AsyncTron with custom provider + API-Key."""
         if self._tron is None:
-            # اگر مقدار network یک URL باشد، tronpy خودکار تشخیص می‌دهد
-            self._tron = AsyncTron(network=self.network)
+            self._tron = AsyncTron(
+                network=self.network,
+                # ← URL اختصاصی؛ اگر None باشد tronpy پیش‌فرض خودش را می‌زند
+                provider_uri=TRON_PROVIDER_URL,
+                # ← کلید برای هدر TRON-PRO-API-KEY
+                api_key=TRON_PRO_API_KEY,
+            )
         return self._tron
+
+    # async def _get_tron(self) -> AsyncTron:
+    #     if self._tron is None:
+    #         # اگر مقدار network یک URL باشد، tronpy خودکار تشخیص می‌دهد
+    #         self._tron = AsyncTron(network=self.network)
+    #     return self._tron
 
     # ────────────────────────────────────────────────
     # Public ① – Verify incoming payment

@@ -124,10 +124,6 @@ class BotManager:
             )
             self.logger.info("DynamicPriceProvider initialized (auto-pricing).")       
                 
-            # # باید قبل از TradeHandler ساخته شود
-            # self.price_provider = PriceProvider(self.db)     # ← NEW
-            # self.logger.info("PriceProvider initialized (manual mode).")
-            
             # 1. SimpleTranslator (بدون وابستگی خاص)
             self.translator = SimpleTranslator(model_type="gpt-4o", db=self.db)
             self.logger.info("SimpleTranslator initialized successfully.")

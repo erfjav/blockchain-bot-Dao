@@ -36,6 +36,10 @@ REQUIRED_VARS = [
     "TRADE_CHANNEL_ID",
     "SUPPORT_USER_USERNAME",
     "ADMIN_USER_IDS",  # کاما جدا شده (1,2,3)
+    
+    # — Blockchain / Tron (now required)
+    "TRON_PROVIDER_URL",  # new
+    "TRON_PRO_API_KEY",   # new
 ]
 
 missing = [var for var in REQUIRED_VARS if not os.getenv(var)]
@@ -76,12 +80,16 @@ ADMIN_USER_IDS: List[int] = [int(uid.strip()) for uid in os.getenv("ADMIN_USER_I
 
 # Blockchain / Tron
 TRON_NETWORK: str = os.getenv("TRON_NETWORK", "mainnet")                # mainnet | nile | URL
+
+TRON_PROVIDER_URL: str | None = os.getenv("TRON_PROVIDER_URL")          # optional custom provider URI
+TRON_PRO_API_KEY: str | None = os.getenv("TRON_PRO_API_KEY")            # optional API key for Tron Pro services
+
 TRONSCAN_API_KEY: str | None = os.getenv("TRONSCAN_API_KEY")
+
 USDT_CONTRACT: str = os.getenv(
     "USDT_CONTRACT",
-    "TEkxiTehnzSmSe2XQRhTKNqgSGGEE6RT3",
+    "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj",
 )
-
 
 STATIC_TOKEN_PRICE: float = float(os.getenv("STATIC_TOKEN_PRICE", "1.0"))
 PRICE_CACHE_TTL: int = int(os.getenv("PRICE_CACHE_TTL", "60"))  # ثانیه
@@ -116,6 +124,8 @@ __all__ = [
     
     # Blockchain
     "TRON_NETWORK",
+    "TRON_PROVIDER_URL",
+    "TRON_PRO_API_KEY",
     "TRONSCAN_API_KEY",
     "USDT_CONTRACT",
     
