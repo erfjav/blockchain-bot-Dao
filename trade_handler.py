@@ -50,11 +50,11 @@ from bot_ui.keyboards import TranslatedKeyboards
 from bot_ui.language_Manager import TranslationManager
 from error_handler import ErrorHandler
 from Referral_logic_code import ReferralManager
-from price_provider import DynamicPriceProvider          # ← NEW
+from core.price_provider import DynamicPriceProvider          # ← NEW
 
 from myproject_database import Database  # Async wrapper
 from state_manager import push_state, pop_state
-from blockchain_client import BlockchainClient
+from core.blockchain_client import BlockchainClient
 
 from config import TRADE_WALLET_ADDRESS as TRON_WALLET
 

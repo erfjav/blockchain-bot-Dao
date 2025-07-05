@@ -10,7 +10,7 @@ from decimal import Decimal
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from price_provider import DynamicPriceProvider
+from core.price_provider import DynamicPriceProvider
 from bot_ui.language_Manager import TranslationManager
 from bot_ui.keyboards import TranslatedKeyboards
 from error_handler import ErrorHandler

@@ -18,7 +18,7 @@ from decimal import Decimal
 from typing import Optional
 
 from myproject_database import Database          # async wrapper
-from crypto_handler import CryptoHandler         # you already use this
+from .crypto_handler import CryptoHandler         # you already use this
 
 logger = logging.getLogger(__name__)
 

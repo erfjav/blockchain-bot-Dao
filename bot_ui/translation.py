@@ -5,7 +5,7 @@
 from __future__ import annotations
 import logging
 from typing import Optional, TYPE_CHECKING
-from models import Model
+from core.models import Model
 
 if TYPE_CHECKING:
     from myproject_database import Database

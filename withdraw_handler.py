@@ -14,7 +14,7 @@ from bot_ui.Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from error_handler import ErrorHandler
 from myproject_database import Database
 from Referral_logic_code import ReferralManager
-from blockchain_client import BlockchainClient
+from core.blockchain_client import BlockchainClient
 from state_manager import push_state, pop_state
 
 import config

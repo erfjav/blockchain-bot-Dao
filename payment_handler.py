@@ -21,7 +21,7 @@ from error_handler import ErrorHandler
 from state_manager import push_state
 from myproject_database import Database
 from Referral_logic_code import ReferralManager, TokensDepletedError
-from blockchain_client import BlockchainClient
+from core.blockchain_client import BlockchainClient
 
 from datetime import datetime
 

@@ -33,17 +33,17 @@ from Referral_logic_code import ReferralManager
 from Profile import ProfileHandler
 from trade_handler import TradeHandler
 from admin_handler import AdminHandler 
-from price_provider import DynamicPriceProvider          # ← NEW
+from core.price_provider import DynamicPriceProvider          # ← NEW
 from trade_handler import TradeHandler            # ← NEW
 
 from token_price_handler import TokenPriceHandler
 from convert_token_handler import ConvertTokenHandler
 from earn_money_handler import EarnMoneyHandler
-from blockchain_client import BlockchainClient
+from core.blockchain_client import BlockchainClient
 from withdraw_handler import WithdrawHandler
 from payment_handler import PaymentHandler
 from support_handler import SupportHandler
-from crypto_handler import CryptoHandler
+from core.crypto_handler import CryptoHandler
 
 from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
 #, TRADE_WALLET_ADDRESS
