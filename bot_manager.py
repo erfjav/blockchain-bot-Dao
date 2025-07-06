@@ -144,6 +144,13 @@ class BotManager:
             self.inline_translator = TranslatedInlineKeyboards(db=self.db, translator=self.translator)
             self.logger.info("TranslatedInlineKeyboards initialized successfully.")
 
+            # 5. ErrorHandler (وابسته به translation_manager و keyboards)
+            self.error_handler = ErrorHandler(
+                translation_manager=self.translation_manager,
+                keyboards=self.keyboards
+            )
+            self.logger.info("ErrorHandler initialized successfully.")
+
             # 9. HelpHandler (وابسته به error_handler و translation_manager)
             self.help_handler = HelpHandler(
                 logger=self.logger,
@@ -154,29 +161,7 @@ class BotManager:
                 translation_manager=self.translation_manager
             )
             self.logger.info("HelpHandler initialized successfully.")
-
-            # 5. ErrorHandler (وابسته به translation_manager و keyboards)
-            self.error_handler = ErrorHandler(
-                translation_manager=self.translation_manager,
-                keyboards=self.keyboards
-            )
-            self.logger.info("ErrorHandler initialized successfully.")
-
             ##------------------------------------------------------------------------
-
-
-            # 1️⃣ ReferralManager
-            self.referral_manager = ReferralManager(self.db, safe_client=self.safe_client, price_provider=self.price_provider,)
-            self.logger.info(
-                "ReferralManager initialized (pool_wallet=%s)",
-                POOL_WALLET_ADDRESS
-            )
-
-            # # 1️⃣ ReferralManager
-            # pool_wallet = os.getenv("POOL_WALLET_ADDRESS")
-            # self.referral_manager = ReferralManager(self.db, pool_wallet=pool_wallet)
-            # self.logger.info("ReferralManager initialized (pool_wallet=%s)", pool_wallet)
-            ###-------------------------------------------------------------------------------------
             
             # 2️⃣ ProfileHandler
             self.profile_handler = ProfileHandler(
@@ -199,6 +184,14 @@ class BotManager:
                 "SafeClient initialized (safe_address=%s)",
                 MULTISIG_GHOST_WALLET_2OF2
             )
+
+            # 1️⃣ ReferralManager
+            self.referral_manager = ReferralManager(self.db, safe_client=self.safe_client, price_provider=self.price_provider,)
+            self.logger.info(
+                "ReferralManager initialized (pool_wallet=%s)",
+                POOL_WALLET_ADDRESS
+            )
+            ###-------------------------------------------------------------------------------------
 
             # 9. 🔹 WithdrawHandler  ← NEW
             self.withdraw_handler = WithdrawHandler(

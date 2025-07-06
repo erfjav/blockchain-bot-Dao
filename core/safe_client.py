@@ -62,7 +62,7 @@ class SafeClient:
         }
 
         # Personal admin multisigs (هر کدام 2-of-2)
-        admin_addresses = config.SECOND_ADMIN_PERSONAL_WALLETS.split(',')
+        admin_addresses = config.SECOND_ADMIN_PERSONAL_WALLETS
         for idx, raw_addr in enumerate(admin_addresses, start=1):
             alias = f'admin_personal_{idx}'
             addr  = Web3.to_checksum_address(raw_addr.strip())
