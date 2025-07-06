@@ -49,9 +49,8 @@ REQUIRED_VARS = [
     # — SafeClient (Ethereum multisig)
     "SAFE_SERVICE_URL",           # URL of Safe Transaction Service API
     "ETHEREUM_RPC_URL",           # Ethereum RPC endpoint
-    "OWNER1_GHOST_PRIVATE_KEY",         # Private key for first Safe owner
-    "OWNER2_GHOST_PRIVATE_KEY",         # Private key for second Safe owner
     "CHAIN_ID",     
+    "SERVICE_ACCOUNT_PRIVATE_KEY"
 ]
 
 missing = [var for var in REQUIRED_VARS if not os.getenv(var)]
@@ -88,9 +87,6 @@ SECOND_ADMIN_POOL_WALLET: str = os.getenv("SECOND_ADMIN_POOL_WALLET")
 # لیست ۵ آدرس برای مدیران ثانویه، جداشده با کاما
 SECOND_ADMIN_PERSONAL_WALLETS: List[str] = [w.strip() for w in os.getenv("SECOND_ADMIN_PERSONAL_WALLETS").split(",") if w.strip()]
 
-# لیست ۵ کلید خصوصی برای مدیران ثانویه، جداشده با کاما
-SECOND_ADMIN_PRIVATE_KEYS: List[str] = [k.strip() for k in os.getenv("SECOND_ADMIN_PRIVATE_KEYS", "").split(",") if k.strip()]
-
 # Support / Admin
 # اعدادی که به int باید تبدیل شوند
 TRADE_CHANNEL_ID: int = int(os.getenv("TRADE_CHANNEL_ID"))
@@ -116,10 +112,8 @@ USDT_CONTRACT: str = os.getenv(
 # SafeClient / Ethereum multisig
 SAFE_SERVICE_URL: str = os.getenv("SAFE_SERVICE_URL")
 ETHEREUM_RPC_URL: str = os.getenv("ETHEREUM_RPC_URL")
-OWNER1_GHOST_PRIVATE_KEY: str = os.getenv("OWNER1_GHOST_PRIVATE_KEY")
-OWNER2_GHOST_PRIVATE_KEY: str = os.getenv("OWNER2_GHOST_PRIVATE_KEY")
 CHAIN_ID: int = int(os.getenv("CHAIN_ID", "1"))
-
+SERVICE_ACCOUNT_PRIVATE_KEY: str = os.getenv("SERVICE_ACCOUNT_PRIVATE_KEY")
 
 STATIC_TOKEN_PRICE: float = float(os.getenv("STATIC_TOKEN_PRICE", "1.0"))
 PRICE_CACHE_TTL: int = int(os.getenv("PRICE_CACHE_TTL", "60"))  # ثانیه
@@ -162,14 +156,12 @@ __all__ = [
     # SafeClient / Ethereum multisig
     "SAFE_SERVICE_URL", 
     "ETHEREUM_RPC_URL", 
-    "OWNER1_GHOST_PRIVATE_KEY",
-    "OWNER2_GHOST_PRIVATE_KEY", 
     "CHAIN_ID",    
+    "SERVICE_ACCOUNT_PRIVATE_KEY",
     
     # Referral logic
     "MULTISIG_GHOST_WALLET_2OF2",
     "SECOND_ADMIN_POOL_WALLET",
-    "SECOND_ADMIN_PRIVATE_KEYS",
     "SECOND_ADMIN_PERSONAL_WALLETS",    
     
     # Pricing / Misc
