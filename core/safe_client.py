@@ -49,7 +49,7 @@ class SafeClient:
         admin_private_keys = []
         if hasattr(config, 'SECOND_ADMIN_PRIVATE_KEYS'):
             # اگر یک متغیر جداگانه برای private key ها داری
-            admin_private_keys = config.SECOND_ADMIN_PRIVATE_KEYS.split(',')
+            admin_private_keys = config.SECOND_ADMIN_PRIVATE_KEYS
         else:
             # اگر نداری، باید آدرس‌ها رو به private key تبدیل کنی
             # یا از یک نقشه (mapping) استفاده کنی
