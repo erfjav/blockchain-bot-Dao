@@ -39,13 +39,15 @@ from trade_handler import TradeHandler            # ← NEW
 from token_price_handler import TokenPriceHandler
 from convert_token_handler import ConvertTokenHandler
 from earn_money_handler import EarnMoneyHandler
-from core.blockchain_client import BlockchainClient
 from withdraw_handler import WithdrawHandler
 from payment_handler import PaymentHandler
 from support_handler import SupportHandler
 from core.crypto_handler import CryptoHandler
+from core.blockchain_client import BlockchainClient
+from core.safe_client import SafeClient
 
-from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, POOL_WALLET_ADDRESS
+
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, POOL_WALLET_ADDRESS, MULTISIG_GHOST_WALLET_2OF2
 #, TRADE_WALLET_ADDRESS
 from state_manager import pop_state, push_state
 import inspect
@@ -82,6 +84,8 @@ class BotManager:
         self.support_handler: Optional[SupportHandler] = None
         self.payment_handler: Optional[PaymentHandler] = None          
         self.blockchain: Optional[BlockchainClient] = None
+        self.safe_client: Optional[SafeClient] = None
+        
         self.withdraw_handler: Optional[WithdrawHandler] = None
         
         self.crypto_handler: Optional[CryptoHandler] = None
@@ -162,7 +166,7 @@ class BotManager:
 
 
             # 1️⃣ ReferralManager
-            self.referral_manager = ReferralManager(self.db)
+            self.referral_manager = ReferralManager(self.db, safe_client=self.safe_client, price_provider=self.price_provider,)
             self.logger.info(
                 "ReferralManager initialized (pool_wallet=%s)",
                 POOL_WALLET_ADDRESS
@@ -188,6 +192,13 @@ class BotManager:
             # BlockchainClient
             self.blockchain = BlockchainClient()
             self.logger.info("BlockchainClient initialized.")
+
+            # 🔹 SafeClient (Ethereum multisig)
+            self.safe_client = SafeClient()
+            self.logger.info(
+                "SafeClient initialized (safe_address=%s)",
+                MULTISIG_GHOST_WALLET_2OF2
+            )
 
             # 9. 🔹 WithdrawHandler  ← NEW
             self.withdraw_handler = WithdrawHandler(

@@ -20,9 +20,12 @@ from typing import Optional, List, Dict, Any, Tuple
 
 from pymongo import ReturnDocument
 from myproject_database import Database
+from core.safe_client import SafeClient
+from core.price_provider import DynamicPriceProvider 
+
 from config import (
     POOL_WALLET_ADDRESS,
-    MULTISIG_WALLET_2OF2,
+    MULTISIG_GHOST_WALLET_2OF2,
     SECOND_ADMIN_POOL_WALLET,
     SECOND_ADMIN_PERSONAL_WALLETS,
 )
@@ -46,11 +49,15 @@ class ReferralManager:
     TOKEN_START_PER_USER     = 200.0
     TOKEN_DECREMENT_PER_USER = 0.02
 
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, safe_client: SafeClient, price_provider:DynamicPriceProvider):
+        
         self.db       = db
+        self.logger = logging.getLogger(__name__)
         self.users    = db.collection_users
         self.payments = db.db["payments"]
         self.counters = db.db["counters"]
+        self.safe_client = safe_client
+        self.price_provider= price_provider
 
         if len(SECOND_ADMIN_PERSONAL_WALLETS) != 5:
             raise RuntimeError("config error: SECOND_ADMIN_PERSONAL_WALLETS must have 5 items")
@@ -217,7 +224,7 @@ class ReferralManager:
                 anc  = await self.users.find_one({"user_id": uid}, {"slot_id": 1})
                 slot = anc.get("slot_id", "")
                 if slot in GHOST_SLOTS:
-                    await self._pay(MULTISIG_WALLET_2OF2, share, new_user_id, f"ghost {slot}")
+                    await self._pay(MULTISIG_GHOST_WALLET_2OF2, share, new_user_id, f"ghost {slot}")
                 elif slot in SECOND_ADMIN_SLOTS:
                     await self._split_second_admin_pool(share, new_user_id)
                 else:
@@ -232,14 +239,59 @@ class ReferralManager:
 
     # ─────────────────────── payment helpers ─────────────────────
     async def _pay(self, wallet: str, amount: float, from_user: int, note: str):
-        await self.payments.insert_one({
+        """
+        Records a payment or, if the destination is a 2-of-2 multisig
+        (primary or any of SECOND_ADMIN_PERSONAL_WALLETS), submits it via SafeClient.
+        """
+        w = wallet.lower()
+
+        # 1️⃣ Primary multisig?
+        if w == MULTISIG_GHOST_WALLET_2OF2.lower():
+            alias = 'primary'
+        else:
+            # 2️⃣ Secondary admin multisigs?
+            admin_wallets = [addr.lower() for addr in SECOND_ADMIN_PERSONAL_WALLETS]
+            if w in admin_wallets:
+                idx = admin_wallets.index(w) + 1
+                alias = f'admin_pool_{idx}'
+            else:
+                alias = None
+
+        # 3️⃣ اگر alias تشخیص داده شد، ارسال از طریق SafeClient
+        if alias:
+            # تبدیل USD به ETH
+            eth_price_usd = await self.price_provider.get_price()
+            eth_amount    = amount / eth_price_usd
+            try:
+                result = self.safe_client.propose(
+                    to=wallet,
+                    value_eth=eth_amount,
+                    data="0x",
+                    alias=alias
+                )
+                self.logger.info(
+                    "SafeClient.propose called (alias=%s to=%s value_eth=%.6f) → %s",
+                    alias, wallet, eth_amount, result
+                )
+                return result
+            except Exception as e:
+                self.logger.error(
+                    "Safe propose failed (alias=%s): %s", alias, e, exc_info=True
+                )
+                raise
+
+        # 4️⃣ وگرنه رکورد عادی در دیتابیس
+        record = {
             "from_user":  from_user,
-            "amount_usd": round(amount, 8),   # in USD; adjust if token
+            "amount_usd": round(amount, 8),
             "to":         wallet,
             "type":       note,
             "timestamp":  datetime.utcnow(),
-        })
-
+        }
+        await self.payments.insert_one(record)
+        self.logger.info("Inserted payment record: %s", record)
+        return record
+    
     async def _add_commission_to_user(self, user_id: int, amount: float):
         await self.users.update_one(
             {"user_id": user_id},
@@ -264,7 +316,8 @@ class ReferralManager:
             code = uuid.uuid4().hex[:8].upper()
             if not await self.users.find_one({"referral_code": code}, {"_id": 1}):
                 return code
-
+            
+    #-----------------------------------------------------------------------------------------
     async def _next_member_no(self) -> int:
         doc = await self.counters.find_one_and_update(
             {"_id": "member_no"},
@@ -273,7 +326,8 @@ class ReferralManager:
             return_document=ReturnDocument.AFTER,
         )
         return int(doc["seq"])
-
+    
+    #-----------------------------------------------------------------------------------------
     # wrapper for legacy
     async def ensure_profile(
         self, chat_id: int, first_name: str, inviter_code: Optional[str] = None
