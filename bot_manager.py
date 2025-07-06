@@ -45,7 +45,7 @@ from payment_handler import PaymentHandler
 from support_handler import SupportHandler
 from core.crypto_handler import CryptoHandler
 
-from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, POOL_WALLET_ADDRESS
 #, TRADE_WALLET_ADDRESS
 from state_manager import pop_state, push_state
 import inspect
@@ -158,11 +158,22 @@ class BotManager:
             )
             self.logger.info("ErrorHandler initialized successfully.")
 
-            # 1️⃣ ReferralManager
-            pool_wallet = os.getenv("POOL_WALLET_ADDRESS")
-            self.referral_manager = ReferralManager(self.db, pool_wallet=pool_wallet)
-            self.logger.info("ReferralManager initialized (pool_wallet=%s)", pool_wallet)
+            ##------------------------------------------------------------------------
 
+
+            # 1️⃣ ReferralManager
+            self.referral_manager = ReferralManager(self.db)
+            self.logger.info(
+                "ReferralManager initialized (pool_wallet=%s)",
+                POOL_WALLET_ADDRESS
+            )
+
+            # # 1️⃣ ReferralManager
+            # pool_wallet = os.getenv("POOL_WALLET_ADDRESS")
+            # self.referral_manager = ReferralManager(self.db, pool_wallet=pool_wallet)
+            # self.logger.info("ReferralManager initialized (pool_wallet=%s)", pool_wallet)
+            ###-------------------------------------------------------------------------------------
+            
             # 2️⃣ ProfileHandler
             self.profile_handler = ProfileHandler(
                 db=self.db,

@@ -42,8 +42,8 @@ USDT_CONTRACT        = config.USDT_CONTRACT
 
 SPLIT_WALLETS = [
     (config.SPLIT_WALLET_A, 0.70),
-    (config.SPLIT_WALLET_B, 0.25),
-    (config.SPLIT_WALLET_C, 0.05),
+    (config.SPLIT_WALLET_B, 0.20),
+    (config.SPLIT_WALLET_C, 0.10),
 ]
 
 PAYMENT_WALLET_ADDRESS = config.PAYMENT_WALLET_ADDRESS

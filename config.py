@@ -30,6 +30,11 @@ REQUIRED_VARS = [
     
     "SPLIT_WALLET_A_PRIV",     
     
+    # — Referral logic
+    "MULTISIG_WALLET_2OF2",
+    "SECOND_ADMIN_POOL_WALLET",
+    "SECOND_ADMIN_PERSONAL_WALLETS",    
+    
     "TRADE_WALLET_ADDRESS",      
     "POOL_WALLET_ADDRESS",
     "PAYMENT_WALLET_ADDRESS",
@@ -69,6 +74,12 @@ POOL_WALLET_ADDRESS: str = os.getenv("POOL_WALLET_ADDRESS")
 PAYMENT_WALLET_ADDRESS: str = os.getenv("PAYMENT_WALLET_ADDRESS")
 TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
 SUPPORT_USER_USERNAME: str = os.getenv("SUPPORT_USER_USERNAME")
+
+# Referral / Commission pools
+MULTISIG_WALLET_2OF2: str = os.getenv("MULTISIG_WALLET_2OF2")
+SECOND_ADMIN_POOL_WALLET: str = os.getenv("SECOND_ADMIN_POOL_WALLET")
+# لیست ۵ آدرس برای مدیران ثانویه، جداشده با کاما
+SECOND_ADMIN_PERSONAL_WALLETS: List[str] = [w.strip() for w in os.getenv("SECOND_ADMIN_PERSONAL_WALLETS").split(",") if w.strip()]
 
 # Support / Admin
 # اعدادی که به int باید تبدیل شوند
@@ -128,6 +139,11 @@ __all__ = [
     "TRON_PRO_API_KEY",
     "TRONSCAN_API_KEY",
     "USDT_CONTRACT",
+    
+    # Referral logic
+    "MULTISIG_WALLET_2OF2",
+    "SECOND_ADMIN_POOL_WALLET",
+    "SECOND_ADMIN_PERSONAL_WALLETS",    
     
     # Pricing / Misc
     "STATIC_TOKEN_PRICE",
