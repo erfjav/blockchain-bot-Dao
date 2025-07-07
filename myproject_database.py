@@ -58,6 +58,8 @@ class Database:
             self.logger.error(f"❌ MongoDB ping failed: {e}")
             raise
 
+
+
     #-------------------------------------------------------------------------------------   
     async def initialize_all_connections(self):
         """Initialize and verify all database connections"""
@@ -65,10 +67,10 @@ class Database:
             # Check main database connection
             await self.check_connection()
             
-            # ➋ مقداردهی اولیه کانتر member_no (فقط بارِ اول ایجاد می‌شود)
+            # ➋ Initialize counter member_no (only on first run)
             await self.collection_counters.update_one(
                 {"_id": "member_no"},
-                {"$setOnInsert": {"seq": 1000}},   # یا 1؛ هر عددی که می‌خواهید شروع شود
+                {"$setOnInsert": {"seq": 1000}},
                 upsert=True
             )            
 
@@ -83,7 +85,7 @@ class Database:
             await self.collection_payments.create_index(
                 [("txid", ASCENDING)],
                 unique=True,
-                name="unique_txid"          # prevents duplicate hashes
+                name="unique_txid"
             )            
            
             await self.collection_withdrawals.create_index(
@@ -93,18 +95,65 @@ class Database:
             )           
                     
             await self.collection_slots.create_index(
-                [("slot_id", 1)], unique=True, name="unique_slot_id"
+                [("slot_id", ASCENDING)],
+                unique=True,
+                name="unique_slot_id"
             )
 
-            await self.collection_schedules.create_index(
-                [("_id", 1)], unique=True, name="unique_schedule_id"
-            )
-          
+            # Removed index creation on _id for schedules since _id is unique by default
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
             self.logger.error(f"Error initializing database connections: {e}")
             raise
+
+    # #-------------------------------------------------------------------------------------   
+    # async def initialize_all_connections(self):
+    #     """Initialize and verify all database connections"""
+    #     try:
+    #         # Check main database connection
+    #         await self.check_connection()
+            
+    #         # ➋ مقداردهی اولیه کانتر member_no (فقط بارِ اول ایجاد می‌شود)
+    #         await self.collection_counters.update_one(
+    #             {"_id": "member_no"},
+    #             {"$setOnInsert": {"seq": 1000}},   # یا 1؛ هر عددی که می‌خواهید شروع شود
+    #             upsert=True
+    #         )            
+
+    #         # ➂ unique index on wallet_address (sparse: only docs that have it)
+    #         await self.collection_users.create_index(
+    #             [("wallet_address", ASCENDING)],
+    #             unique=True,
+    #             sparse=True,
+    #             name="unique_wallet_address"
+    #         )         
+            
+    #         await self.collection_payments.create_index(
+    #             [("txid", ASCENDING)],
+    #             unique=True,
+    #             name="unique_txid"          # prevents duplicate hashes
+    #         )            
+           
+    #         await self.collection_withdrawals.create_index(
+    #             [("withdraw_id", ASCENDING)],
+    #             unique=True,
+    #             name="unique_withdraw_id"
+    #         )           
+                    
+    #         await self.collection_slots.create_index(
+    #             [("slot_id", 1)], unique=True, name="unique_slot_id"
+    #         )
+
+    #         await self.collection_schedules.create_index(
+    #             [("_id", 1)], unique=True, name="unique_schedule_id"
+    #         )
+          
+            
+    #         self.logger.info("All database connections initialized and verified")
+    #     except Exception as e:
+    #         self.logger.error(f"Error initializing database connections: {e}")
+    #         raise
 
     # ------------------- User Language Management -----------------------
     async def update_user_language(self, chat_id: int, language_code: str):
