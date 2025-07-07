@@ -157,15 +157,40 @@ class ReferralManager:
     # ────────────────────────────────────────────────────────────
     # User onboarding
     # -----------------------------------------------------------
+    
     async def _ensure_user_impl(self, *, user_id: int, first_name: str, inviter_id: Optional[int]):
         user = await self.col_users.find_one({"user_id": user_id})
+
         if user:
-            # fill missing first‑name lazily
+            # ۱) اگر اسم کاربر نداشت، پرش کن
             if first_name and not user.get("first_name"):
-                await self.col_users.update_one({"user_id": user_id}, {"$set": {"first_name": first_name}})
+                await self.col_users.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"first_name": first_name}}
+                )
+
+            # ۲) اگر referral_code نداشت، تولید و ذخیره کن
+            if "referral_code" not in user:
+                new_code = await self._gen_referral_code()
+                user["referral_code"] = new_code
+                await self.col_users.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"referral_code": new_code}}
+                )
+
+            # ۳) اگر member_no نداشت، مثل قبل
+            if "member_no" not in user:
+                new_no = await self._next_member_no()
+                user["member_no"] = new_no
+                await self.col_users.update_one(
+                    {"user_id": user_id},
+                    {"$setOnInsert": {"member_no": new_no}},
+                    upsert=True
+                )
+
             return user
 
-        # brand‑new user
+        #   اگر user وجود نداشت، سند جدید را بساز
         referral_code = await self._gen_referral_code()
         member_no     = await self._next_member_no()
         slot_id       = await self._assign_slot(inviter_id, member_no)
@@ -182,26 +207,63 @@ class ReferralManager:
             "direct_children": [],
             "direct_dates":   [],
             "eligible":       False,
+            "joined":         False,             # ← اضافه شد
+            "tokens":         0,                 # ← اضافه شد
             "balance_usd":    Decimal("0"),
+            "commission_usd": Decimal("0"),      # ← اضافه شد
             "created_at":     datetime.utcnow(),
         }
         await self.col_users.insert_one(new_doc)
 
-        # update inviter links
-        if inviter_id:
-            await self.col_users.update_one(
-                {"user_id": inviter_id},
-                {
-                    "$push": {"direct_children": user_id, "direct_dates": datetime.utcnow()},
-                    "$inc":  {"total_children": 1},
-                },
-            )
-            await self._refresh_eligibility(inviter_id)
-
-        # funds & tokens
-        await self._distribute_commission(new_doc)
-        await self._allocate_tokens(new_doc)
+        # … ادامه‌ی کدِ آپدیت inviter و پخش کمیسیون و توکن
         return new_doc
+    
+    
+    # async def _ensure_user_impl(self, *, user_id: int, first_name: str, inviter_id: Optional[int]):
+    #     user = await self.col_users.find_one({"user_id": user_id})
+    #     if user:
+    #         # fill missing first‑name lazily
+    #         if first_name and not user.get("first_name"):
+    #             await self.col_users.update_one({"user_id": user_id}, {"$set": {"first_name": first_name}})
+    #         return user
+
+    #     # brand‑new user
+    #     referral_code = await self._gen_referral_code()
+    #     member_no     = await self._next_member_no()
+    #     slot_id       = await self._assign_slot(inviter_id, member_no)
+    #     ancestors     = await self._resolve_chain(inviter_id) if inviter_id else []
+
+    #     new_doc = {
+    #         "user_id":        user_id,
+    #         "first_name":     first_name,
+    #         "referral_code":  referral_code,
+    #         "member_no":      member_no,
+    #         "slot_id":        slot_id,
+    #         "inviter_id":     inviter_id,
+    #         "ancestors":      ancestors,
+    #         "direct_children": [],
+    #         "direct_dates":   [],
+    #         "eligible":       False,
+    #         "balance_usd":    Decimal("0"),
+    #         "created_at":     datetime.utcnow(),
+    #     }
+    #     await self.col_users.insert_one(new_doc)
+
+    #     # update inviter links
+    #     if inviter_id:
+    #         await self.col_users.update_one(
+    #             {"user_id": inviter_id},
+    #             {
+    #                 "$push": {"direct_children": user_id, "direct_dates": datetime.utcnow()},
+    #                 "$inc":  {"total_children": 1},
+    #             },
+    #         )
+    #         await self._refresh_eligibility(inviter_id)
+
+    #     # funds & tokens
+    #     await self._distribute_commission(new_doc)
+    #     await self._allocate_tokens(new_doc)
+    #     return new_doc
 
     # ────────────────────────────────────────────────────────────
     # Slot placement (BFS – atomic insert into `slots`)
@@ -542,57 +604,57 @@ class ReferralManager:
 #             raise RuntimeError("config error: SECOND_ADMIN_PERSONAL_WALLETS must have 5 items")
 
 #     # ───────────────────────── main entry ─────────────────────────
-#     async def ensure_user(
-#         self, chat_id: int, first_name: str, inviter_code: Optional[str] = None
-#     ) -> Dict[str, Any]:
-#         """Create or complete a user profile; returns full document (without _id)."""
-#         doc = await self.users.find_one({"user_id": chat_id}, {"_id": 0})
+    # async def ensure_user(
+    #     self, chat_id: int, first_name: str, inviter_code: Optional[str] = None
+    # ) -> Dict[str, Any]:
+    #     """Create or complete a user profile; returns full document (without _id)."""
+    #     doc = await self.users.find_one({"user_id": chat_id}, {"_id": 0})
 
-#         # ➊ existing user → patch missing fields
-#         if doc:
-#             updates: Dict[str, Any] = {}
-#             if "member_no" not in doc:
-#                 updates["member_no"] = await self._next_member_no()
-#             if "referral_code" not in doc:
-#                 updates["referral_code"] = await self._generate_code()
-#             if not doc.get("first_name") and first_name:
-#                 updates["first_name"] = first_name
-#             if updates:
-#                 await self.users.update_one({"user_id": chat_id}, {"$set": updates})
-#                 doc |= updates
-#             return doc
+    #     # ➊ existing user → patch missing fields
+    #     if doc:
+    #         updates: Dict[str, Any] = {}
+    #         if "member_no" not in doc:
+    #             updates["member_no"] = await self._next_member_no()
+    #         if "referral_code" not in doc:
+    #             updates["referral_code"] = await self._generate_code()
+    #         if not doc.get("first_name") and first_name:
+    #             updates["first_name"] = first_name
+    #         if updates:
+    #             await self.users.update_one({"user_id": chat_id}, {"$set": updates})
+    #             doc |= updates
+    #         return doc
 
-#         # ➋ new user
-#         referral_code = await self._generate_code()
-#         member_no     = await self._next_member_no()
-#         inviter_id, ancestors = await self._resolve_inviter_chain(inviter_code)
-#         tokens_alloc  = await self._allocate_tokens()
+    #     # ➋ new user
+    #     referral_code = await self._generate_code()
+    #     member_no     = await self._next_member_no()
+    #     inviter_id, ancestors = await self._resolve_inviter_chain(inviter_code)
+    #     tokens_alloc  = await self._allocate_tokens()
 
-#         slot_id, tier, parent_slot = await self._assign_slot(inviter_id, member_no)
+    #     slot_id, tier, parent_slot = await self._assign_slot(inviter_id, member_no)
 
-#         doc = {
-#             "user_id":        chat_id,
-#             "member_no":      member_no,
-#             "slot_id":        slot_id,
-#             "parent_slot":    parent_slot,       # for structural queries
-#             "tier":           tier,
-#             "first_name":     first_name,
-#             "created_at":     datetime.utcnow(),
-#             "referral_code":  referral_code,
-#             "inviter_id":     inviter_id,
-#             "tokens":         tokens_alloc,
-#             "commission_usd": 0.0,
-#             "children_count": 0,
-#             "joined":         False,
-#         }
-#         await self.users.insert_one(doc)
+    #     doc = {
+    #         "user_id":        chat_id,
+    #         "member_no":      member_no,
+    #         "slot_id":        slot_id,
+    #         "parent_slot":    parent_slot,       # for structural queries
+    #         "tier":           tier,
+    #         "first_name":     first_name,
+    #         "created_at":     datetime.utcnow(),
+    #         "referral_code":  referral_code,
+    #         "inviter_id":     inviter_id,
+    #         "tokens":         tokens_alloc,
+    #         "commission_usd": 0.0,
+    #         "children_count": 0,
+    #         "joined":         False,
+    #     }
+    #     await self.users.insert_one(doc)
 
-#         await self._distribute_commission(
-#             new_user_id = chat_id,
-#             inviter_id  = inviter_id,
-#             ancestors   = ancestors,
-#         )
-#         return doc
+    #     await self._distribute_commission(
+    #         new_user_id = chat_id,
+    #         inviter_id  = inviter_id,
+    #         ancestors   = ancestors,
+    #     )
+    #     return doc
 
 #     # ───────────────────────── placement ──────────────────────────
 #     async def _assign_slot(
