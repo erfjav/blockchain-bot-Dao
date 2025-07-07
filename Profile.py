@@ -559,7 +559,16 @@ class ProfileHandler:
                 
                 profile = await self.db.get_profile(chat_id)  # now assured to be complete               
 
+                # if still None, abort gracefully
+                if profile is None:
+                    await reply_func(
+                        "❗️خطا در بارگذاری پروفایل. لطفاً کمی بعد دوباره امتحان کنید.",
+                        parse_mode="HTML"
+                    )
+                    return
+
             joined: bool = bool(profile.get("joined", False))
+            
             member_no: int = profile["member_no"]
             referral_code: str = profile["referral_code"]
             tokens: int | None = profile.get("tokens")
