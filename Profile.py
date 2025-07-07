@@ -33,43 +33,63 @@ from Referral_logic_code import ReferralManager
 from bot_ui.Translated_Inline_Keyboards import TranslatedInlineKeyboards
 from state_manager import push_state, pop_state
 from coinaddrvalidator import validate
+import base58
 from web3 import Web3
 from pymongo.errors import DuplicateKeyError
 
-
-def valid_wallet_format(address: str, chain: str = "ETH") -> bool:
+def valid_tron_address(address: str) -> bool:
     """
-    • chain="ETH" (یا "BSC"): 
-      – length 42, start 0x, Web3 + coinaddrvalidator.validate
-    • chain="BTC", "LTC", ...: 
-      – فقط coinaddrvalidator.validate
+    اعتبارسنجی آدرس Tron (USDT-TRC20 و هر توکن دیگری روی Tron):
+      • باید با 'T' شروع شود
+      • طول بین 34 تا 35 کاراکتر Base58 باشد
+      • کاراکترهای Base58: 123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz
+      • بررسی checksum با base58.decode_check
+      • اعتبارسنجی نهایی با coinaddrvalidator
     """
-    if chain.upper() in {"ETH", "BSC"}:
-        # شرط ظاهری اتریوم/بی‌اس‌سی
-        if not (address.startswith("0x") and len(address) == 42 and
-                all(c in "0123456789abcdefABCDEF" for c in address[2:])):
-            return False
-        # اعتبارسنجی دقیق
-        return Web3.is_address(address) and validate(address, chain.upper())
-    else:
-        # برای سایر زنجیره‌ها فقط از coinaddrvalidator بهره ببر
-        return validate(address, chain.upper())
+    # ۱) بررسی شکل ظاهری اولیه
+    if not address.startswith("T"):
+        return False
+    if not (34 <= len(address) <= 35):
+        return False
 
-# def sanitize_button_text(text: str, max_length: int = 60) -> str:
+    # ۲) بررسی اینکه فقط کاراکترهای Base58 استفاده شده
+    base58_chars = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+    if any(c not in base58_chars for c in address):
+        return False
+
+    # ۳) Decode با checksum برای اطمینان از عدم خطای تایپی
+    try:
+        # این متد در صورت شکست در checksum خطا می‌اندازد
+        _ = base58.b58decode_check(address)
+    except Exception:
+        return False
+
+    # ۴) اعتبارسنجی نهایی با coinaddrvalidator (اگر پشتیبانی کند)
+    try:
+        return validate(address, "TRON")
+    except Exception:
+        # اگر coinaddrvalidator پشتیبانی نداشت، باز هم OK است
+        return True
+
+# def valid_wallet_format(address: str, chain: str = "ETH") -> bool:
 #     """
-#     تمیز کردن و کوتاه کردن متن دکمه‌های inline keyboard
+#     • chain="ETH" (یا "BSC"): 
+#       – length 42, start 0x, Web3 + coinaddrvalidator.validate
+#     • chain="BTC", "LTC", ...: 
+#       – فقط coinaddrvalidator.validate
 #     """
-#     if not text:
-#         return "Unknown"
-    
-#     # حذف کاراکترهای ممنوعه
-#     sanitized = ''.join(c for c in text if c.isprintable() and c not in ['<', '>', '&', '"', "'"])
-    
-#     # کوتاه کردن متن
-#     if len(sanitized) > max_length:
-#         sanitized = sanitized[:max_length-3] + "..."
-    
-#     return sanitized or "Unknown"
+#     if chain.upper() in {"ETH", "BSC"}:
+#         # شرط ظاهری اتریوم/بی‌اس‌سی
+#         if not (address.startswith("0x") and len(address) == 42 and
+#                 all(c in "0123456789abcdefABCDEF" for c in address[2:])):
+#             return False
+#         # اعتبارسنجی دقیق
+#         return Web3.is_address(address) and validate(address, chain.upper())
+#     else:
+#         # برای سایر زنجیره‌ها فقط از coinaddrvalidator بهره ببر
+#         return validate(address, chain.upper())
+
+
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
 logger = logging.getLogger(__name__)
@@ -182,337 +202,6 @@ class ProfileHandler:
             await update.message.reply_text("⚠️ An error occurred while loading your wallet menu.")
 
 #########----------------------------------------------------------------------------------------------------
-
-    # async def show_profile(
-    #     self,
-    #     update: Update,
-    #     context: ContextTypes.DEFAULT_TYPE,
-    #     page: int = 1,
-    # ) -> None:
-    #     """Main handler for both */profile* command and pagination callbacks."""
-    #     try:
-    #         # 1) Detect origin (fresh /profile vs. pagination callback)
-    #         if update.callback_query:
-    #             query = update.callback_query
-    #             await query.answer()
-    #             chat_id = query.from_user.id
-    #             callback_parts = query.data.split("_")
-    #             if len(callback_parts) == 3 and callback_parts[1] == "page":
-    #                 page = int(callback_parts[2])
-    #             reply_func = query.edit_message_text
-    #         else:
-    #             chat_id = update.effective_chat.id
-    #             page = 1
-    #             reply_func = update.message.reply_text
-
-    #         first_name: str = (
-    #             update.effective_user.first_name if update.effective_user else "Friend"
-    #         )
-
-    #         # 2) Persist FSM state (optional)
-    #         push_state(context, "showing_profile")
-    #         context.user_data["state"] = "showing_profile"
-
-    #         # 3) fetch profile – second fetch after ensure_user guarantees completeness
-    #         profile: Dict[str, Any] | None = await self.db.get_profile(chat_id)
-    #         if profile is None or "member_no" not in profile or "referral_code" not in profile:
-    #             await self.referral_manager.ensure_user(chat_id, first_name)
-    #             profile = await self.db.get_profile(chat_id)
-
-    #         joined: bool = bool(profile.get("joined", False))
-    #         member_no: int = profile["member_no"]
-    #         referral_code: str = profile["referral_code"]
-    #         tokens: int | None = profile.get("tokens")
-    #         commission: float | None = profile.get("commission_usd")
-    #         downline_count: int = profile.get("downline_count", 0)
-    #         wallet_address = await self.db.get_wallet_address(chat_id)
-
-    #         # 5) Compose message body
-    #         placeholder = "—"
-    #         lines: List[str] = [
-    #             f"<b>{('Member No')}:</b> {member_no}",
-    #             f"<b>{('Referral Code')}:</b> <code>{referral_code}</code>",
-    #             f"<b>Wallet Address:</b> <code>{wallet_address or placeholder}</code>",
-    #             "─────────────",
-    #             f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
-    #             f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
-    #             f"<b>{('Down-line Count')}:</b> {downline_count if joined else placeholder}\n\n",
-
-    #             # ✦ Explanation of referral link
-    #             f"To invite friends and grow your <b>Down-line</b>, simply tap on \n\n "
-    #             f"<b>🔗 Share&nbsp;Referral&nbsp;Link</b>.\n\n "
-    #             f"Your personal referral link will be automatically sent to the selected contact. 🚀",
-    #         ]
-
-    #         if not joined:
-    #             lines += [
-    #                 "",
-    #                 (
-    #                     "<b>You don't have a profile yet.</b> To view your full profile details — "
-    #                     "including your <b>tokens</b>, <b>commissions</b>, and <b>down-line statistics</b> — "
-    #                     "please <b>join a plan</b> first."
-    #                 )
-    #             ]
-
-    #         # 6) Inline keyboard – share link always first
-    #         bot_username: str = context.bot.username
-    #         deep_link: str = f"https://t.me/{bot_username}?start={referral_code}"
-
-    #         share_url: str = (
-    #             "https://t.me/share/url"
-    #             f"?url={deep_link}"
-    #             "&text=🚀 Join me on Bot!"
-    #         )
-
-    #         rows: List[List[InlineKeyboardButton]] = [
-    #             [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
-    #         ]
-
-    #         # 7) Down-line list (only if joined & has referrals) - FIXED VERSION
-    #         if joined and downline_count:
-    #             downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
-    #             start_idx: int = (page - 1) * PAGE_SIZE + 1
-                
-    #             for idx, member in enumerate(downline, start=start_idx):
-    #                 # ✅ FIX: Properly handle and sanitize member data
-    #                 first_name_raw = member.get('first_name', '')
-    #                 referral_code_raw = member.get('referral_code', '')
-                    
-    #                 # Clean and validate first_name
-    #                 if not first_name_raw or not str(first_name_raw).strip():
-    #                     first_name_clean = "Unknown"
-    #                 else:
-    #                     first_name_clean = sanitize_button_text(str(first_name_raw), 20)
-                    
-    #                 # Clean and validate referral_code
-    #                 if not referral_code_raw or not str(referral_code_raw).strip():
-    #                     referral_code_clean = "N/A"
-    #                 else:
-    #                     referral_code_clean = sanitize_button_text(str(referral_code_raw), 15)
-                    
-    #                 # Create button text with proper formatting
-    #                 button_text = f"{idx}. {first_name_clean} — {referral_code_clean}"
-                    
-    #                 # Final validation - ensure text is not empty and within limits
-    #                 if not button_text.strip():
-    #                     button_text = f"{idx}. Member #{idx}"
-                    
-    #                 # Double-check final length (Telegram limit is 64 characters)
-    #                 if len(button_text) > 60:
-    #                     button_text = button_text[:57] + "..."
-                    
-    #                 # Final safety check - ensure no empty or invalid characters
-    #                 button_text = ''.join(c for c in button_text if c.isprintable() and ord(c) < 65536)
-                    
-    #                 if button_text.strip():  # Only add if button text is valid
-    #                     rows.append([
-    #                         InlineKeyboardButton(
-    #                             button_text,
-    #                             callback_data="noop",
-    #                         )
-    #                     ])
-
-    #             # Pagination
-    #             total_pages = max(1, math.ceil(downline_count / PAGE_SIZE))
-    #             nav_row: List[InlineKeyboardButton] = []
-    #             if page > 1:
-    #                 nav_row.append(
-    #                     InlineKeyboardButton("⬅️ Prev", callback_data=f"profile_page_{page - 1}")
-    #                 )
-    #             if page < total_pages:
-    #                 nav_row.append(
-    #                     InlineKeyboardButton("Next ➡️", callback_data=f"profile_page_{page + 1}")
-    #                 )
-    #             if nav_row:
-    #                 rows.append(nav_row)
-
-    #         # 8) Back & Exit (always)
-    #         rows.append([
-    #             InlineKeyboardButton("Back", callback_data="back"),
-    #             InlineKeyboardButton("Exit", callback_data="exit"),
-    #         ])
-
-    #         # 9) Build inline keyboard with translation
-    #         inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
-    #         translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
-
-    #         # 10) Send / edit
-    #         await reply_func(
-    #             translated_text,
-    #             parse_mode="HTML",
-    #             reply_markup=inline_kb,
-    #         )
-
-    #         translated_note = await self.translation_manager.translate_for_user(
-    #             "📋 Profile loaded. You can use the buttons below to continue.",
-    #             chat_id
-    #         )
-
-    #         # 11) Reply-Keyboard (⬅️ Back / ➡️ Exit)
-    #         await context.bot.send_message(
-    #             chat_id=chat_id,
-    #             text=translated_note,
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #         )
-
-    #     except Exception as exc:
-    #         self.logger.error(f"Error in show_profile: {exc}")
-    #         await self.error_handler.handle(update, context, exc, context_name="show_profile")
-#####################################################################################################
-
-
-    # async def show_profile(
-    #     self,
-    #     update: Update,
-    #     context: ContextTypes.DEFAULT_TYPE,
-    #     page: int = 1,
-    # ) -> None:
-    #     """Main handler for both */profile* command and pagination callbacks."""
-
-    #     try:
-    #         # 1) Detect origin (fresh /profile vs. pagination callback)
-    #         if update.callback_query:
-    #             query = update.callback_query
-    #             await query.answer()
-    #             chat_id = query.from_user.id
-    #             callback_parts = query.data.split("_")
-    #             if len(callback_parts) == 3 and callback_parts[1] == "page":
-    #                 page = int(callback_parts[2])
-    #             reply_func = query.edit_message_text
-    #         else:
-    #             chat_id = update.effective_chat.id
-    #             page = 1
-    #             reply_func = update.message.reply_text  # type: ignore[attr-defined]
-
-    #         first_name: str = (
-    #             update.effective_user.first_name if update.effective_user else "Friend"
-    #         )
-
-    #         # 2) Persist FSM state (optional)
-    #         push_state(context, "showing_profile")
-    #         context.user_data["state"] = "showing_profile"
-
-    #         # 3) fetch profile – second fetch after ensure_user guarantees completeness
-    #         profile: dict | None = await self.db.get_profile(chat_id)
-    #         if profile is None or "member_no" not in profile or "referral_code" not in profile:
-                
-    #             # await self.referral_manager.ensure_user(chat_id, first_name)
-
-    #             await self.referral_manager.ensure_user(
-    #                 user_id=chat_id,
-    #                 first_name=first_name
-    #             )
-                
-    #             profile = await self.db.get_profile(chat_id)
-
-
-    #         if profile is None:
-    #             profile = {}
-
-    #         joined: bool = bool(profile.get("joined", False))
-    #         member_no: int = profile["member_no"]
-    #         referral_code: str = profile["referral_code"]
-    #         tokens: int | None = profile.get("tokens", 0)
-    #         balance: float = profile.get("commission_usd", 0.0)  # مبلغ پورسانت ذخیره‌شده
-    #         downline_count: int = profile.get("downline_count", 0)
-    #         wallet_address = await self.db.get_wallet_address(chat_id)
-
-    #         # 5) Compose message body
-    #         placeholder = "—"
-    #         lines: List[str] = [
-    #             f"<b>Member No:</b> {member_no}",
-    #             f"<b>Referral Code:</b> <code>{referral_code}</code>",
-    #             f"<b>Wallet Address:</b> <code>{wallet_address or placeholder}</code>",
-    #             "─────────────",
-    #             f"<b>Tokens:</b> {tokens if joined else placeholder}",
-    #             # این خط تغییر کرده تا مبلغ پورسانت با دو رقم اعشار و $ نمایش داده شود
-    #             f"<b>Current Balance:</b> {f'${balance:.2f}' if joined else placeholder}",
-    #             f"<b>Down-line Count:</b> {downline_count if joined else placeholder}\n\n",
-    #             # توضیح لینک زیرمجموعه‌گیری
-    #             "To invite friends and grow your <b>Down-line</b>, simply tap on\n\n"
-    #             "<b>🔗 Share Referral Link</b>.\n\n"
-    #             "Your personal referral link will be automatically sent to the selected contact. 🚀",
-    #         ]
-
-    #         if not joined:
-    #             lines += [
-    #                 "",
-    #                 (
-    #                     "<b>You don’t have a profile yet.</b> To view your full profile details — "
-    #                     "including your <b>tokens</b>, <b>balance</b>, and <b>down-line statistics</b> — "
-    #                     "please <b>join a plan</b> first."
-    #                 )
-    #             ]
-
-    #         # 6) Inline keyboard – share link always first
-    #         bot_username: str = context.bot.username
-    #         deep_link: str = f"https://t.me/{bot_username}?start={referral_code}"
-    #         share_url: str = (
-    #             "https://t.me/share/url"
-    #             f"?url={deep_link}"
-    #             "&text=🚀 Join me on Bot!"
-    #         )
-
-    #         rows: List[List[InlineKeyboardButton]] = [
-    #             [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
-    #         ]
-
-    #         # 7) Down-line list (only if joined & has referrals)
-    #         if joined and downline_count:
-    #             downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
-    #             start_idx: int = (page - 1) * PAGE_SIZE + 1
-    #             for idx, member in enumerate(downline, start=start_idx):
-    #                 rows.append([
-    #                     InlineKeyboardButton(
-    #                         f"{idx}. {member['first_name']} — {member['referral_code']}",
-    #                         callback_data="noop",
-    #                     )
-    #                 ])
-
-    #             # Pagination
-    #             total_pages = max(1, math.ceil(downline_count / PAGE_SIZE))
-    #             nav_row: List[InlineKeyboardButton] = []
-    #             if page > 1:
-    #                 nav_row.append(
-    #                     InlineKeyboardButton("⬅️ Prev", callback_data=f"profile_page_{page - 1}")
-    #                 )
-    #             if page < total_pages:
-    #                 nav_row.append(
-    #                     InlineKeyboardButton("Next ➡️", callback_data=f"profile_page_{page + 1}")
-    #                 )
-    #             if nav_row:
-    #                 rows.append(nav_row)
-
-    #         # 8) Back & Exit (always)
-    #         rows.append([
-    #             InlineKeyboardButton("Back", callback_data="back"),
-    #             InlineKeyboardButton("Exit", callback_data="exit"),
-    #         ])
-
-    #         inline_kb = await self.inline_translator.build_inline_keyboard_for_user(rows, chat_id)
-    #         translated_text = await self.translation_manager.translate_for_user("\n".join(lines), chat_id)
-
-    #         # 9) Send / edit
-    #         await reply_func(
-    #             translated_text,
-    #             parse_mode="HTML",
-    #             reply_markup=inline_kb,
-    #         )
-
-    #         # 10) Always show back/exit as reply keyboard
-    #         translated_note = await self.translation_manager.translate_for_user(
-    #             "📋 Profile loaded. You can use the buttons below to continue.",
-    #             chat_id
-    #         )
-    #         await context.bot.send_message(
-    #             chat_id=chat_id,
-    #             text=translated_note,
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #         )
-
-    #     except Exception as exc:
-    #         await self.error_handler.handle(update, context, exc, context_name="show_profile")
-
 
     async def show_profile(
         self,
@@ -746,10 +435,14 @@ class ProfileHandler:
                 )
             else:
                 prompt_text = (
-                    "👋 <b>Welcome!</b>\n"
-                    "Please register your crypto wallet address below.\n"
-                    "This is required to receive token rewards and payments securely.\n\n"
-                    "🔐 <b>Send your wallet address now:</b>"
+                    "👋 <b>Welcome!</b>\n\n"
+                    "To begin, please register your <b>TRON wallet address</b> below.\n"
+                    "This is required to receive your token rewards and payouts securely on the TRON network (e.g., USDT-TRC20).\n\n"
+                    "⚠️ Make sure your address:\n"
+                    "  • Starts with <code>T</code>\n"
+                    "  • Is approximately 34 characters long\n"
+                    "  • Belongs to a supported wallet such as TronLink, Trust Wallet, or TokenPocket\n\n"
+                    "🔐 <b>Send your TRON wallet address now:</b>"
                 )
 
             translated_text = await self.translation_manager.translate_for_user(prompt_text, chat_id)
@@ -778,11 +471,24 @@ class ProfileHandler:
 
         try:
             # ۱) بررسی فرمت آدرس
-            if not valid_wallet_format(address):
+            if not valid_tron_address(address):
+
                 text = (
-                    "❌ <b>The wallet address you entered is not valid.</b>\n"
-                    "Please enter a correct address starting with <code>0x</code> and try again:"
+                    "❌ <b>The wallet address you entered is not valid.</b>\n\n"
+                    "Please enter a valid <b>TRON wallet address</b>. It must start with <code>T</code> and typically be 34 characters long.\n\n"
+                    "✅ <b>Examples of valid TRON addresses:</b>\n"
+                    "  • <code>TKr3jPnQ4H1eG8XYZABcdEfGhI2345678</code>\n"
+                    "  • <code>TXy9LmNoPQrStUvWxYz1234567890ABcd</code>\n\n"
+                    "💡 <b>Recommended TRON wallets:</b>\n"
+                    "  • <b>TronLink</b> (browser extension & mobile app)\n"
+                    "  • <b>Trust Wallet</b> (multi-chain mobile wallet)\n"
+                    "  • <b>TokenPocket</b> (multi-chain support)\n"
+                    "  • <b>Math Wallet</b>\n\n"
+                    "🔎 <i>TRON network is extremely cost-effective</i> — transaction fees are usually under <b>0.01 USDT</b>. So feel free to retry without worrying about fees.\n\n"
+                    "➡️ Now, please enter your correct TRON wallet address:"
                 )
+
+
                 translated = await self.translation_manager.translate_for_user(text, chat_id)
                 return await update.message.reply_text(
                     translated,
