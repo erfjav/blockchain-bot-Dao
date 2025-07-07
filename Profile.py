@@ -395,7 +395,14 @@ class ProfileHandler:
             # 3) fetch profile – second fetch after ensure_user guarantees completeness
             profile: dict | None = await self.db.get_profile(chat_id)
             if profile is None or "member_no" not in profile or "referral_code" not in profile:
-                await self.referral_manager.ensure_user(chat_id, first_name)
+                
+                # await self.referral_manager.ensure_user(chat_id, first_name)
+
+                await self.referral_manager.ensure_user(
+                    user_id=chat_id,
+                    first_name=first_name
+                )
+                
                 profile = await self.db.get_profile(chat_id)
 
             joined: bool = bool(profile.get("joined", False))
