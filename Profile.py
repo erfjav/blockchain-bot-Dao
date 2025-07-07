@@ -405,6 +405,10 @@ class ProfileHandler:
                 
                 profile = await self.db.get_profile(chat_id)
 
+
+            if profile is None:
+                profile = {}
+
             joined: bool = bool(profile.get("joined", False))
             member_no: int = profile["member_no"]
             referral_code: str = profile["referral_code"]
