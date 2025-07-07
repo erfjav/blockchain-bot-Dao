@@ -142,6 +142,34 @@ class CryptoHandler:
             )
         data = r.json()
         return Decimal(str(data.get(symbol, {}).get("usd", "0")))
+##################################################################################################
+
+    async def transfer(self, chain, to, amount, token_symbol="USDT", decimals=6):
+        if chain.lower() != "tron":
+            raise NotImplementedError("Only Tron is supported.")
+
+        if token_symbol != "USDT":
+            raise NotImplementedError("Only USDT token is currently supported.")
+
+        # مقدار amount فرض کن integer میکروUSDT است (مثلاً 1000000 یعنی 1 USDT)
+        float_amount = amount / (10 ** decimals)
+        private_key = config.TREASURY_PRIVATE_KEY
+
+        return await self.blockchain.transfer_trc20(
+            from_private_key=private_key,
+            to_address=to,
+            amount=float_amount,
+            token_contract=DEFAULT_USDT_CONTRACT,
+            decimals=decimals,
+        )
+
+
+    async def estimate_fee(self, chain, to, amount, token_symbol="USDT", decimals=6):
+        if chain.lower() != "tron":
+            raise NotImplementedError("Only Tron is supported.")
+        # TODO: در آینده اینجا call به API Tron برای محاسبه fee واقعی
+        return Decimal("0.6")  # فی فعلاً ثابت
+
 
     # ────────────────────────────────────────────────
     # Clean-up helpers (اختیاری)

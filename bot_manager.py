@@ -44,10 +44,10 @@ from payment_handler import PaymentHandler
 from support_handler import SupportHandler
 from core.crypto_handler import CryptoHandler
 from core.blockchain_client import BlockchainClient
-from core.safe_client import SafeClient
+# from core.safe_client import SafeClient
 
 
-from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, POOL_WALLET_ADDRESS, MULTISIG_GHOST_WALLET_2OF2
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, WALLET_JOIN_POOL
 #, TRADE_WALLET_ADDRESS
 from state_manager import pop_state, push_state
 import inspect
@@ -84,7 +84,7 @@ class BotManager:
         self.support_handler: Optional[SupportHandler] = None
         self.payment_handler: Optional[PaymentHandler] = None          
         self.blockchain: Optional[BlockchainClient] = None
-        self.safe_client: Optional[SafeClient] = None
+        # self.safe_client: Optional[SafeClient] = None
         
         self.withdraw_handler: Optional[WithdrawHandler] = None
         
@@ -178,19 +178,31 @@ class BotManager:
             self.blockchain = BlockchainClient()
             self.logger.info("BlockchainClient initialized.")
 
-            # 🔹 SafeClient (Ethereum multisig)
-            self.safe_client = SafeClient()
-            self.logger.info(
-                "SafeClient initialized (safe_address=%s)",
-                MULTISIG_GHOST_WALLET_2OF2
-            )
+            # # 🔹 SafeClient (Ethereum multisig)
+            # self.safe_client = SafeClient()
+            # self.logger.info(
+            #     "SafeClient initialized (safe_address=%s)",
+            #     MULTISIG_GHOST_WALLET_2OF2
+            # )
 
-            # 1️⃣ ReferralManager
-            self.referral_manager = ReferralManager(self.db, safe_client=self.safe_client, price_provider=self.price_provider,)
-            self.logger.info(
-                "ReferralManager initialized (pool_wallet=%s)",
-                POOL_WALLET_ADDRESS
+            # # 1️⃣ ReferralManager
+            # self.referral_manager = ReferralManager(self.db, price_provider=self.price_provider,)
+            # self.logger.info(
+            #     "ReferralManager initialized (pool_wallet=%s)",
+            #     POOL_WALLET_ADDRESS
+            # )
+            
+            # 1️⃣ ReferralManager (updated to new signature)
+            self.referral_manager = ReferralManager(
+                db=self.db,
+                crypto=self.crypto_handler,
             )
+            self.logger.info(
+                "ReferralManager initialized (join_pool_wallet=%s)",
+                WALLET_JOIN_POOL
+            )
+            
+            
             ###-------------------------------------------------------------------------------------
 
             # 9. 🔹 WithdrawHandler  ← NEW

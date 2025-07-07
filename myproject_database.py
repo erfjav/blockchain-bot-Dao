@@ -38,7 +38,11 @@ class Database:
             self.collection_orders            =     self.db["orders"]        # NEW  (سفارش‌های خرید/فروش)
             self.collection_counters          =     self.db["counters"]      # NEW
             self.collection_wallet_events     =     self.db["wallet_events"]
-            
+            # در __init__ بعد از تعریف بقیه‌ی collection_*
+            self.collection_slots     = self.db["slots"]
+            self.collection_schedules = self.db["schedules"]
+
+
             self.logger.info("✅ Database connected successfully.")
 
         except Exception as e:
@@ -87,6 +91,15 @@ class Database:
                 unique=True,
                 name="unique_withdraw_id"
             )           
+                    
+            await self.collection_slots.create_index(
+                [("slot_id", 1)], unique=True, name="unique_slot_id"
+            )
+
+            await self.collection_schedules.create_index(
+                [("_id", 1)], unique=True, name="unique_schedule_id"
+            )
+          
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:

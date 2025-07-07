@@ -41,12 +41,13 @@ TREASURY_PRIVATE_KEY = config.TREASURY_PRIVATE_KEY
 USDT_CONTRACT        = config.USDT_CONTRACT
 
 SPLIT_WALLETS = [
-    (config.SPLIT_WALLET_A, 0.70),
-    (config.SPLIT_WALLET_B, 0.20),
-    (config.SPLIT_WALLET_C, 0.10),
+    (config.WALLET_SPLIT_70, 0.70),
+    (config.WALLET_SPLIT_20, 0.20),
+    (config.WALLET_SPLIT_10, 0.10),
 ]
 
-PAYMENT_WALLET_ADDRESS = config.PAYMENT_WALLET_ADDRESS
+PAYMENT_WALLET_ADDRESS = config.WALLET_JOIN_POOL
+
 TRADE_CHANNEL_ID = config.TRADE_CHANNEL_ID
 
 logger = logging.getLogger(__name__)

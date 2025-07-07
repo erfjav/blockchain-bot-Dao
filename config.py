@@ -23,21 +23,12 @@ REQUIRED_VARS = [
     
     # — Wallets / Payments
     "TREASURY_WALLET",
-    "TREASURY_PRIVATE_KEY",
-    "SPLIT_WALLET_A",
-    "SPLIT_WALLET_B",
-    "SPLIT_WALLET_C",    
+    "TREASURY_PRIVATE_KEY",  
     
     "SPLIT_WALLET_A_PRIV",     
     
-    # — Referral logic
-    "MULTISIG_GHOST_WALLET_2OF2",
-    "SECOND_ADMIN_POOL_WALLET",
-    "SECOND_ADMIN_PERSONAL_WALLETS",    
+    "TRADE_WALLET_ADDRESS",   
     
-    "TRADE_WALLET_ADDRESS",      
-    "POOL_WALLET_ADDRESS",
-    "PAYMENT_WALLET_ADDRESS",
     "TRADE_CHANNEL_ID",
     "SUPPORT_USER_USERNAME",
     "ADMIN_USER_IDS",  # کاما جدا شده (1,2,3)
@@ -46,11 +37,6 @@ REQUIRED_VARS = [
     "TRON_PROVIDER_URL",  # new
     "TRON_PRO_API_KEY",   # new
     
-    # — SafeClient (Ethereum multisig)
-    "SAFE_SERVICE_URL",           # URL of Safe Transaction Service API
-    "ETHEREUM_RPC_URL",           # Ethereum RPC endpoint
-    "CHAIN_ID",     
-    "SERVICE_ACCOUNT_PRIVATE_KEY"
 ]
 
 missing = [var for var in REQUIRED_VARS if not os.getenv(var)]
@@ -66,32 +52,58 @@ WEBHOOK_URL: str = os.getenv("WEBHOOK_URL")
 # Database
 MONGODB_URI: str = os.getenv("MONGODB_URI")
 
+##############################################################################################################
+
+# ────────────────────────────── Blockchain / Tron (EndPoints) ───────────────────────────────
+TRON_PROVIDERS: list[str] = [
+    url.strip() for url in os.getenv("TRON_PROVIDERS", "https://api.trongrid.io").split(",") if url.strip()
+]
+
+# ────────────────────────────── Core corporate wallets (TronLink) ───────────────────────────────
+# تمام پرداخت‌های عضویت $50 به این والت وارد می‌شود
+WALLET_JOIN_POOL: str = os.getenv("WALLET_JOIN_POOL")      # Pool for joining fees
+
+WALLET_SPLIT_70: str  = os.getenv("WALLET_SPLIT_70")       # 70% تقسیم
+WALLET_SPLIT_20: str  = os.getenv("WALLET_SPLIT_20")       # 20% تقسیم
+WALLET_SPLIT_10: str  = os.getenv("WALLET_SPLIT_10")       # 10% تقسیم
+
+# ────────────────────────────── Admin Pools (TronLink) ───────────────────────────────
+WALLET_FIRST_ADMIN_POOL: str  = os.getenv("WALLET_FIRST_ADMIN_POOL")
+WALLET_SECOND_ADMIN_POOL: str = os.getenv("WALLET_SECOND_ADMIN_POOL")
+
+# ────────────────────────────── Personal Wallets (TrustWallet) ───────────────────────────────
+FIRST_ADMIN_PERSONAL_WALLETS: list[str]  = [
+    w.strip() for w in os.getenv("FIRST_ADMIN_PERSONAL_WALLETS", "").split(",") if w.strip()
+]
+SECOND_ADMIN_PERSONAL_WALLETS: list[str] = [
+    w.strip() for w in os.getenv("SECOND_ADMIN_PERSONAL_WALLETS", "").split(",") if w.strip()
+]  # باید دقیقاً 5 مورد باشد
+
+# ────────────────────────────── Staff / Role IDs ───────────────────────────────
+MAIN_LEADER_IDS: list[int] = [
+    int(uid.strip()) for uid in os.getenv("MAIN_LEADER_IDS", "").split(",") if uid.strip()
+]  # ادمین‌های اصلی
+SECOND_ADMIN_USER_IDS: list[int] = [
+    int(uid.strip()) for uid in os.getenv("SECOND_ADMIN_USER_IDS", "").split(",") if uid.strip()
+]  # ادمین‌های دوم که باید دو نفر جذب کنند
+
+##############################################################################################################
+
 # Wallets
 TREASURY_WALLET: str = os.getenv("TREASURY_WALLET").lower()
 TREASURY_PRIVATE_KEY: str = os.getenv("TREASURY_PRIVATE_KEY")
-SPLIT_WALLET_A: str = os.getenv("SPLIT_WALLET_A").lower()
-SPLIT_WALLET_B: str = os.getenv("SPLIT_WALLET_B").lower()
-SPLIT_WALLET_C: str = os.getenv("SPLIT_WALLET_C").lower()
 
 SPLIT_WALLET_A_PRIV: str = os.getenv("SPLIT_WALLET_A_PRIV")
+#----------------------------------------------------------------------------
 
 # Trading & Pool
-POOL_WALLET_ADDRESS: str = os.getenv("POOL_WALLET_ADDRESS")
-PAYMENT_WALLET_ADDRESS: str = os.getenv("PAYMENT_WALLET_ADDRESS")
 TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
 SUPPORT_USER_USERNAME: str = os.getenv("SUPPORT_USER_USERNAME")
-
-# Referral / Commission pools
-MULTISIG_GHOST_WALLET_2OF2: str = os.getenv("MULTISIG_GHOST_WALLET_2OF2")
-SECOND_ADMIN_POOL_WALLET: str = os.getenv("SECOND_ADMIN_POOL_WALLET")
-# لیست ۵ آدرس برای مدیران ثانویه، جداشده با کاما
-SECOND_ADMIN_PERSONAL_WALLETS: List[str] = [w.strip() for w in os.getenv("SECOND_ADMIN_PERSONAL_WALLETS").split(",") if w.strip()]
 
 # Support / Admin
 # اعدادی که به int باید تبدیل شوند
 TRADE_CHANNEL_ID: int = int(os.getenv("TRADE_CHANNEL_ID"))
 ADMIN_USER_IDS: List[int] = [int(uid.strip()) for uid in os.getenv("ADMIN_USER_IDS").split(",")]
-
 
 # ────────────────────────────── اختیاری‌ها ─────────────────────────────
 
@@ -108,12 +120,7 @@ USDT_CONTRACT: str = os.getenv(
     "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj",
 )
 
-
-# SafeClient / Ethereum multisig
-SAFE_SERVICE_URL: str = os.getenv("SAFE_SERVICE_URL")
-ETHEREUM_RPC_URL: str = os.getenv("ETHEREUM_RPC_URL")
-CHAIN_ID: int = int(os.getenv("CHAIN_ID", "1"))
-SERVICE_ACCOUNT_PRIVATE_KEY: str = os.getenv("SERVICE_ACCOUNT_PRIVATE_KEY")
+#----------------------------------------------------------------------------
 
 STATIC_TOKEN_PRICE: float = float(os.getenv("STATIC_TOKEN_PRICE", "1.0"))
 PRICE_CACHE_TTL: int = int(os.getenv("PRICE_CACHE_TTL", "60"))  # ثانیه
@@ -128,19 +135,31 @@ __all__ = [
     "TELEGRAM_BOT_TOKEN",
     "WEBHOOK_URL",
     "MONGODB_URI",
+    ##########################################################
+    "TRON_PROVIDERS",
+    "WALLET_JOIN_POOL",
+    "WALLET_SPLIT_70",
+    "WALLET_SPLIT_20",
+    "WALLET_SPLIT_10",
+    
+    "WALLET_FIRST_ADMIN_POOL",
+    "WALLET_SECOND_ADMIN_POOL",
+    
+    "FIRST_ADMIN_PERSONAL_WALLETS",
+    "SECOND_ADMIN_PERSONAL_WALLETS",
+    
+    "MAIN_LEADER_IDS",
+    "SECOND_ADMIN_USER_IDS",    
+#######################################################################################################
     
     # Wallets / Payments
     "TREASURY_WALLET",
     "TREASURY_PRIVATE_KEY",
-    "SPLIT_WALLET_A",
-    "SPLIT_WALLET_B",
-    "SPLIT_WALLET_C",
+    
     "SPLIT_WALLET_A_PRIV",
-    
-    "POOL_WALLET_ADDRESS",
-    "PAYMENT_WALLET_ADDRESS",
+
     "TRADE_WALLET_ADDRESS",
-    
+###############---------------------------------------------------------------
     # Trading / Support
     "TRADE_CHANNEL_ID",
     "SUPPORT_USER_USERNAME",
@@ -152,18 +171,9 @@ __all__ = [
     "TRON_PRO_API_KEY",
     "TRONSCAN_API_KEY",
     "USDT_CONTRACT",
-
-    # SafeClient / Ethereum multisig
-    "SAFE_SERVICE_URL", 
-    "ETHEREUM_RPC_URL", 
-    "CHAIN_ID",    
-    "SERVICE_ACCOUNT_PRIVATE_KEY",
     
-    # Referral logic
-    "MULTISIG_GHOST_WALLET_2OF2",
-    "SECOND_ADMIN_POOL_WALLET",
-    "SECOND_ADMIN_PERSONAL_WALLETS",    
-    
+#######################-----------------------------------------------------------------
+  
     # Pricing / Misc
     "STATIC_TOKEN_PRICE",
     "PRICE_CACHE_TTL",
