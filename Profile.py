@@ -573,7 +573,7 @@ class ProfileHandler:
             referral_code: str = profile["referral_code"]
             tokens: int | None = profile.get("tokens")
             commission: float | None = profile.get("commission_usd")
-            balance: float = profile.get("commission_usd", 0.0)
+            balance: float = profile.get("balance_usd", 0.0)
             downline_count: int = profile.get("downline_count", 0)
             wallet_address = await self.db.get_wallet_address(chat_id)
             

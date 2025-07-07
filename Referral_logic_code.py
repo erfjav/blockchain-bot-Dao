@@ -182,7 +182,7 @@ class ReferralManager:
             "direct_children": [],
             "direct_dates":   [],
             "eligible":       False,
-            "commission_usd":    Decimal("0"),
+            "balance_usd":    Decimal("0"),
             "created_at":     datetime.utcnow(),
         }
         await self.col_users.insert_one(new_doc)
@@ -295,7 +295,7 @@ class ReferralManager:
         elif uid in SECOND_ADMIN_USER_IDS:
             await self._transfer_wallet(WALLET_SECOND_ADMIN_POOL, amount, f"2ndadmin‑{note}", from_uid=uid)
         else:
-            await self.col_users.update_one({"user_id": uid}, {"$inc": {"commission_usd": amount}})
+            await self.col_users.update_one({"user_id": uid}, {"$inc": {"balance_usd": amount}})
             await self.col_payments.insert_one({
                 "user_id":   uid,
                 "amount_usd": str(amount),
@@ -408,19 +408,19 @@ class ReferralManager:
     # -----------------------------------------------------------
     async def _payout_every_30_days(self):
         now = datetime.utcnow()
-        async for user in self.col_users.find({"commission_usd": {"$gt": 0}}):
+        async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
             uid = user["user_id"]
             if uid in MAIN_LEADER_IDS + SECOND_ADMIN_USER_IDS:
                 continue  # admins handled separately
             second_date = await self._second_child_date(uid)
             if not second_date or (now - second_date) < timedelta(days=30):
                 continue  # not yet eligible for payout
-            amt = Decimal(user["commission_usd"])
+            amt = Decimal(user["balance_usd"])
             wallet = user.get("tron_wallet")
             if not wallet:
                 continue  # user has no withdrawal wallet on file
             await self._transfer_wallet(wallet, amt, "monthly‑member", from_uid=uid)
-            await self.col_users.update_one({"user_id": uid}, {"$set": {"commission_usd": Decimal("0")}})
+            await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
             await self._refresh_eligibility(uid)  # may become ineligible if children were removed
 
     async def _second_child_date(self, uid: int) -> Optional[datetime]:

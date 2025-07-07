@@ -383,38 +383,82 @@ class Database:
     # ------------------- Profile & Referral helpers -----------------------
 
     async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-        user = await self.collection_users.find_one(
+        doc = await self.collection_users.find_one(
             {"user_id": user_id},
             {
                 "_id": 0,
-                "referral_code": 1,
-                "member_no":     1,
-                "tokens":        1,
-                "commission_usd":   1,   # ← اضافه‌شده
-                "joined":        1,
+                "member_no":      1,
+                "referral_code":  1,
+                "tokens":         1,
+                # دو فیلد مجزا
+                "balance_usd":    1,      # ← NEW
+                "commission_usd": 1,
+                "joined":         1,
             },
         )
-        if not user:
-            # اگر کاربر وجود ندارد، None برگردانید
+        if doc is None:
             return None
 
-        # اگر member_no هنوز ست نشده باشد، مقداردهی کنید
-        if "member_no" not in user:
-            user["member_no"] = await self._generate_member_no()
+        # اگر member_no هنوز ست نشده باشد
+        if "member_no" not in doc:
+            doc["member_no"] = await self._generate_member_no()
             await self.collection_users.update_one(
                 {"user_id": user_id},
-                {"$set": {"member_no": user["member_no"]}}
+                {"$set": {"member_no": doc["member_no"]}}
             )
 
-        # محاسبه تعداد زیرمجموعه‌ها
-        user["downline_count"] = await self.collection_users.count_documents(
+        # تعداد زیرمجموعه‌ها
+        doc["downline_count"] = await self.collection_users.count_documents(
             {"inviter_id": user_id}
         )
 
-        # تبدیل Decimal به float برای نمایش
-        user["commission_usd"] = float(user.get("commission_usd", 0))
+        # پیش‌فرض‌ها
+        doc.setdefault("tokens", 0)
+        doc.setdefault("balance_usd", 0.0)
+        doc.setdefault("commission_usd", 0.0)
+        doc.setdefault("joined", False)
 
-        return user
+        # تبدیل Decimal → float
+        doc["balance_usd"]    = float(doc["balance_usd"])
+        doc["commission_usd"] = float(doc["commission_usd"])
+        return doc
+    
+    
+
+    # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
+    #     user = await self.collection_users.find_one(
+    #         {"user_id": user_id},
+    #         {
+    #             "_id": 0,
+    #             "referral_code": 1,
+    #             "member_no":     1,
+    #             "tokens":        1,
+    #             "commission_usd":   1,   # ← اضافه‌شده
+    #             "balance_usd":    1,      # ← NEW
+    #             "joined":        1,
+    #         },
+    #     )
+    #     if not user:
+    #         # اگر کاربر وجود ندارد، None برگردانید
+    #         return None
+
+    #     # اگر member_no هنوز ست نشده باشد، مقداردهی کنید
+    #     if "member_no" not in user:
+    #         user["member_no"] = await self._generate_member_no()
+    #         await self.collection_users.update_one(
+    #             {"user_id": user_id},
+    #             {"$set": {"member_no": user["member_no"]}}
+    #         )
+
+    #     # محاسبه تعداد زیرمجموعه‌ها
+    #     user["downline_count"] = await self.collection_users.count_documents(
+    #         {"inviter_id": user_id}
+    #     )
+
+    #     # تبدیل Decimal به float برای نمایش
+    #     user["commission_usd"] = float(user.get("commission_usd", 0))
+
+    #     return user
 
 
     # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
