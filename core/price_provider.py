@@ -18,7 +18,7 @@ from decimal import Decimal
 from typing import Optional
 from myproject_database import Database          # async wrapper
 from .crypto_handler import CryptoHandler         # you already use this
-from config import SPLIT_WALLET_A
+from config import WALLET_SPLIT_70
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class DynamicPriceProvider:
 
     # wallet that holds users’ payments (USDT / stable-coin)
     WALLET_CHAIN: str = "tron"
-    WALLET_ADDRESS: str = SPLIT_WALLET_A
+    WALLET_ADDRESS: str = WALLET_SPLIT_70
 
     # cache TTL for price (seconds)
     CACHE_TTL: int = 30
