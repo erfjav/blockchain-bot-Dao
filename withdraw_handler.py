@@ -21,7 +21,7 @@ import config
 
 # ───── پیکربندی ثابت‌ها ────────────────────────────────────────────
 
-SPLIT_WALLET_A      = config.SPLIT_WALLET_A.lower()
+WALLET_SPLIT_70      = config.WALLET_SPLIT_70.lower()
 SPLIT_WALLET_A_PRIV = config.SPLIT_WALLET_A_PRIV
 
 WITHDRAW_AMOUNT_USD   = 50               # مبلغ ثابت عضویت
