@@ -568,6 +568,30 @@ class Database:
             }}
         )    
     
+    async def mark_withdraw_paid(
+        self, user_id: int, tx_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Marks the most recent withdrawal request for the given user as paid.
+        Sets status to 'paid', stores the blockchain transaction ID and timestamp.
+
+        Returns the updated withdrawal document, or None if no pending request found.
+        """
+        updated = await self.collection_withdrawals.find_one_and_update(
+            {"user_id": user_id, "status": "pending"},
+            {
+                "$set": {
+                    "status": "paid",
+                    "tx_id": tx_id,
+                    "paid_at": datetime.utcnow(),
+                }
+            },
+            sort=[("created_at", -1)],
+            return_document=ReturnDocument.AFTER,
+        )
+        return updated
+    
+    
     # ------------------------------------------------------------------
     async def create_withdraw_request(
         self,
@@ -616,6 +640,21 @@ class Database:
 
         # اگر به اینجا برسیم یعنی بعد از ۳ تلاش هنوز موفق نشدیم
         raise RuntimeError("withdraw_id_generation_failed")
+
+
+    async def get_last_withdraw_request(
+        self, user_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Returns the most recent withdraw request for the given user,
+        or None if no request exists. Assumes each request document
+        has a 'created_at' field of type datetime.
+        """
+        return await self.collection_withdrawals.find_one(
+            {"user_id": user_id},
+            sort=[("created_at", -1)]
+        )
+
 
 ########################################################################################################################
 

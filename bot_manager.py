@@ -163,6 +163,16 @@ class BotManager:
             self.logger.info("HelpHandler initialized successfully.")
             ##------------------------------------------------------------------------
             
+            # 1️⃣ ReferralManager (updated to new signature)
+            self.referral_manager = ReferralManager(
+                db=self.db,
+                crypto=self.crypto_handler,
+            )
+            self.logger.info(
+                "ReferralManager initialized (join_pool_wallet=%s)",
+                WALLET_JOIN_POOL
+            )            
+            
             # 2️⃣ ProfileHandler
             self.profile_handler = ProfileHandler(
                 db=self.db,
@@ -177,30 +187,6 @@ class BotManager:
             # BlockchainClient
             self.blockchain = BlockchainClient()
             self.logger.info("BlockchainClient initialized.")
-
-            # # 🔹 SafeClient (Ethereum multisig)
-            # self.safe_client = SafeClient()
-            # self.logger.info(
-            #     "SafeClient initialized (safe_address=%s)",
-            #     MULTISIG_GHOST_WALLET_2OF2
-            # )
-
-            # # 1️⃣ ReferralManager
-            # self.referral_manager = ReferralManager(self.db, price_provider=self.price_provider,)
-            # self.logger.info(
-            #     "ReferralManager initialized (pool_wallet=%s)",
-            #     POOL_WALLET_ADDRESS
-            # )
-            
-            # 1️⃣ ReferralManager (updated to new signature)
-            self.referral_manager = ReferralManager(
-                db=self.db,
-                crypto=self.crypto_handler,
-            )
-            self.logger.info(
-                "ReferralManager initialized (join_pool_wallet=%s)",
-                WALLET_JOIN_POOL
-            )
             
             
             ###-------------------------------------------------------------------------------------
