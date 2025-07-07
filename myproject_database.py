@@ -58,8 +58,6 @@ class Database:
             self.logger.error(f"❌ MongoDB ping failed: {e}")
             raise
 
-
-
     #-------------------------------------------------------------------------------------   
     async def initialize_all_connections(self):
         """Initialize and verify all database connections"""
@@ -106,54 +104,6 @@ class Database:
         except Exception as e:
             self.logger.error(f"Error initializing database connections: {e}")
             raise
-
-    # #-------------------------------------------------------------------------------------   
-    # async def initialize_all_connections(self):
-    #     """Initialize and verify all database connections"""
-    #     try:
-    #         # Check main database connection
-    #         await self.check_connection()
-            
-    #         # ➋ مقداردهی اولیه کانتر member_no (فقط بارِ اول ایجاد می‌شود)
-    #         await self.collection_counters.update_one(
-    #             {"_id": "member_no"},
-    #             {"$setOnInsert": {"seq": 1000}},   # یا 1؛ هر عددی که می‌خواهید شروع شود
-    #             upsert=True
-    #         )            
-
-    #         # ➂ unique index on wallet_address (sparse: only docs that have it)
-    #         await self.collection_users.create_index(
-    #             [("wallet_address", ASCENDING)],
-    #             unique=True,
-    #             sparse=True,
-    #             name="unique_wallet_address"
-    #         )         
-            
-    #         await self.collection_payments.create_index(
-    #             [("txid", ASCENDING)],
-    #             unique=True,
-    #             name="unique_txid"          # prevents duplicate hashes
-    #         )            
-           
-    #         await self.collection_withdrawals.create_index(
-    #             [("withdraw_id", ASCENDING)],
-    #             unique=True,
-    #             name="unique_withdraw_id"
-    #         )           
-                    
-    #         await self.collection_slots.create_index(
-    #             [("slot_id", 1)], unique=True, name="unique_slot_id"
-    #         )
-
-    #         await self.collection_schedules.create_index(
-    #             [("_id", 1)], unique=True, name="unique_schedule_id"
-    #         )
-          
-            
-    #         self.logger.info("All database connections initialized and verified")
-    #     except Exception as e:
-    #         self.logger.error(f"Error initializing database connections: {e}")
-    #         raise
 
     # ------------------- User Language Management -----------------------
     async def update_user_language(self, chat_id: int, language_code: str):
@@ -422,72 +372,7 @@ class Database:
         doc["balance_usd"]    = float(doc["balance_usd"])
         doc["commission_usd"] = float(doc["commission_usd"])
         return doc
-    
-    
-
-    # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-    #     user = await self.collection_users.find_one(
-    #         {"user_id": user_id},
-    #         {
-    #             "_id": 0,
-    #             "referral_code": 1,
-    #             "member_no":     1,
-    #             "tokens":        1,
-    #             "commission_usd":   1,   # ← اضافه‌شده
-    #             "balance_usd":    1,      # ← NEW
-    #             "joined":        1,
-    #         },
-    #     )
-    #     if not user:
-    #         # اگر کاربر وجود ندارد، None برگردانید
-    #         return None
-
-    #     # اگر member_no هنوز ست نشده باشد، مقداردهی کنید
-    #     if "member_no" not in user:
-    #         user["member_no"] = await self._generate_member_no()
-    #         await self.collection_users.update_one(
-    #             {"user_id": user_id},
-    #             {"$set": {"member_no": user["member_no"]}}
-    #         )
-
-    #     # محاسبه تعداد زیرمجموعه‌ها
-    #     user["downline_count"] = await self.collection_users.count_documents(
-    #         {"inviter_id": user_id}
-    #     )
-
-    #     # تبدیل Decimal به float برای نمایش
-    #     user["commission_usd"] = float(user.get("commission_usd", 0))
-
-    #     return user
-
-
-    # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
-    #     user = await self.collection_users.find_one(
-    #         {"user_id": user_id},
-    #         {
-    #             "_id": 0,
-    #             "referral_code": 1,
-    #             "member_no": 1,
-    #             "tokens": 1,
-    #             "commission_usd": 1,
-    #             "joined": 1,
-    #         },
-    #     )
-    #     if not user:
-    #         # ➊ اگر کاربر وجود ندارد، None برگردانید
-    #         return None
-
-    #     # ➋ همیشه member_no داشته باشیم؛ اگر قبلی‌ها نداشتند، مقداردهی کنیم
-    #     if "member_no" not in user:
-    #         user["member_no"] = await self._generate_member_no()
-    #         await self.collection_users.update_one(
-    #             {"user_id": user_id}, {"$set": {"member_no": user["member_no"]}}
-    #         )
-
-    #     # ➌ downline_count
-    #     user["downline_count"] = await self.collection_users.count_documents({"inviter_id": user_id})
-    #     return user
-
+    ###########-------------------------------------------------------------------------------------------
     async def get_downline(
         self,
         user_id: int,

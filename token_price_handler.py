@@ -65,8 +65,9 @@ class TokenPriceHandler:
 
             # ➋ پیام پایه به انگلیسی
             msg_en = (
-                "💲 <b>Current token price:</b>\n"
-                f"<code>${price:.6f}</code>"
+                "💲 <b>Live Token Price (Updated):</b>\n\n"
+                f"<code>${price:.6f}</code>\n\n"
+                "This reflects the most recent market value."
             )
 
             # ➌ ترجمهٔ نهایی با توجه به زبان کاربر

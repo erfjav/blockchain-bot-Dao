@@ -56,13 +56,19 @@ from myproject_database import Database  # Async wrapper
 from state_manager import push_state, pop_state
 from core.blockchain_client import BlockchainClient
 
-from config import TRADE_WALLET_ADDRESS as TRON_WALLET
+import config
+
+TRADE_WALLET_ADDRESS = config.TRADE_WALLET_ADDRESS # This is the address where users send their payments when buying tokens.
+
+TRADE_WALLET_PRIVATE_KEY = config.TRADE_WALLET_PRIVATE_KEY
+
+
+TRADE_CHANNEL_ID = int(os.getenv("TRADE_CHANNEL_ID", "0"))
+
+SUPPORT_USER_USERNAME = config.SUPPORT_USER_USERNAME
 
 BUY_PAYMENT_WINDOW = timedelta(minutes=15)
 SELL_CONFIRM_WINDOW = timedelta(minutes=5)
-
-TRADE_CHANNEL_ID = int(os.getenv("TRADE_CHANNEL_ID", "0"))
-SUPPORT_USER_USERNAME = os.getenv("SUPPORT_USER_USERNAME", "YourSupportUser")
 
 # Conversation states
 SELL_AMOUNT, SELL_PRICE , BUY_AMOUNT, BUY_PRICE = range(4)
@@ -310,96 +316,6 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="sell_price")
           
-            
-    # #####--------------------------------------------------------------------------------------######
-    # async def sell_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     گام دومِ فروش: دریافت قیمت از فروشنده، ثبت Order، ارسال پیام کانال
-    #     """
-    #     try:
-    #         chat_id = update.effective_chat.id
-    #         txt     = update.message.text.strip()
-
-    #         # ── اعتبارسنجی قیمت ───────────────────────────────────────
-    #         try:
-    #             price_per_token = float(txt)
-    #             if price_per_token <= 0:
-    #                 raise ValueError
-    #         except ValueError:
-    #             text_invalid = (
-    #                 "⚠️ <b>Invalid price!</b>\n\n"
-    #                 "Please enter a <b>positive number</b> for the price per token.\n\n"
-    #                 "💡 Example: <b>0.25</b> means $0.25 per token."
-    #             )                 
-    #             await update.message.reply_text(
-    #                 await self.translation_manager.translate_for_user( text_invalid, chat_id),
-    #                 parse_mode="HTML"
-    #             )
-    #             return  # در همان state می‌مانیم
-
-    #         amount     = context.user_data.get("sell_amount", 0)
-    #         identifier = await self._get_user_identifier(chat_id)
-
-    #         # ── پیام کانال + دکمهٔ Buy ────────────────────────────────
-    #         text_channel = (
-    #             f"🔥 <b>New Sell Offer Available! #{order_id}</b>\n\n"
-    #             f"👤 <b>Seller:</b> {identifier}\n"
-    #             f"📦 <b>Amount:</b> {amount} tokens\n"
-    #             f"💵 <b>Price:</b> ${price_per_token:.4f} per token\n\n"
-    #             "🛒 <b>Want to buy?</b> Click the <b>Buy</b> button below to place your order.\n\n"
-    #             "🆘 <i>Need help? Use the Support button.</i>"
-    #         )
-    #         msg = await update.get_bot().send_message(      # ← msg برای message_id
-    #             chat_id=TRADE_CHANNEL_ID,
-    #             text=text_channel,
-    #             parse_mode="HTML",
-    #             reply_markup=self._support_inline_keyboard(),
-    #         )
-
-    #         # ── ذخیرهٔ سفارش در دیتابیس ───────────────────────────────
-    #         order_id = await self.db.create_sell_order(
-    #             {
-    #                 "seller_id":      chat_id,
-    #                 "amount":         amount,
-    #                 "price":          price_per_token,
-    #                 "channel_msg_id": msg.message_id,
-    #             }
-    #         )
-
-    #         # ── افزودن دکمهٔ «🛒 Buy» به پیام کانال ───────────────────
-    #         buy_kb = InlineKeyboardMarkup(
-    #             [
-    #                 [InlineKeyboardButton("🛒 Buy", callback_data=f"buy_order_{order_id}")],
-    #                 [
-    #                     InlineKeyboardButton(
-    #                         "SOS Support", url=f"https://t.me/{SUPPORT_USER_USERNAME}"
-    #                     )
-    #                 ],
-    #             ]
-    #         )
-    #         await msg.edit_reply_markup(buy_kb)
-
-    #         # ── تأیید برای فروشنده ───────────────────────────────────
-    #         confirmation_text = (
-    #             "✅ <b>Your sell offer was submitted successfully!</b>\n\n"
-    #             "📢 Your offer has been posted in the trade channel and is now visible to potential buyers.\n\n"
-    #             "🛒 Interested users can click 'Buy' to proceed with the purchase.\n\n"
-    #             "🕒 Please wait — our support team will contact you if any follow-up is required."
-    #         )
-            
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user(confirmation_text , chat_id),
-    #             parse_mode="HTML",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #         )
-
-    #         # ── پاک‌سازی state ───────────────────────────────────────
-    #         pop_state(context)
-    #         context.user_data.clear()
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="sell_price")
-
     #####-------------------------------------------------------------------------------------##########
     async def buy_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
@@ -427,7 +343,7 @@ class TradeHandler:
             text_en = (
                 f"🧾 <b>Order Summary</b>\n"
                 f"💰 <b>Total to Pay:</b> ${total:.2f}\n\n"
-                f"📥 <b>Payment Wallet (USDT-TRC20):</b>\n<code>{TRON_WALLET}</code>\n\n"
+                f"📥 <b>Payment Wallet (USDT-TRC20):</b>\n<code>{TRADE_WALLET_ADDRESS}</code>\n\n"
                 "After sending the payment, please press <b>I Paid</b> and submit your <b>TXID (Transaction Hash)</b>."
             )
 
@@ -664,7 +580,7 @@ class TradeHandler:
         try:
             confirmed = await self.blockchain.verify_txid(
                 txid=txid,
-                to_address=TRON_WALLET,
+                to_address=TRADE_WALLET_ADDRESS,
                 expected_usdt=expected_amount
             )
         except Exception as e:
@@ -907,185 +823,6 @@ class TradeHandler:
         except Exception as e:
             await self.error_handler.handle(update, context, e, context_name="buy_price")
     
-    
-    # async def buy_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     گام دوم خرید: دریافت قیمت هر توکن، ایجاد BUY-Order و افزودن دکمه «💸 Sell».
-    #     """
-    #     try:
-    #         chat_id = update.effective_chat.id
-    #         txt = update.message.text.strip()
-
-    #         # ─── اعتبارسنجی قیمت ───────────────────────────────────────────
-    #         try:
-    #             price_per_token = float(txt)
-    #             if price_per_token <= 0:
-    #                 raise ValueError
-    #         except ValueError:
-    #             error_msg = (
-    #                 "⚠️ <b>Invalid price!</b>\n"
-    #                 "Please enter a <b>positive number</b> for price per token (e.g. 0.25)."
-    #             )                
-    #             await update.message.reply_text(
-    #                 await self.translation_manager.translate_for_user(error_msg, chat_id),
-    #                 parse_mode="HTML"
-    #             )
-    #             return  # همان state می‌مانیم
-
-    #         amount = context.user_data.get("buy_amount", 0)
-    #         identifier = await self._get_user_identifier(chat_id)
-
-    #         # ─── ثبت سفارش در DB برای گرفتن order_id ────────────────────────
-    #         order_id = await self.db.create_buy_order(
-    #             {
-    #                 "buyer_id": chat_id,
-    #                 "amount": amount,
-    #                 "price": price_per_token,
-    #                 "channel_msg_id": None,
-    #             }
-    #         )
-
-    #         # ─── ارسال پیام به کانال ترید با شماره سفارش ───────────────────
-    #         text_channel = (
-    #             f"📢 <b>New Buy Request #{order_id}</b>\n\n"
-    #             f"🧑‍💼 <b>Buyer:</b> {identifier}\n"
-    #             f"📦 <b>Amount:</b> {amount} tokens\n"
-    #             f"💰 <b>Price:</b> ${price_per_token:.4f} per token\n\n"
-    #             "💸 <b>First seller to accept will receive USDT from escrow.</b>\n\n"
-    #             "Tap the <b>Sell</b> button below if you want to fulfill this order."
-    #         )
-    #         msg = await update.get_bot().send_message(
-    #             chat_id=TRADE_CHANNEL_ID,
-    #             text=text_channel,
-    #             parse_mode="HTML",
-    #             reply_markup=self._support_inline_keyboard(),
-    #         )
-
-    #         # ─── به‌روزرسانی channel_msg_id در رکورد DB ─────────────────────
-    #         await self.db.collection_orders.update_one(
-    #             {"order_id": order_id},
-    #             {"$set": {"channel_msg_id": msg.message_id}}
-    #         )
-
-    #         # ─── افزودن دکمه «💸 Sell» به پیام کانال ────────────────────────
-    #         sell_kb = InlineKeyboardMarkup(
-    #             [
-    #                 [InlineKeyboardButton("💸 Sell", callback_data=f"sell_order_{order_id}")],
-    #                 [
-    #                     InlineKeyboardButton(
-    #                         "SOS Support", url=f"https://t.me/{SUPPORT_USER_USERNAME}"
-    #                     )
-    #                 ],
-    #             ]
-    #         )
-    #         await msg.edit_reply_markup(sell_kb)
-
-    #         # ─── تأیید برای خریدار ─────────────────────────────────────────
-    #         confirmation_msg = (
-    #             "✅ <b>Your buy order has been submitted!</b>\n\n"
-    #             "📡 It is now visible in the trade channel for potential sellers.\n\n"
-    #             "💬 If someone accepts your offer, they will proceed with the transaction."
-    #         )            
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user(confirmation_msg, chat_id),
-    #             parse_mode="HTML",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #         )
-
-    #         # ─── پاک‌سازی state ───────────────────────────────────────────
-    #         context.user_data.clear()
-    #         pop_state(context)
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="buy_price")
-  
-    # #####--------------------------------------------------------------------------------------######
-    # async def buy_price(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     گام دوم خرید: دریافت قیمت هر توکن، ایجاد BUY-Order و افزودن دکمه «💸 Sell».
-    #     """
-    #     try:
-    #         chat_id = update.effective_chat.id
-    #         txt     = update.message.text.strip()
-
-    #         # ─── اعتبارسنجی قیمت ───────────────────────────────────────────
-    #         try:
-    #             price_per_token = float(txt)
-    #             if price_per_token <= 0:
-    #                 raise ValueError
-    #         except ValueError:
-    #             error_msg = (
-    #                 "⚠️ <b>Invalid price!</b>\n"
-    #                 "Please enter a <b>positive number</b> for price per token (e.g. 0.25)."
-    #             )                
-                
-    #             await update.message.reply_text(
-    #                 await self.translation_manager.translate_for_user(error_msg, chat_id),
-    #                 parse_mode="HTML"
-    #             )
-    #             return  # همان state می‌مانیم
-
-    #         amount     = context.user_data.get("buy_amount", 0)
-    #         identifier = await self._get_user_identifier(chat_id)
-
-    #         # ─── ارسال پیام به کانال ترید ───────────────────────────────
-    #         text_channel = (
-    #             f"📢 <b>New Buy Request #{order_id}</b>\n\n"
-    #             f"🧑‍💼 <b>Buyer:</b> {identifier}\n"
-    #             f"📦 <b>Amount:</b> {amount} tokens\n"
-    #             f"💰 <b>Price:</b> ${price_per_token:.4f} per token\n\n"
-    #             "💸 <b>First seller to accept will receive USDT from escrow.</b>\n\n"
-    #             "Tap the <b>Sell</b> button below if you want to fulfill this order."
-    #         )
-    #         msg = await update.get_bot().send_message(
-    #             chat_id=TRADE_CHANNEL_ID,
-    #             text=text_channel,
-    #             parse_mode="HTML",
-    #             reply_markup=self._support_inline_keyboard(),
-    #         )
-
-    #         # ─── ایجاد رکورد Order در DB ──────────────────────────
-    #         order_id = await self.db.create_buy_order(
-    #             {
-    #                 "buyer_id":      chat_id,
-    #                 "amount":        amount,
-    #                 "price":         price_per_token,
-    #                 "channel_msg_id": msg.message_id,
-    #             }
-    #         )
-
-    #         # ─── افزودن دکمه «💸 Sell» به پیام کانال ──────────────
-    #         sell_kb = InlineKeyboardMarkup(
-    #             [
-    #                 [InlineKeyboardButton("💸 Sell", callback_data=f"sell_order_{order_id}")],
-    #                 [
-    #                     InlineKeyboardButton(
-    #                         "SOS Support", url=f"https://t.me/{SUPPORT_USER_USERNAME}"
-    #                     )
-    #                 ],
-    #             ]
-    #         )
-    #         await msg.edit_reply_markup(sell_kb)
-            
-    #         # ─── تأیید برای خریدار ────────────────────────────────
-    #         confirmation_msg = (
-    #             "✅ <b>Your buy order has been submitted!</b>\n\n"
-    #             "📡 It is now visible in the trade channel for potential sellers.\n\n"
-    #             "💬 If someone accepts your offer, they will proceed with the transaction."
-    #         )            
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user(confirmation_msg, chat_id),
-    #             parse_mode="HTML",
-    #             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #         )
-
-    #         # ─── پاک‌سازی state ───────────────────────────────────────────────────────────────
-    #         context.user_data.clear()
-    #         pop_state(context)
-
-    #     except Exception as e:
-    #         await self.error_handler.handle(update, context, e, context_name="buy_price")
-
     # ───────────────────────────── فروشنده روی «Sell» می‌زند ────────────────────────────────────────────────
     async def sell_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -1177,7 +914,7 @@ class TradeHandler:
         pay_msg = (
             f"✅ <b>A seller accepted your order #{order_id}!</b>\n\n"
             f"💰 <b>Total:</b> ${total:.2f}\n\n"
-            f"📥 <b>USDT-TRC20 Wallet:</b>\n<code>{TRON_WALLET}</code>\n\n"
+            f"📥 <b>USDT-TRC20 Wallet:</b>\n<code>{TRADE_WALLET_ADDRESS}</code>\n\n"
             "After paying, press <b>I Paid</b> and send your TXID."
         )
         pay_kb = InlineKeyboardMarkup(
@@ -1289,7 +1026,7 @@ class TradeHandler:
         expected = order["amount"] * order["price"]
         confirmed = await self.blockchain.verify_txid(
             txid=txid,
-            to_address=TRON_WALLET,
+            to_address=TRADE_WALLET_ADDRESS,
             expected_usdt=expected
         )
         if not confirmed:
@@ -1465,24 +1202,3 @@ class TradeHandler:
             )
         except Exception as e:
             self.logger.warning(f"Cannot edit buy-order {order['order_id']}: {e}")
-
-
-
-
-    # async def seller_cancel_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     فروشنده پشیمان می‌شود؛ سفارش را به حالت open برمی‌گردانیم.
-    #     """
-    #     query = update.callback_query
-    #     await query.answer()
-    #     seller_id = query.from_user.id
-    #     order_id  = int(query.data.split("_")[-1])
-
-    #     result = await self.db.collection_orders.update_one(
-    #         {"order_id": order_id, "seller_id": seller_id, "status": "pending_seller_confirm"},
-    #         {"$set": {"status": "open"}, "$unset": {"seller_id": "", "expires_at": ""}}
-    #     )
-    #     if result.modified_count:
-    #         await query.edit_message_text("❌ Cancelled. Order is open again.")
-    #     else:
-    #         await query.answer("⛔️ Too late.", show_alert=True)

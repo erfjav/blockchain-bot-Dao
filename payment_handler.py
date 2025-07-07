@@ -24,11 +24,11 @@ from Referral_logic_code import ReferralManager
 from core.blockchain_client import BlockchainClient
 
 from datetime import datetime
-
+from decimal import Decimal
 import config
 
 TXID_REGEX = re.compile(r"^[0-9A-Fa-f]{64}$")   # 64-char hex
-
+JOIN_FEE_USD        = Decimal("50")
 # ───── ثابت‌های تنظیمی ───────────────────────────────────────────────
 JOIN_FEE_USDT   = 50
 TOKEN_SYMBOL    = "USDT"
@@ -36,17 +36,22 @@ DECIMALS        = 6                             # USDT on TRON = 6 decimals
 POLL_INTERVAL   = 30                            # ثانیه
 MAX_ATTEMPTS    = 15                            # ≈ 7.5 دقیقه
 
-TREASURY_WALLET      = config.TREASURY_WALLET.lower()
-TREASURY_PRIVATE_KEY = config.TREASURY_PRIVATE_KEY
-USDT_CONTRACT        = config.USDT_CONTRACT
-
-SPLIT_WALLETS = [
-    (config.WALLET_SPLIT_70, 0.70),
-    (config.WALLET_SPLIT_20, 0.20),
-    (config.WALLET_SPLIT_10, 0.10),
-]
-
+# WALLET_JOIN_POOL: Address where membership fees are collected
 WALLET_JOIN_POOL = config.WALLET_JOIN_POOL
+
+# # WALLET_JOIN_POOL_PRIVATE_KEY: Private key used to sign outbound transactions from the WALLET_JOIN_POOL address
+# WALLET_JOIN_POOL_PRIVATE_KEY = config.WALLET_JOIN_POOL_PRIVATE_KEY
+
+
+# SPLIT_WALLETS = [
+#     (config.WALLET_SPLIT_70, 0.70),
+#     (config.WALLET_SPLIT_20, 0.20),
+#     (config.WALLET_SPLIT_10, 0.10),
+# ]
+
+# # This variable defines the **smart contract address** of the USDT token on the TRON blockchain (TRC-20 standard).
+# USDT_CONTRACT        = config.USDT_CONTRACT
+
 
 TRADE_CHANNEL_ID = config.TRADE_CHANNEL_ID
 
@@ -81,7 +86,6 @@ class PaymentHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
         
     #-----------------------------------------------------------------------------------------
-
     async def show_payment_instructions(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
@@ -128,58 +132,6 @@ class PaymentHandler:
             )
         except Exception as e:
             await self.eh.handle(update, context, e)    
-    
-    # async def show_payment_instructions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #     """
-    #     1) نمایش اطلاعات پایه (Member No, Referral Code) اگر موجود باشد
-    #     2) نمایش دستورالعمل پرداخت + دکمه‌های:
-    #        • TxID (transaction hash)
-    #        • ⬅️ Back    ➡️ Exit
-    #     3) ست‌کردن state = prompt_txid
-    #     """
-    #     chat_id    = update.effective_chat.id
-    #     first_name = update.effective_user.first_name
-
-    #     try:
-    #         # ensure user record exists (بدون تخصیص توکن)
-    #         await self.db.insert_user_if_not_exists(chat_id, first_name)
-
-    #         profile = await self.db.get_profile(chat_id)
-
-    #         # ساخت پیام
-    #         lines = ["💳 <b>Payment Instructions</b>\n"]
-    #         if profile:
-    #             lines += [
-    #                 f"• Member No: <b>{profile['member_no']}</b>",
-    #                 f"• Referral Code: <code>{profile['referral_code']}</code>\n"
-    #             ]
-    #         else:
-    #             lines += [
-    #                 "• Member No: —",
-    #                 "• Referral Code: —\n"
-    #             ]
-    #         lines += [
-    #             "1️⃣ Send $50 USDT (TRC-20) to:\n\n",
-    #             f"<code>{self.wallet_address}</code>\n\n",
-    #             "2️⃣ When done, press the button below and select <b>TxID (transaction hash)</b>."
-    #         ]
-    #         msg = "\n".join(lines)
-
-    #         # ست‌کردن state برای prompt فاز TxID
-    #         push_state(context, "prompt_txid")
-    #         context.user_data["state"] = "prompt_txid"
-
-    #         # کیبورد مخصوص شامل دکمه‌ی TxID و Back/Exit
-    #         reply_kb = await self.keyboards.build_show_payment_keyboard(chat_id)
-
-    #         await update.message.reply_text(
-    #             await self.translation_manager.translate_for_user(msg, chat_id),
-    #             parse_mode="HTML",
-    #             reply_markup=reply_kb,
-    #         )
-
-    #     except Exception as e:
-    #         await self.eh.handle(update, context, e, context_name="show_payment_instructions")
 
     #-------------------------------------------------------------------------------------   
     async def prompt_for_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -320,37 +272,38 @@ class PaymentHandler:
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
-    # ─────────────────────────────────────────────────────────────
-    # ➊ متد جدید: تقسیم وجه بین سه کیف‌پول
-    # ─────────────────────────────────────────────────────────────
-    async def _split_funds(self, amount_usdt: float) -> None:
-        """
-        انتقال خودکار USDT به سه کیف‌پول طبق نسبت تعریف‌شده.
-        """
-        if not TREASURY_PRIVATE_KEY:
-            self.logger.error("[_split_funds] TREASURY_PRIVATE_KEY not set – aborting split.")
-            return
+    # # ─────────────────────────────────────────────────────────────
+    # # ➊ متد جدید: تقسیم وجه بین سه کیف‌پول
+    # # ─────────────────────────────────────────────────────────────
+    # async def _split_funds(self, amount_usdt: float) -> None:
+    #     """
+    #     انتقال خودکار USDT به سه کیف‌پول طبق نسبت تعریف‌شده.
+    #     """
+    #     if not WALLET_JOIN_POOL_PRIVATE_KEY:
+    #         self.logger.error("[_split_funds] WALLET_JOIN_POOL_PRIVATE_KEY not set – aborting split.")
+    #         return
 
-        for addr, ratio in SPLIT_WALLETS:
-            if not addr:
-                continue  # این کیف‌پول تعریف نشده است
-            share = round(amount_usdt * ratio, DECIMALS)
-            if share <= 0:
-                continue
+    #     for addr, ratio in SPLIT_WALLETS:
+    #         if not addr:
+    #             continue  # این کیف‌پول تعریف نشده است
+    #         share = round(amount_usdt * ratio, DECIMALS)
+    #         if share <= 0:
+    #             continue
 
-            try:
-                txid = await self.blockchain.transfer_trc20(
-                    from_private_key=TREASURY_PRIVATE_KEY,
-                    to_address=addr,
-                    amount=share,
-                    token_contract=USDT_CONTRACT,
-                    decimals=DECIMALS,
-                    memo="membership split",
-                )
-                self.logger.info(f"[split] → {addr[-6:]}  {share} USDT  txid={txid}")
-            except Exception as e:
-                # در صورت خطا، فقط لاگ کنید؛ می‌توانید هشدار تلگرام/ایمیل اضافه کنید
-                self.logger.error(f"[split] transfer to {addr} failed: {e}", exc_info=True)
+    #         try:
+    #             txid = await self.blockchain.transfer_trc20(
+    #                 from_private_key=WALLET_JOIN_POOL_PRIVATE_KEY,
+    #                 to_address=addr,
+    #                 amount=share,
+    #                 token_contract=USDT_CONTRACT,
+    #                 decimals=DECIMALS,
+    #                 memo="membership split",
+    #             )
+    #             self.logger.info(f"[split] → {addr[-6:]}  {share} USDT  txid={txid}")
+    #         except Exception as e:
+    #             # در صورت خطا، فقط لاگ کنید؛ می‌توانید هشدار تلگرام/ایمیل اضافه کنید
+    #             self.logger.error(f"[split] transfer to {addr} failed: {e}", exc_info=True)
+
 
     # ─────────────────────────────────────────────────────────────
     # ➋ پایش تراکنش روی بلاک‌چین و تخصیص توکن
@@ -365,12 +318,15 @@ class PaymentHandler:
         """
         هر ۳۰ ثانیه وضعیت تراکنش TRC-20 را چک می‌کند تا تأیید شود.
         پس از تأیید:
-          1) تقسیم مبلغ بین سه کیف‌پول
-          2) ثبت/فعال‌سازی پروفایل کاربر
-          3) ارسال پیام موفق
-        در غیر این صورت پس از ۱۵ تلاش → failed
+          1) ثبت وضعیت پرداخت
+          2) فراخوانی ReferralManager برای تقسیم کمیسیون و تخصیص airdrop
+          3) ایجاد/به‌روزرسانی پروفایل کاربر
+          4) ارسال پیام موفقیت
+        در غیر این صورت پس از ۱۵ تلاش → وضعیت failed
         """
-        user_wallet = await self.db.get_wallet_address(chat_id)  # ممکن است None باشد
+        # بارگذاری کیف‌پول join-pool به صورت lowercase برای مقایسه
+        join_pool_address = self.wallet_address.lower()
+
         tron_api = f"https://api.trongrid.io/wallet/gettransactionbyid?value={txid}"
 
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -378,40 +334,43 @@ class PaymentHandler:
                 async with httpx.AsyncClient(timeout=10) as client:
                     data = (await client.get(tron_api)).json()
 
-                # ───── بررسی وضعیت و شروط ───────────────────────────
+                # بررسی موفقیت قرارداد و امضا
                 status_ok = (
                     data.get("ret")
                     and data["ret"][0].get("contractRet") == "SUCCESS"
                 )
 
-                prm_value = data["raw_data"]["contract"][0]["parameter"]["value"]
-                to_addr   = prm_value.get("to_address", "").lower()
-                owner_addr = prm_value.get("owner_address", "").lower()
+                prm = data["raw_data"]["contract"][0]["parameter"]["value"]
+                to_addr = prm.get("to_address", "").lower()
+                owner_addr = prm.get("owner_address", "").lower()
 
-                to_ok    = to_addr == TREASURY_WALLET
-                owner_ok = True if user_wallet is None else owner_addr == user_wallet.lower()
+                # بررسی مقصد و فرستنده
+                to_ok = to_addr == join_pool_address
+                user_wallet = await self.db.get_wallet_address(chat_id)
+                owner_ok = True if not user_wallet else owner_addr == user_wallet.lower()
 
+                # بررسی توکن و مقدار
                 token_ok = data.get("tokenInfo", {}).get("symbol") == TOKEN_SYMBOL
-                amount   = int(data.get("amount_str", "0")) / 10**DECIMALS
-                amount_ok = amount >= JOIN_FEE_USDT
+                amount = int(data.get("amount_str", "0")) / 10**DECIMALS
+                amount_ok = amount >= JOIN_FEE_USD
 
                 if status_ok and to_ok and owner_ok and token_ok and amount_ok:
-                    # ➊ ذخیره وضعیت پرداخت
+                    # 1) ذخیره وضعیت پرداخت
                     await self.db.update_payment_status(txid, "confirmed")
 
-                    # ➋ تقسیم مبلغ بین سه کیف‌پول
-                    await self._split_funds(amount)
-
-                    # ➌ ایجاد/به‌روزرسانی پروفایل و تخصیص توکن
+                    # 2) تقسیم کمیسیون و تخصیص airdrop
+                    # ابتدا پروفایل کاربر را بساز/بروزرسانی کن
                     profile = await self.referral_manager.ensure_user(
-                        chat_id,
-                        inviter_code=context.user_data.get("inviter_code"),
+                        user_id=chat_id,
                         first_name=bot.get_chat(chat_id).first_name,
+                        inviter_id=context.user_data.get("inviter_id")
                     )
+                    # سپس گردش 50$ join-fee را در ReferralManager انجام بده
+                    await self.referral_manager._distribute_commission(profile)
 
-                    # ➍ پیام موفقیت
+                    # 3) ارسال پیام موفقیت
                     success_msg = (
-                        "✅ Payment confirmed!\n\n"
+                        "✅ پرداخت با موفقیت ثبت شد!\n\n"
                         f"• Member No: <b>{profile['member_no']}</b>\n"
                         f"• Referral Code: <code>{profile['referral_code']}</code>\n"
                         f"• Tokens Allocated: <b>{profile['tokens']:.0f}</b>"
@@ -430,7 +389,7 @@ class PaymentHandler:
                     self.logger.info(f"[monitor_payment] ✅ confirmed for {chat_id}")
                     return
 
-                # اگر تراکنش یافت شد ولی شروط کامل نبود
+                # تراکنش موجود ولی معیارها برقرار نیست
                 if status_ok and (not to_ok or not token_ok or not amount_ok or not owner_ok):
                     await self.db.update_payment_status(txid, "failed")
                     warn_msg = (
@@ -453,7 +412,7 @@ class PaymentHandler:
 
             await asyncio.sleep(POLL_INTERVAL)
 
-        # ───── پس از بی‌نتیجه ماندن تلاش‌ها ─────────────────────────
+        # پس از اتمام تلاش‌ها
         await self.db.update_payment_status(txid, "failed")
         error_msg = (
             "❌ <b>Payment was not confirmed within the expected time.</b>\n"
@@ -469,6 +428,125 @@ class PaymentHandler:
             reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
         )
         self.logger.warning(f"[monitor_payment] FAILED after {MAX_ATTEMPTS} for {chat_id}")
+
+
+    # # ─────────────────────────────────────────────────────────────
+    # # ➋ پایش تراکنش روی بلاک‌چین و تخصیص توکن
+    # # ─────────────────────────────────────────────────────────────
+    # async def monitor_payment(
+    #     self,
+    #     chat_id: int,
+    #     txid: str,
+    #     bot,
+    #     context: ContextTypes.DEFAULT_TYPE,
+    # ) -> None:
+    #     """
+    #     هر ۳۰ ثانیه وضعیت تراکنش TRC-20 را چک می‌کند تا تأیید شود.
+    #     پس از تأیید:
+    #       1) تقسیم مبلغ بین سه کیف‌پول
+    #       2) ثبت/فعال‌سازی پروفایل کاربر
+    #       3) ارسال پیام موفق
+    #     در غیر این صورت پس از ۱۵ تلاش → failed
+    #     """
+    #     user_wallet = await self.db.get_wallet_address(chat_id)  # ممکن است None باشد
+    #     tron_api = f"https://api.trongrid.io/wallet/gettransactionbyid?value={txid}"
+
+    #     for attempt in range(1, MAX_ATTEMPTS + 1):
+    #         try:
+    #             async with httpx.AsyncClient(timeout=10) as client:
+    #                 data = (await client.get(tron_api)).json()
+
+    #             # ───── بررسی وضعیت و شروط ───────────────────────────
+    #             status_ok = (
+    #                 data.get("ret")
+    #                 and data["ret"][0].get("contractRet") == "SUCCESS"
+    #             )
+
+    #             prm_value = data["raw_data"]["contract"][0]["parameter"]["value"]
+    #             to_addr   = prm_value.get("to_address", "").lower()
+    #             owner_addr = prm_value.get("owner_address", "").lower()
+
+    #             to_ok    = to_addr == self.wallet_address
+    #             owner_ok = True if user_wallet is None else owner_addr == user_wallet.lower()
+
+    #             token_ok = data.get("tokenInfo", {}).get("symbol") == TOKEN_SYMBOL
+    #             amount   = int(data.get("amount_str", "0")) / 10**DECIMALS
+    #             amount_ok = amount >= JOIN_FEE_USDT
+
+    #             if status_ok and to_ok and owner_ok and token_ok and amount_ok:
+    #                 # ➊ ذخیره وضعیت پرداخت
+    #                 await self.db.update_payment_status(txid, "confirmed")
+
+    #                 # ➋ تقسیم مبلغ بین سه کیف‌پول
+    #                 await self._split_funds(amount)
+
+    #                 # ➌ ایجاد/به‌روزرسانی پروفایل و تخصیص توکن
+    #                 profile = await self.referral_manager.ensure_user(
+    #                     chat_id,
+    #                     inviter_code=context.user_data.get("inviter_code"),
+    #                     first_name=bot.get_chat(chat_id).first_name,
+    #                 )
+
+    #                 # ➍ پیام موفقیت
+    #                 success_msg = (
+    #                     "✅ Payment confirmed!\n\n"
+    #                     f"• Member No: <b>{profile['member_no']}</b>\n"
+    #                     f"• Referral Code: <code>{profile['referral_code']}</code>\n"
+    #                     f"• Tokens Allocated: <b>{profile['tokens']:.0f}</b>"
+    #                 )
+    #                 translated = await self.translation_manager.translate_for_user(
+    #                     success_msg, chat_id
+    #                 )
+    #                 await bot.send_message(
+    #                     chat_id,
+    #                     translated,
+    #                     parse_mode="HTML",
+    #                     reply_markup=await self.keyboards.build_main_menu_keyboard_v2(
+    #                         chat_id
+    #                     ),
+    #                 )
+    #                 self.logger.info(f"[monitor_payment] ✅ confirmed for {chat_id}")
+    #                 return
+
+    #             # اگر تراکنش یافت شد ولی شروط کامل نبود
+    #             if status_ok and (not to_ok or not token_ok or not amount_ok or not owner_ok):
+    #                 await self.db.update_payment_status(txid, "failed")
+    #                 warn_msg = (
+    #                     "❌ TxID is valid but does not match the required criteria "
+    #                     "(destination, amount, or your wallet). Please verify and try again."
+    #                 )
+    #                 translated_warn = await self.translation_manager.translate_for_user(
+    #                     warn_msg, chat_id
+    #                 )
+    #                 await bot.send_message(
+    #                     chat_id,
+    #                     translated_warn,
+    #                     parse_mode="HTML",
+    #                     reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
+    #                 )
+    #                 return
+
+    #         except Exception as e:
+    #             self.logger.warning(f"[monitor_payment] attempt {attempt}: {e}")
+
+    #         await asyncio.sleep(POLL_INTERVAL)
+
+    #     # ───── پس از بی‌نتیجه ماندن تلاش‌ها ─────────────────────────
+    #     await self.db.update_payment_status(txid, "failed")
+    #     error_msg = (
+    #         "❌ <b>Payment was not confirmed within the expected time.</b>\n"
+    #         "If you already paid, please contact support with your TxID."
+    #     )
+    #     translated_error = await self.translation_manager.translate_for_user(
+    #         error_msg, chat_id
+    #     )
+    #     await bot.send_message(
+    #         chat_id,
+    #         translated_error,
+    #         parse_mode="HTML",
+    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
+    #     )
+    #     self.logger.warning(f"[monitor_payment] FAILED after {MAX_ATTEMPTS} for {chat_id}")
  
     # =========================================================================
     #  ب) دریافت و تأیید TxID خریدار
@@ -510,7 +588,7 @@ class PaymentHandler:
             # ➍ تأیید تراکنش در بلاک‌چین (Pseudo)    
             confirmed = await self.blockchain.verify_txid(
                 txid=txid,
-                to_address=TREASURY_WALLET,
+                to_address=self.wallet_address,
                 expected_usdt_amount=expected_amount,
             )
             
@@ -577,121 +655,3 @@ class PaymentHandler:
 
 
 
-
-    # # ─────────────────────────────────────────────────────────────────────
-    # async def monitor_payment(self,
-    #                         chat_id: int,
-    #                         txid: str,
-    #                         context: ContextTypes.DEFAULT_TYPE) -> None:
-    #     """
-    #     پایش تراکنش در TronGrid و تأیید همهٔ شروط امنیتی:
-    #     • وضعیت SUCCESS
-    #     • to_address == TREASURY_WALLET
-    #     • symbol == USDT
-    #     • amount >= JOIN_FEE_USDT
-    #     • owner_address == wallet ثبت‌شدهٔ کاربر (در صورت وجود)
-    #     در صورت موفقیت: status = confirmed  → تخصیص توکن  → پیام موفق
-    #     در غیر این صورت: پس از MAX_ATTEMPTS → status = failed → پیام خطا
-    #     """
-    #     bot = context.bot
-    #     user_wallet = await self.db.get_wallet_address(chat_id)      # ممکن است None باشد
-
-    #     tron_api = f"https://api.trongrid.io/wallet/gettransactionbyid?value={txid}"
-
-    #     for attempt in range(1, MAX_ATTEMPTS + 1):
-    #         try:
-    #             async with httpx.AsyncClient(timeout=10) as client:
-    #                 resp = await client.get(tron_api)
-    #                 data = resp.json()
-
-    #             # ───── وضعیت تراکنش ─────────────────────────────────────
-    #             status_ok = (
-    #                 data.get("ret") and
-    #                 data["ret"][0].get("contractRet") == "SUCCESS"
-    #             )
-
-    #             # ───── آدرس‌های مقصد / مبدا ─────────────────────────────
-    #             prm_value  = data["raw_data"]["contract"][0]["parameter"]["value"]
-    #             to_addr    = prm_value.get("to_address", "").lower()
-    #             owner_addr = prm_value.get("owner_address", "").lower()
-
-    #             # اگر TREASURY_WALLET در base58 آمده، به hex تبدیل کنید یا برعکس
-    #             to_ok    = to_addr == TREASURY_WALLET
-    #             owner_ok = True if user_wallet is None else owner_addr == user_wallet.lower()
-
-    #             # ───── توکن و مبلغ ──────────────────────────────────────
-    #             token_ok  = data.get("tokenInfo", {}).get("symbol") == TOKEN_SYMBOL
-    #             amount    = int(data.get("amount_str", "0")) / 10**DECIMALS
-    #             amount_ok = amount >= JOIN_FEE_USDT
-
-    #             # ───── سناریوی موفقیت کامل ─────────────────────────────
-    #             if status_ok and to_ok and owner_ok and token_ok and amount_ok:
-    #                 await self.db.update_payment_status(txid, "confirmed")
-
-    #                 profile = await self.referral_manager.ensure_user(
-    #                     chat_id,
-    #                     inviter_code=context.user_data.get("inviter_code"),
-    #                     first_name=bot.get_chat(chat_id).first_name
-    #                 )
-
-    #                 success_msg = (
-    #                     f"✅ Payment confirmed!\n\n"
-    #                     f"• Member No: <b>{profile['member_no']}</b>\n"
-    #                     f"• Referral Code: <code>{profile['referral_code']}</code>\n"
-    #                     f"• Tokens Allocated: <b>{profile['tokens']:.0f}</b>"
-    #                 )
-    #                 translated = await self.translation_manager.translate_for_user(
-    #                     success_msg, chat_id
-    #                 )
-    #                 await bot.send_message(
-    #                     chat_id,
-    #                     translated,
-    #                     parse_mode="HTML",
-    #                     reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id)
-    #                 )
-    #                 self.logger.info(f"[monitor_payment] ✅ confirmed for {chat_id}")
-    #                 return
-
-    #             # ───── تراکنش یافت شد ولی شرایط کافی نیست ───────────────
-    #             if status_ok and (not to_ok or not token_ok or not amount_ok or not owner_ok):
-    #                 await self.db.update_payment_status(txid, "failed")
-    #                 fail_reason = "destination / amount / owner mismatch"
-    #                 self.logger.warning(f"[monitor_payment] {fail_reason} for {chat_id}")
-
-    #                 warn_msg = (
-    #                     "❌ TxID is valid but does not match the required criteria "
-    #                     "(destination, amount, or your wallet). Please verify and try again."
-    #                 )
-    #                 translated_warn = await self.translation_manager.translate_for_user(
-    #                     warn_msg, chat_id
-    #                 )
-    #                 await bot.send_message(
-    #                     chat_id,
-    #                     translated_warn,
-    #                     parse_mode="HTML",
-    #                     reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #                 )
-    #                 return
-
-    #         except Exception as e:
-    #             self.logger.warning(f"[monitor_payment] attempt {attempt}: {e}")
-
-    #         # ───── صبر و تلاش مجدد ──────────────────────────────────────
-    #         await asyncio.sleep(POLL_INTERVAL)
-
-    #     # ───── پس از تلاش‌های بی‌نتیجه ─────────────────────────────────
-    #     await self.db.update_payment_status(txid, "failed")
-    #     error_msg = (
-    #         "❌ <b>Payment was not confirmed within the expected time.</b>\n"
-    #         "If you already paid, please contact support with your TxID."
-    #     )
-    #     translated_error = await self.translation_manager.translate_for_user(
-    #         error_msg, chat_id
-    #     )
-    #     await bot.send_message(
-    #         chat_id,
-    #         translated_error,
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
-    #     )
-    #     self.logger.warning(f"[monitor_payment] FAILED after {MAX_ATTEMPTS} for {chat_id}")   

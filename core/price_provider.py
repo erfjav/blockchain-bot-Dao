@@ -56,6 +56,7 @@ class DynamicPriceProvider:
 
         balance_usd = await self._wallet_balance_usd()
         circulating = await self._circulating_supply()
+        
         # avoid zero division by falling back to TOTAL_SUPPLY
         denominator = circulating if circulating > 0 else self.TOTAL_SUPPLY
         price = balance_usd / denominator

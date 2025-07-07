@@ -71,25 +71,6 @@ def valid_tron_address(address: str) -> bool:
         # اگر coinaddrvalidator پشتیبانی نداشت، باز هم OK است
         return True
 
-# def valid_wallet_format(address: str, chain: str = "ETH") -> bool:
-#     """
-#     • chain="ETH" (یا "BSC"): 
-#       – length 42, start 0x, Web3 + coinaddrvalidator.validate
-#     • chain="BTC", "LTC", ...: 
-#       – فقط coinaddrvalidator.validate
-#     """
-#     if chain.upper() in {"ETH", "BSC"}:
-#         # شرط ظاهری اتریوم/بی‌اس‌سی
-#         if not (address.startswith("0x") and len(address) == 42 and
-#                 all(c in "0123456789abcdefABCDEF" for c in address[2:])):
-#             return False
-#         # اعتبارسنجی دقیق
-#         return Web3.is_address(address) and validate(address, chain.upper())
-#     else:
-#         # برای سایر زنجیره‌ها فقط از coinaddrvalidator بهره ببر
-#         return validate(address, chain.upper())
-
-
 # ░░ Configuration ░░───────────────────────────────────────────────────────────
 PAGE_SIZE: Final[int] = 30  # members shown per page
 logger = logging.getLogger(__name__)

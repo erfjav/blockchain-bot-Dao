@@ -22,12 +22,13 @@ REQUIRED_VARS = [
     "MONGODB_URI",
     
     # — Wallets / Payments
-    "TREASURY_WALLET",
-    "TREASURY_PRIVATE_KEY",  
+
+    "WALLET_JOIN_POOL_PRIVATE_KEY",  
     
     "SPLIT_WALLET_A_PRIV",     
     
-    "TRADE_WALLET_ADDRESS",   
+    "TRADE_WALLET_ADDRESS", 
+    "TRADE_WALLET_PRIVATE_KEY",  
     
     "TRADE_CHANNEL_ID",
     "SUPPORT_USER_USERNAME",
@@ -62,14 +63,20 @@ TRON_PROVIDERS: list[str] = [
 # ────────────────────────────── Core corporate wallets (TronLink) ───────────────────────────────
 # تمام پرداخت‌های عضویت $50 به این والت وارد می‌شود
 WALLET_JOIN_POOL: str = os.getenv("WALLET_JOIN_POOL")      # Pool for joining fees
+WALLET_JOIN_POOL_PRIVATE_KEY: str = os.getenv("WALLET_JOIN_POOL_PRIVATE_KEY")
 
 WALLET_SPLIT_70: str  = os.getenv("WALLET_SPLIT_70")       # 70% تقسیم
+WALLET_SPLIT_70_PRIVATE_KEY: str = os.getenv("WALLET_SPLIT_70_PRIVATE_KEY")
+
 WALLET_SPLIT_20: str  = os.getenv("WALLET_SPLIT_20")       # 20% تقسیم
 WALLET_SPLIT_10: str  = os.getenv("WALLET_SPLIT_10")       # 10% تقسیم
 
 # ────────────────────────────── Admin Pools (TronLink) ───────────────────────────────
 WALLET_FIRST_ADMIN_POOL: str  = os.getenv("WALLET_FIRST_ADMIN_POOL")
+WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY:   str = os.getenv("WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY")
+
 WALLET_SECOND_ADMIN_POOL: str = os.getenv("WALLET_SECOND_ADMIN_POOL")
+WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY:  str = os.getenv("WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY")
 
 # ────────────────────────────── Personal Wallets (TrustWallet) ───────────────────────────────
 FIRST_ADMIN_PERSONAL_WALLETS: list[str]  = [
@@ -89,20 +96,10 @@ SECOND_ADMIN_USER_IDS: list[int] = [
 
 ##############################################################################################################
 
-# Wallets
-TREASURY_WALLET: str = os.getenv("TREASURY_WALLET").lower()
-TREASURY_PRIVATE_KEY: str = os.getenv("TREASURY_PRIVATE_KEY")
-
-SPLIT_WALLET_A_PRIV: str = os.getenv("SPLIT_WALLET_A_PRIV")
-#----------------------------------------------------------------------------
-
-# Trading & Pool
-TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
-SUPPORT_USER_USERNAME: str = os.getenv("SUPPORT_USER_USERNAME")
-
 # Support / Admin
 # اعدادی که به int باید تبدیل شوند
 TRADE_CHANNEL_ID: int = int(os.getenv("TRADE_CHANNEL_ID"))
+
 ADMIN_USER_IDS: List[int] = [int(uid.strip()) for uid in os.getenv("ADMIN_USER_IDS").split(",")]
 
 # ────────────────────────────── اختیاری‌ها ─────────────────────────────
@@ -122,6 +119,19 @@ USDT_CONTRACT: str = os.getenv(
 
 #----------------------------------------------------------------------------
 
+# Wallets
+
+SPLIT_WALLET_A_PRIV: str = os.getenv("SPLIT_WALLET_A_PRIV")
+#----------------------------------------------------------------------------
+
+# Trading & Pool
+TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
+
+TRADE_WALLET_PRIVATE_KEY: str = os.getenv("TRADE_WALLET_PRIVATE_KEY")
+
+SUPPORT_USER_USERNAME: str = os.getenv("SUPPORT_USER_USERNAME")
+
+#------------------------------------------------------------------------
 STATIC_TOKEN_PRICE: float = float(os.getenv("STATIC_TOKEN_PRICE", "1.0"))
 PRICE_CACHE_TTL: int = int(os.getenv("PRICE_CACHE_TTL", "60"))  # ثانیه
 PORT: int = int(os.getenv("PORT", "8000"))
@@ -138,12 +148,19 @@ __all__ = [
     ##########################################################
     "TRON_PROVIDERS",
     "WALLET_JOIN_POOL",
+    "WALLET_JOIN_POOL_PRIVATE_KEY",
+      
     "WALLET_SPLIT_70",
+    "WALLET_SPLIT_70_PRIVATE_KEY",
+    
     "WALLET_SPLIT_20",
     "WALLET_SPLIT_10",
     
     "WALLET_FIRST_ADMIN_POOL",
     "WALLET_SECOND_ADMIN_POOL",
+    
+    "WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY",
+    "WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY",
     
     "FIRST_ADMIN_PERSONAL_WALLETS",
     "SECOND_ADMIN_PERSONAL_WALLETS",
@@ -153,12 +170,10 @@ __all__ = [
 #######################################################################################################
     
     # Wallets / Payments
-    "TREASURY_WALLET",
-    "TREASURY_PRIVATE_KEY",
-    
     "SPLIT_WALLET_A_PRIV",
-
+    
     "TRADE_WALLET_ADDRESS",
+    "TRADE_WALLET_PRIVATE_KEY",  
 ###############---------------------------------------------------------------
     # Trading / Support
     "TRADE_CHANNEL_ID",

@@ -47,22 +47,53 @@ from pymongo import ReturnDocument, errors as mongo_errors
 
 from myproject_database import Database
 from config import (
+    
     # Blockchain endpoints
     TRON_PROVIDERS,
 
     # Core corporate wallets (all TronLink)
-    WALLET_JOIN_POOL,     # Receives every $50 join‑fee
-    WALLET_SPLIT_70,
-    WALLET_SPLIT_20,
-    WALLET_SPLIT_10,
+    
+
+    WALLET_JOIN_POOL,   # 🏛️ WALLET_JOIN_POOL
+                        # Central entry wallet.
+                        # All $50 join-fee payments from users go here first.
+                        # Funds are then redistributed every 10 days into three operational wallets.     
+    
+    WALLET_SPLIT_70,    # 📊 WALLET_SPLIT_70
+                        # Upstream rewards pool.
+                        # Receives 70% of the join-pool.
+                        # Used to pay eligible upstream users (referral ancestors).
+
+    WALLET_SPLIT_20,    # 🏢 WALLET_SPLIT_20
+                        # Company main wallet.
+                        # Receives 20% of the join-pool.
+                        # Used for core company operations and costs.
+
+    WALLET_SPLIT_10,            # 🧾 WALLET_SPLIT_10
+                                # Company secondary wallet.
+                                # Receives 10% of the join-pool.
+                                # Covers additional costs or reserves.
 
     # Admin pools (TronLink)
-    WALLET_FIRST_ADMIN_POOL,
-    WALLET_SECOND_ADMIN_POOL,
+    WALLET_FIRST_ADMIN_POOL,    # 🪙 WALLET_FIRST_ADMIN_POOL
+                                # Pool for first-level admin commissions.
+                                # Accumulates funds allocated to MAIN_LEADER_IDS.
+                                # Every 10 days, split equally among FIRST_ADMIN_PERSONAL_WALLETS.
+    
+    WALLET_SECOND_ADMIN_POOL,   # 🪪 WALLET_SECOND_ADMIN_POOL
+                                # Pool for second-level admin commissions.
+                                # Receives upstream commission shares for SECOND_ADMIN_USER_IDS.
+                                # Every 10 days, 95% is split among 5 personal wallets;
+                                # 5% is kept as buffer for covering transaction fees.
 
     # Personal wallets (Trust Wallet)
-    FIRST_ADMIN_PERSONAL_WALLETS,      # len ≥ 1
-    SECOND_ADMIN_PERSONAL_WALLETS,     # exactly 5 wallets in business logic
+    FIRST_ADMIN_PERSONAL_WALLETS,   # 👤 FIRST_ADMIN_PERSONAL_WALLETS
+                                    # List of personal wallets for top-tier admins (Trust Wallet).
+                                    # Each receives equal share from WALLET_FIRST_ADMIN_POOL.      
+    
+    SECOND_ADMIN_PERSONAL_WALLETS,  # 👥 SECOND_ADMIN_PERSONAL_WALLETS
+                                    # Exactly 5 personal wallets for second-tier admins (Trust Wallet).
+                                    # Each receives equal share (after buffer deduction) from WALLET_SECOND_ADMIN_POOL.
 
     # Staff / role IDs
     MAIN_LEADER_IDS,        # “first‑admins” – always eligible
@@ -217,53 +248,6 @@ class ReferralManager:
 
         # … ادامه‌ی کدِ آپدیت inviter و پخش کمیسیون و توکن
         return new_doc
-    
-    
-    # async def _ensure_user_impl(self, *, user_id: int, first_name: str, inviter_id: Optional[int]):
-    #     user = await self.col_users.find_one({"user_id": user_id})
-    #     if user:
-    #         # fill missing first‑name lazily
-    #         if first_name and not user.get("first_name"):
-    #             await self.col_users.update_one({"user_id": user_id}, {"$set": {"first_name": first_name}})
-    #         return user
-
-    #     # brand‑new user
-    #     referral_code = await self._gen_referral_code()
-    #     member_no     = await self._next_member_no()
-    #     slot_id       = await self._assign_slot(inviter_id, member_no)
-    #     ancestors     = await self._resolve_chain(inviter_id) if inviter_id else []
-
-    #     new_doc = {
-    #         "user_id":        user_id,
-    #         "first_name":     first_name,
-    #         "referral_code":  referral_code,
-    #         "member_no":      member_no,
-    #         "slot_id":        slot_id,
-    #         "inviter_id":     inviter_id,
-    #         "ancestors":      ancestors,
-    #         "direct_children": [],
-    #         "direct_dates":   [],
-    #         "eligible":       False,
-    #         "balance_usd":    Decimal("0"),
-    #         "created_at":     datetime.utcnow(),
-    #     }
-    #     await self.col_users.insert_one(new_doc)
-
-    #     # update inviter links
-    #     if inviter_id:
-    #         await self.col_users.update_one(
-    #             {"user_id": inviter_id},
-    #             {
-    #                 "$push": {"direct_children": user_id, "direct_dates": datetime.utcnow()},
-    #                 "$inc":  {"total_children": 1},
-    #             },
-    #         )
-    #         await self._refresh_eligibility(inviter_id)
-
-    #     # funds & tokens
-    #     await self._distribute_commission(new_doc)
-    #     await self._allocate_tokens(new_doc)
-    #     return new_doc
 
     # ────────────────────────────────────────────────────────────
     # Slot placement (BFS – atomic insert into `slots`)
@@ -534,6 +518,8 @@ class ReferralManager:
             row = await self.col_users.find_one({"user_id": current}, {"inviter_id": 1})
             current = row.get("inviter_id") if row else None
         return chain
+
+
 
 
 
