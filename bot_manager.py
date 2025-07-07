@@ -47,7 +47,7 @@ from core.blockchain_client import BlockchainClient
 # from core.safe_client import SafeClient
 
 
-from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, PAYMENT_WALLET_ADDRESS, WALLET_JOIN_POOL
+from config import ADMIN_USER_IDS, SUPPORT_USER_USERNAME, WALLET_JOIN_POOL
 #, TRADE_WALLET_ADDRESS
 from state_manager import pop_state, push_state
 import inspect
@@ -263,7 +263,7 @@ class BotManager:
                 error_handler=self.error_handler,
             )
             
-            self.logger.info("PaymentHandler initialized (wallet=%s)", PAYMENT_WALLET_ADDRESS)
+            self.logger.info("PaymentHandler initialized (wallet=%s)", WALLET_JOIN_POOL)
 
             self.support_handler = SupportHandler(
                 keyboards=self.keyboards,

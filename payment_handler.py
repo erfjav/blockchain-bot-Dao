@@ -46,7 +46,7 @@ SPLIT_WALLETS = [
     (config.WALLET_SPLIT_10, 0.10),
 ]
 
-PAYMENT_WALLET_ADDRESS = config.WALLET_JOIN_POOL
+WALLET_JOIN_POOL = config.WALLET_JOIN_POOL
 
 TRADE_CHANNEL_ID = config.TRADE_CHANNEL_ID
 
@@ -77,7 +77,7 @@ class PaymentHandler:
         self.referral_manager = referral_manager
         self.blockchain = blockchain
         
-        self.wallet_address = PAYMENT_WALLET_ADDRESS or "TXXYYZZ_PLACEHOLDER_ADDRESS"
+        self.wallet_address = WALLET_JOIN_POOL or "TXXYYZZ_PLACEHOLDER_ADDRESS"
         self.logger = logging.getLogger(self.__class__.__name__)
         
     #-----------------------------------------------------------------------------------------
