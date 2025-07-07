@@ -467,7 +467,7 @@ class ProfileHandler:
         """
         chat_id = update.effective_chat.id
         raw = (update.message.text or "").strip()
-        address = raw.lower()
+        address = raw
 
         try:
             # ۱) بررسی فرمت آدرس
