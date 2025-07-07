@@ -99,7 +99,7 @@ class PaymentHandler:
                 lines += [
                     f"• Member No: <b>{profile['member_no']}</b>",
                     f"• Referral Code: <code>{profile['referral_code']}</code>",
-                    f"• Current Balance: <b>${profile['balance_usd']:.2f}</b>\n"
+                    f"• Current Balance: <b>${profile['commission_usd']:.2f}</b>\n"
                 ]
             else:
                 lines += [

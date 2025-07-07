@@ -390,7 +390,7 @@ class Database:
                 "referral_code": 1,
                 "member_no":     1,
                 "tokens":        1,
-                "balance_usd":   1,   # ← اضافه‌شده
+                "commission_usd":   1,   # ← اضافه‌شده
                 "joined":        1,
             },
         )
@@ -412,7 +412,7 @@ class Database:
         )
 
         # تبدیل Decimal به float برای نمایش
-        user["balance_usd"] = float(user.get("balance_usd", 0))
+        user["commission_usd"] = float(user.get("commission_usd", 0))
 
         return user
 
