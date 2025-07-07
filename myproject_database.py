@@ -388,26 +388,61 @@ class Database:
             {
                 "_id": 0,
                 "referral_code": 1,
-                "member_no": 1,
-                "tokens": 1,
-                "commission_usd": 1,
-                "joined": 1,
+                "member_no":     1,
+                "tokens":        1,
+                "balance_usd":   1,   # ← اضافه‌شده
+                "joined":        1,
             },
         )
         if not user:
-            # ➊ اگر کاربر وجود ندارد، None برگردانید
+            # اگر کاربر وجود ندارد، None برگردانید
             return None
 
-        # ➋ همیشه member_no داشته باشیم؛ اگر قبلی‌ها نداشتند، مقداردهی کنیم
+        # اگر member_no هنوز ست نشده باشد، مقداردهی کنید
         if "member_no" not in user:
             user["member_no"] = await self._generate_member_no()
             await self.collection_users.update_one(
-                {"user_id": user_id}, {"$set": {"member_no": user["member_no"]}}
+                {"user_id": user_id},
+                {"$set": {"member_no": user["member_no"]}}
             )
 
-        # ➌ downline_count
-        user["downline_count"] = await self.collection_users.count_documents({"inviter_id": user_id})
+        # محاسبه تعداد زیرمجموعه‌ها
+        user["downline_count"] = await self.collection_users.count_documents(
+            {"inviter_id": user_id}
+        )
+
+        # تبدیل Decimal به float برای نمایش
+        user["balance_usd"] = float(user.get("balance_usd", 0))
+
         return user
+
+
+    # async def get_profile(self, user_id: int) -> Optional[Dict[str, Any]]:
+    #     user = await self.collection_users.find_one(
+    #         {"user_id": user_id},
+    #         {
+    #             "_id": 0,
+    #             "referral_code": 1,
+    #             "member_no": 1,
+    #             "tokens": 1,
+    #             "commission_usd": 1,
+    #             "joined": 1,
+    #         },
+    #     )
+    #     if not user:
+    #         # ➊ اگر کاربر وجود ندارد، None برگردانید
+    #         return None
+
+    #     # ➋ همیشه member_no داشته باشیم؛ اگر قبلی‌ها نداشتند، مقداردهی کنیم
+    #     if "member_no" not in user:
+    #         user["member_no"] = await self._generate_member_no()
+    #         await self.collection_users.update_one(
+    #             {"user_id": user_id}, {"$set": {"member_no": user["member_no"]}}
+    #         )
+
+    #     # ➌ downline_count
+    #     user["downline_count"] = await self.collection_users.count_documents({"inviter_id": user_id})
+    #     return user
 
     async def get_downline(
         self,

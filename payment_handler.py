@@ -81,57 +81,105 @@ class PaymentHandler:
         self.logger = logging.getLogger(self.__class__.__name__)
         
     #-----------------------------------------------------------------------------------------
-    async def show_payment_instructions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        1) نمایش اطلاعات پایه (Member No, Referral Code) اگر موجود باشد
-        2) نمایش دستورالعمل پرداخت + دکمه‌های:
-           • TxID (transaction hash)
-           • ⬅️ Back    ➡️ Exit
-        3) ست‌کردن state = prompt_txid
-        """
+
+    async def show_payment_instructions(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
         chat_id    = update.effective_chat.id
         first_name = update.effective_user.first_name
 
         try:
-            # ensure user record exists (بدون تخصیص توکن)
+            # اطمینان از وجود رکورد کاربر
             await self.db.insert_user_if_not_exists(chat_id, first_name)
 
             profile = await self.db.get_profile(chat_id)
 
-            # ساخت پیام
             lines = ["💳 <b>Payment Instructions</b>\n"]
             if profile:
                 lines += [
                     f"• Member No: <b>{profile['member_no']}</b>",
-                    f"• Referral Code: <code>{profile['referral_code']}</code>\n"
+                    f"• Referral Code: <code>{profile['referral_code']}</code>",
+                    f"• Current Balance: <b>${profile['balance_usd']:.2f}</b>\n"
                 ]
             else:
                 lines += [
                     "• Member No: —",
-                    "• Referral Code: —\n"
+                    "• Referral Code: —",
+                    "• Current Balance: —\n"
                 ]
+
             lines += [
                 "1️⃣ Send $50 USDT (TRC-20) to:\n\n",
                 f"<code>{self.wallet_address}</code>\n\n",
-                "2️⃣ When done, press the button below and select <b>TxID (transaction hash)</b>."
+                "2️⃣ After sending, press the button below and select <b>TxID</b>."
             ]
             msg = "\n".join(lines)
 
-            # ست‌کردن state برای prompt فاز TxID
+            # تنظیم state برای دریافت TxID
             push_state(context, "prompt_txid")
-            context.user_data["state"] = "prompt_txid"
-
-            # کیبورد مخصوص شامل دکمه‌ی TxID و Back/Exit
-            reply_kb = await self.keyboards.build_show_payment_keyboard(chat_id)
-
             await update.message.reply_text(
                 await self.translation_manager.translate_for_user(msg, chat_id),
                 parse_mode="HTML",
-                reply_markup=reply_kb,
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("TxID (transaction hash)", callback_data="prompt_txid")],
+                    [InlineKeyboardButton("⬅️ Back", callback_data="main_menu"),
+                     InlineKeyboardButton("Exit",   callback_data="exit")]
+                ])
             )
-
         except Exception as e:
-            await self.eh.handle(update, context, e, context_name="show_payment_instructions")
+            await self.eh.handle(update, context, e)    
+    
+    # async def show_payment_instructions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #     """
+    #     1) نمایش اطلاعات پایه (Member No, Referral Code) اگر موجود باشد
+    #     2) نمایش دستورالعمل پرداخت + دکمه‌های:
+    #        • TxID (transaction hash)
+    #        • ⬅️ Back    ➡️ Exit
+    #     3) ست‌کردن state = prompt_txid
+    #     """
+    #     chat_id    = update.effective_chat.id
+    #     first_name = update.effective_user.first_name
+
+    #     try:
+    #         # ensure user record exists (بدون تخصیص توکن)
+    #         await self.db.insert_user_if_not_exists(chat_id, first_name)
+
+    #         profile = await self.db.get_profile(chat_id)
+
+    #         # ساخت پیام
+    #         lines = ["💳 <b>Payment Instructions</b>\n"]
+    #         if profile:
+    #             lines += [
+    #                 f"• Member No: <b>{profile['member_no']}</b>",
+    #                 f"• Referral Code: <code>{profile['referral_code']}</code>\n"
+    #             ]
+    #         else:
+    #             lines += [
+    #                 "• Member No: —",
+    #                 "• Referral Code: —\n"
+    #             ]
+    #         lines += [
+    #             "1️⃣ Send $50 USDT (TRC-20) to:\n\n",
+    #             f"<code>{self.wallet_address}</code>\n\n",
+    #             "2️⃣ When done, press the button below and select <b>TxID (transaction hash)</b>."
+    #         ]
+    #         msg = "\n".join(lines)
+
+    #         # ست‌کردن state برای prompt فاز TxID
+    #         push_state(context, "prompt_txid")
+    #         context.user_data["state"] = "prompt_txid"
+
+    #         # کیبورد مخصوص شامل دکمه‌ی TxID و Back/Exit
+    #         reply_kb = await self.keyboards.build_show_payment_keyboard(chat_id)
+
+    #         await update.message.reply_text(
+    #             await self.translation_manager.translate_for_user(msg, chat_id),
+    #             parse_mode="HTML",
+    #             reply_markup=reply_kb,
+    #         )
+
+    #     except Exception as e:
+    #         await self.eh.handle(update, context, e, context_name="show_payment_instructions")
 
     #-------------------------------------------------------------------------------------   
     async def prompt_for_txid(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
