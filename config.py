@@ -76,17 +76,17 @@ WALLET_SPLIT_10_PRIVATE_KEY: str = os.getenv("WALLET_SPLIT_10_PRIVATE_KEY")
 
 # ────────────────────────────── Admin Pools (TronLink) ───────────────────────────────
 WALLET_FIRST_LEADER_POOL: str  = os.getenv("WALLET_FIRST_LEADER_POOL")
-WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY:   str = os.getenv("WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY")
+WALLET_FIRST_LEADER_POOL_PRIVATE_KEY:   str = os.getenv("WALLET_FIRST_LEADER_POOL_PRIVATE_KEY")
 
 WALLET_SECOND_LEADER_POOL: str = os.getenv("WALLET_SECOND_LEADER_POOL")
-WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY:  str = os.getenv("WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY")
+WALLET_SECOND_LEADER_POOL_PRIVATE_KEY:  str = os.getenv("WALLET_SECOND_LEADER_POOL_PRIVATE_KEY")
 
 # ────────────────────────────── Personal Wallets (TrustWallet) ───────────────────────────────
-FIRST_ADMIN_PERSONAL_WALLETS: list[str]  = [
-    w.strip() for w in os.getenv("FIRST_ADMIN_PERSONAL_WALLETS", "").split(",") if w.strip()
+FIRST_LEADER_PERSONAL_WALLETS: list[str]  = [
+    w.strip() for w in os.getenv("FIRST_LEADER_PERSONAL_WALLETS", "").split(",") if w.strip()
 ]
-SECOND_ADMIN_PERSONAL_WALLETS: list[str] = [
-    w.strip() for w in os.getenv("SECOND_ADMIN_PERSONAL_WALLETS", "").split(",") if w.strip()
+SECOND_LEADER_PERSONAL_WALLETS: list[str] = [
+    w.strip() for w in os.getenv("SECOND_LEADER_PERSONAL_WALLETS", "").split(",") if w.strip()
 ]  # باید دقیقاً 5 مورد باشد
 
 # ────────────────────────────── Staff / Role IDs ───────────────────────────────
@@ -157,15 +157,16 @@ __all__ = [
     "WALLET_FIRST_LEADER_POOL",
     "WALLET_SECOND_LEADER_POOL",
     
-    "WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY",
-    "WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY",
+    "WALLET_FIRST_LEADER_POOL_PRIVATE_KEY",
+    "WALLET_SECOND_LEADER_POOL_PRIVATE_KEY",
     
-    "FIRST_ADMIN_PERSONAL_WALLETS",
+    "FIRST_LEADER_PERSONAL_WALLETS",
     
-    "SECOND_ADMIN_PERSONAL_WALLETS",
+    "SECOND_LEADER_PERSONAL_WALLETS",
     #----------------------------------------
     
     "MAIN_LEADER_IDS",
+    
     "SECOND_LEADER_USER_IDS",    
     #----------------------------------------
     # Wallets / Payments

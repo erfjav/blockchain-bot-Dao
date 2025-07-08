@@ -78,7 +78,7 @@ from config import (
     WALLET_FIRST_LEADER_POOL,    # 🪙 WALLET_FIRST_LEADER_POOL
                                 # Pool for first-level admin commissions.
                                 # Accumulates funds allocated to MAIN_LEADER_IDS.
-                                # Every 10 days, split equally among FIRST_ADMIN_PERSONAL_WALLETS.
+                                # Every 10 days, split equally among FIRST_LEADER_PERSONAL_WALLETS.
     
     WALLET_SECOND_LEADER_POOL,   # 🪪 WALLET_SECOND_LEADER_POOL
                                 # Pool for second-level admin commissions.
@@ -87,16 +87,17 @@ from config import (
                                 # 5% is kept as buffer for covering transaction fees.
 
     # Personal wallets (Trust Wallet)
-    FIRST_ADMIN_PERSONAL_WALLETS,   # 👤 FIRST_ADMIN_PERSONAL_WALLETS
+    FIRST_LEADER_PERSONAL_WALLETS,   # 👤 FIRST_LEADER_PERSONAL_WALLETS
                                     # List of personal wallets for top-tier admins (Trust Wallet).
                                     # Each receives equal share from WALLET_FIRST_LEADER_POOL.      
     
-    SECOND_ADMIN_PERSONAL_WALLETS,  # 👥 SECOND_ADMIN_PERSONAL_WALLETS
+    SECOND_LEADER_PERSONAL_WALLETS,  # 👥 SECOND_LEADER_PERSONAL_WALLETS
                                     # Exactly 5 personal wallets for second-tier admins (Trust Wallet).
                                     # Each receives equal share (after buffer deduction) from WALLET_SECOND_LEADER_POOL.
 
     # Staff / role IDs
     MAIN_LEADER_IDS,        # “first‑admins” – always eligible
+    
     SECOND_LEADER_USER_IDS,  # “second‑admins” – must still bring 2
 )
 from core.crypto_handler import CryptoHandler
@@ -434,21 +435,21 @@ class ReferralManager:
             # محاسبه سهم هر نفر با احتساب buffer
             buffer_target = _round_down(bal * Decimal("0.05"))
             distributable = bal - buffer_target
-            share = _round_down(distributable / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+            share = _round_down(distributable / Decimal(len(SECOND_LEADER_PERSONAL_WALLETS)))
 
             total_estimated_fees = Decimal("0")
-            for w in SECOND_ADMIN_PERSONAL_WALLETS:
+            for w in SECOND_LEADER_PERSONAL_WALLETS:
                 total_estimated_fees += await self._estimate_fee(w, _dec_to_micro(share))
             if total_estimated_fees > buffer_target:
                 deficit = total_estimated_fees - buffer_target
-                reduction_each = _round_down(deficit / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+                reduction_each = _round_down(deficit / Decimal(len(SECOND_LEADER_PERSONAL_WALLETS)))
                 share -= reduction_each
                 if share <= 0:
                     self.logger.warning("Second-admin share turned non-positive after fee adjustment – postponing payout.")
                     return
 
             # zip با SECOND_LEADER_USER_IDS
-            for idx, (w, user_id) in enumerate(zip(SECOND_ADMIN_PERSONAL_WALLETS, SECOND_LEADER_USER_IDS), 1):
+            for idx, (w, user_id) in enumerate(zip(SECOND_LEADER_PERSONAL_WALLETS, SECOND_LEADER_USER_IDS), 1):
                 try:
                     tx_hash = await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
                     payout_period = (
@@ -487,10 +488,10 @@ class ReferralManager:
             if bal == 0:
                 return
 
-            share = _round_down(bal / Decimal(len(FIRST_ADMIN_PERSONAL_WALLETS)))
+            share = _round_down(bal / Decimal(len(FIRST_LEADER_PERSONAL_WALLETS)))
 
             # ترتیب zip باید با MAIN_LEADER_IDS یکی باشد
-            for idx, (w, user_id) in enumerate(zip(FIRST_ADMIN_PERSONAL_WALLETS, MAIN_LEADER_IDS), 1):
+            for idx, (w, user_id) in enumerate(zip(FIRST_LEADER_PERSONAL_WALLETS, MAIN_LEADER_IDS), 1):
                 try:
                     tx_hash = await self._transfer_wallet(w, share, f"1stadmin‑{idx}")
                     payout_period = (
@@ -648,24 +649,24 @@ class ReferralManager:
     #     # 95 % (19×5) to admins, 5 % stays as fee buffer
     #     buffer_target = _round_down(bal * Decimal("0.05"))
     #     distributable = bal - buffer_target
-    #     share = _round_down(distributable / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+    #     share = _round_down(distributable / Decimal(len(SECOND_LEADER_PERSONAL_WALLETS)))
 
     #     # Real‑time fee estimate to ensure we don’t overdraw
     #     total_estimated_fees = Decimal("0")
-    #     for w in SECOND_ADMIN_PERSONAL_WALLETS:
+    #     for w in SECOND_LEADER_PERSONAL_WALLETS:
     #         total_estimated_fees += await self._estimate_fee(w, _dec_to_micro(share))
 
     #     if total_estimated_fees > buffer_target:
     #         deficit = total_estimated_fees - buffer_target
     #         """Reduce each share equally so that buffer covers fees."""
-    #         reduction_each = _round_down(deficit / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+    #         reduction_each = _round_down(deficit / Decimal(len(SECOND_LEADER_PERSONAL_WALLETS)))
     #         share -= reduction_each
     #         if share <= 0:
     #             logger.warning("Second‑admin share turned non‑positive after fee adjustment – postponing payout.")
     #             return
 
     #     # Execute transfers
-    #     for idx, w in enumerate(SECOND_ADMIN_PERSONAL_WALLETS, 1):
+    #     for idx, w in enumerate(SECOND_LEADER_PERSONAL_WALLETS, 1):
     #         await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
     #     # any residue (including buffer) stays in pool for next round
 
@@ -673,8 +674,8 @@ class ReferralManager:
     #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_FIRST_LEADER_POOL, "USDT", 6)))
     #     if bal == 0:
     #         return
-    #     share = _round_down(bal / Decimal(len(FIRST_ADMIN_PERSONAL_WALLETS)))
-    #     for idx, w in enumerate(FIRST_ADMIN_PERSONAL_WALLETS, 1):
+    #     share = _round_down(bal / Decimal(len(FIRST_LEADER_PERSONAL_WALLETS)))
+    #     for idx, w in enumerate(FIRST_LEADER_PERSONAL_WALLETS, 1):
     #         await self._transfer_wallet(w, share, f"1stadmin‑{idx}")
     #     # residue automatically stays to cover future fees
 #####################################################################################################
@@ -732,7 +733,7 @@ class ReferralManager:
 #     POOL_WALLET_ADDRESS,
 #     MULTISIG_GHOST_WALLET_2OF2,
 #     SECOND_ADMIN_POOL_WALLET,
-#     SECOND_ADMIN_PERSONAL_WALLETS,
+#     SECOND_LEADER_PERSONAL_WALLETS,
 # )
 
 # logger = logging.getLogger(__name__)
@@ -764,8 +765,8 @@ class ReferralManager:
 #         self.safe_client = safe_client
 #         self.price_provider= price_provider
 
-#         if len(SECOND_ADMIN_PERSONAL_WALLETS) != 5:
-#             raise RuntimeError("config error: SECOND_ADMIN_PERSONAL_WALLETS must have 5 items")
+#         if len(SECOND_LEADER_PERSONAL_WALLETS) != 5:
+#             raise RuntimeError("config error: SECOND_LEADER_PERSONAL_WALLETS must have 5 items")
 
 #     # ───────────────────────── main entry ─────────────────────────
     # async def ensure_user(
@@ -946,7 +947,7 @@ class ReferralManager:
 #     async def _pay(self, wallet: str, amount: float, from_user: int, note: str):
 #         """
 #         Records a payment or, if the destination is a 2-of-2 multisig
-#         (primary or any of SECOND_ADMIN_PERSONAL_WALLETS), submits it via SafeClient.
+#         (primary or any of SECOND_LEADER_PERSONAL_WALLETS), submits it via SafeClient.
 #         """
 #         w = wallet.lower()
 
@@ -955,7 +956,7 @@ class ReferralManager:
 #             alias = 'primary'
 #         else:
 #             # 2️⃣ Secondary admin multisigs?
-#             admin_wallets = [addr.lower() for addr in SECOND_ADMIN_PERSONAL_WALLETS]
+#             admin_wallets = [addr.lower() for addr in SECOND_LEADER_PERSONAL_WALLETS]
 #             if w in admin_wallets:
 #                 idx = admin_wallets.index(w) + 1
 #                 alias = f'admin_pool_{idx}'
@@ -1009,7 +1010,7 @@ class ReferralManager:
 #         Residue ≤0.004 stays in SECOND_ADMIN_POOL_WALLET.
 #         """
 #         per_admin = round(amount / 5, 3)
-#         for w in SECOND_ADMIN_PERSONAL_WALLETS:
+#         for w in SECOND_LEADER_PERSONAL_WALLETS:
 #             await self._pay(w, per_admin, from_user, "second-admin split")
 #         residue = round(amount - per_admin * 5, 8)
 #         if residue > 0:

@@ -19,10 +19,10 @@ WALLET_JOIN_POOL_PRIVATE_KEY         =     config.WALLET_JOIN_POOL_PRIVATE_KEY
 TRADE_WALLET_PRIVATE_KEY             =     config.TRADE_WALLET_PRIVATE_KEY
 
 # Private key for first admin pool (receives first admin’s share)
-WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY  =     config.WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY
+WALLET_FIRST_LEADER_POOL_PRIVATE_KEY  =     config.WALLET_FIRST_LEADER_POOL_PRIVATE_KEY
 
 # Private key for second admin pool (receives second admin’s share)
-WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY =     config.WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY
+WALLET_SECOND_LEADER_POOL_PRIVATE_KEY =     config.WALLET_SECOND_LEADER_POOL_PRIVATE_KEY
 
 # Private key for the 70% split pool (upstream rewards)
 WALLET_SPLIT_70_PRIVATE_KEY          =     config.WALLET_SPLIT_70_PRIVATE_KEY
@@ -196,8 +196,8 @@ class CryptoHandler:
         key_map = {
             "join":  config.WALLET_JOIN_POOL_PRIVATE_KEY,
             "trade": config.TRADE_WALLET_PRIVATE_KEY,
-            "admin1":config.WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY,
-            "admin2":config.WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY,
+            "admin1":config.WALLET_FIRST_LEADER_POOL_PRIVATE_KEY,
+            "admin2":config.WALLET_SECOND_LEADER_POOL_PRIVATE_KEY,
             "split70":config.WALLET_SPLIT_70_PRIVATE_KEY,
             "split20": config.WALLET_SPLIT_20_PRIVATE_KEY,   # ← جدید
             "split10": config.WALLET_SPLIT_10_PRIVATE_KEY,   # ← جدید            
