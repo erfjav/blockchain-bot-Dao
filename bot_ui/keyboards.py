@@ -89,7 +89,7 @@ class TranslatedKeyboards:
         ساخت کیبورد ترجمه‌شده منوی اصلی نسخه ۲ (با دکمه Admin برای مدیر)
         """
         raw_buttons = self.main_menu_keyboard_v2()
-        if chat_id == ADMIN_USER_IDS:
+        if chat_id in ADMIN_USER_IDS:
             raw_buttons.append(["🛠 Admin Panel"])
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
     
