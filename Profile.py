@@ -21,7 +21,7 @@ This file replaces previous drafts and is now aligned with:
 import logging
 import math
 from typing import Any, Dict, Final, List
-
+from datetime import datetime
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
@@ -262,10 +262,10 @@ class ProfileHandler:
                 f"<b>{('Referral Code')}:</b> <code>{referral_code}</code>",
                 f"<b>Wallet Address:</b> <code>{wallet_address or placeholder}</code>",
                 "─────────────",
-                f"<b>{('Tokens')}:</b> {tokens if joined else placeholder}",
-                f"<b>Current Balance:</b> {f'${balance:.2f}' if joined else placeholder}",
-                f"<b>{('Pending Commission')}:</b> {commission if joined else placeholder}",
-                f"<b>{('Down‑line Count')}:</b> {downline_count if joined else placeholder}\n\n",
+                f"<b>{('Tokens')}:</b> {tokens if (joined or is_manager) else placeholder}",
+                f"<b>Current Balance:</b> {f'${balance:.2f}' if (joined or is_manager) else placeholder}",
+                f"<b>{('Pending Commission')}:</b> {commission if (joined or is_manager) else placeholder}",
+                f"<b>{('Down‑line Count')}:</b> {downline_count if (joined or is_manager) else placeholder}\n\n",
 
                 # ✦ Explanation of referral link
                 f"To invite friends and grow your <b>Down-line</b>, simply tap on \n\n "
@@ -279,7 +279,7 @@ class ProfileHandler:
                 lines.insert(0, f"<b>User ID:</b> <code>{chat_id}</code>")
                 lines.insert(1, f"<b>Username:</b> @{username}" if username != "—" else "<b>Username:</b> <i>Not set</i>")
 
-            if not joined:
+            if not (joined or is_manager):
                 lines += [
                     "",
                     (
@@ -304,6 +304,12 @@ class ProfileHandler:
                 [InlineKeyboardButton("🔗 Share Referral Link", url=share_url)]
             ]
 
+            #---------------------------------------------------------------------------------------------------------
+            # اینجا دکمه گزارش پرداخت رو فقط برای لیدرها اضافه کن:
+            if is_manager:
+                rows.append([InlineKeyboardButton("📋 View All Payouts", callback_data="view_all_payouts_1")])
+                
+            #---------------------------------------------------------------------------------------------------------
             # 7) Down‑line list (only if joined & has referrals)
             if joined and downline_count:
                 downline: List[Dict[str, Any]] = await self.db.get_downline(chat_id, page)
@@ -363,6 +369,79 @@ class ProfileHandler:
 
         except Exception as exc:
             await self.error_handler.handle(update, context, exc, context_name="show_profile")
+            
+    #---------------------------------------------------------------------------------------------------------------
+    async def handle_view_all_payouts(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        نمایش لیست پرداخت‌های لیدر با قابلیت صفحه‌بندی (فقط برای لیدرها)
+        """
+        query = update.callback_query
+        chat_id = query.from_user.id
+
+        # بررسی فقط لیدرها ببینند
+        from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
+        is_manager = chat_id in MAIN_LEADER_IDS or chat_id in SECOND_ADMIN_USER_IDS
+        if not is_manager:
+            await query.answer("You are not authorized.")
+            return
+
+        # استخراج شماره صفحه از کال‌بک دیتا
+        data = query.data  # مثل: view_all_payouts_1
+        try:
+            page = int(data.split('_')[-1])
+        except Exception:
+            page = 1
+
+        page_size = 5
+        skip = (page - 1) * page_size
+
+        # واکشی رکوردها از دیتابیس
+        total_count = await self.db.collection_leader_payments.count_documents({"user_id": chat_id})
+        cursor = self.db.collection_leader_payments.find(
+            {"user_id": chat_id}
+        ).sort("date", -1).skip(skip).limit(page_size)
+        payouts = await cursor.to_list(length=page_size)
+
+        if not payouts:
+            await query.edit_message_text(
+                "No payouts recorded yet.",
+                parse_mode="HTML"
+            )
+            return
+
+        # ساخت پیام گزارش
+        lines = ["<b>Your Payout History</b>\n"]
+        for p in payouts:
+            date_str = p.get("date")
+            if isinstance(date_str, datetime):
+                date_str = date_str.strftime("%Y-%m-%d")
+            elif isinstance(date_str, str):
+                # اگر iso string بود (برای Mongo)، فقط تاریخش رو بردار
+                date_str = date_str[:10]
+            lines.append(
+                f"• <b>{date_str}</b> — "
+                f"{p['amount']} {p['token']} (<code>{p['tx_hash'][:10]}…</code>)"
+            )
+        msg = "\n".join(lines)
+
+        # دکمه‌های صفحه قبل/بعد
+        buttons = []
+        if page > 1:
+            buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"view_all_payouts_{page - 1}"))
+        if skip + page_size < total_count:
+            buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"view_all_payouts_{page + 1}"))
+
+        # اضافه کردن Back و Exit به همان ردیف
+        buttons.append(InlineKeyboardButton("⬅️ Back", callback_data="back"))
+        buttons.append(InlineKeyboardButton("Exit", callback_data="exit"))
+        
+        keyboard = InlineKeyboardMarkup([buttons]) if buttons else None
+
+        await query.edit_message_text(
+            msg,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
 
     # -----------------------------------------------------------------
     async def back_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -382,7 +461,6 @@ class ProfileHandler:
         else:
             await query.edit_message_text("◀️", reply_markup=None)
 
-
     # ------------------------------------------------------------------
     async def exit_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -398,7 +476,6 @@ class ProfileHandler:
         except Exception:
             await query.edit_message_text("✅ Done.")
         context.user_data.clear()
-
 
     # ------------------------------------------------------------------
     async def noop_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):

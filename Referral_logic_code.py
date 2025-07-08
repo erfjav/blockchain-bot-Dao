@@ -142,7 +142,9 @@ class ReferralManager:
     # Construction / bootstrap
     # -----------------------------------------------------------
     def __init__(self, *, db: Database, crypto:CryptoHandler ):
+        
         self.db = db
+        self.logger = logging.getLogger(__name__)
         self.crypto_handler = crypto
 
         self.col_users     = db.collection_users
@@ -399,6 +401,8 @@ class ReferralManager:
         await self._split_join_pool()
         await self._split_second_admin_pool()
         await self._split_first_admin_pool()
+        
+    ###------------------------------------------------------------------------------------
 
     async def _split_join_pool(self):
         bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_JOIN_POOL, "USDT", 6)))
@@ -410,44 +414,104 @@ class ReferralManager:
         await self._transfer_wallet(WALLET_SPLIT_70, seventy, "join‑70")
         await self._transfer_wallet(WALLET_SPLIT_20, twenty,  "join‑20")
         await self._transfer_wallet(WALLET_SPLIT_10, ten,    "join‑10")
+        
+    ###------------------------------------------------------------------------------------
+    
+    async def _split_second_admin_pool(self, period_start=None, period_end=None):
+        """
+        پرداخت اتوماتیک به مدیران رده دوم و ثبت گزارش هر تراکنش
+        """
 
-    async def _split_second_admin_pool(self):
-        bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_SECOND_ADMIN_POOL, "USDT", 6)))
-        if bal == 0:
-            return
-
-        # 95 % (19×5) to admins, 5 % stays as fee buffer
-        buffer_target = _round_down(bal * Decimal("0.05"))
-        distributable = bal - buffer_target
-        share = _round_down(distributable / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
-
-        # Real‑time fee estimate to ensure we don’t overdraw
-        total_estimated_fees = Decimal("0")
-        for w in SECOND_ADMIN_PERSONAL_WALLETS:
-            total_estimated_fees += await self._estimate_fee(w, _dec_to_micro(share))
-
-        if total_estimated_fees > buffer_target:
-            deficit = total_estimated_fees - buffer_target
-            """Reduce each share equally so that buffer covers fees."""
-            reduction_each = _round_down(deficit / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
-            share -= reduction_each
-            if share <= 0:
-                logger.warning("Second‑admin share turned non‑positive after fee adjustment – postponing payout.")
+        try:
+            bal = Decimal(str(await self.crypto_handler.get_wallet_balance(
+                "tron", WALLET_SECOND_ADMIN_POOL, "USDT", 6
+            )))
+            if bal == 0:
                 return
 
-        # Execute transfers
-        for idx, w in enumerate(SECOND_ADMIN_PERSONAL_WALLETS, 1):
-            await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
-        # any residue (including buffer) stays in pool for next round
+            # محاسبه سهم هر نفر با احتساب buffer
+            buffer_target = _round_down(bal * Decimal("0.05"))
+            distributable = bal - buffer_target
+            share = _round_down(distributable / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
 
-    async def _split_first_admin_pool(self):
-        bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_FIRST_ADMIN_POOL, "USDT", 6)))
-        if bal == 0:
-            return
-        share = _round_down(bal / Decimal(len(FIRST_ADMIN_PERSONAL_WALLETS)))
-        for idx, w in enumerate(FIRST_ADMIN_PERSONAL_WALLETS, 1):
-            await self._transfer_wallet(w, share, f"1stadmin‑{idx}")
-        # residue automatically stays to cover future fees
+            total_estimated_fees = Decimal("0")
+            for w in SECOND_ADMIN_PERSONAL_WALLETS:
+                total_estimated_fees += await self._estimate_fee(w, _dec_to_micro(share))
+            if total_estimated_fees > buffer_target:
+                deficit = total_estimated_fees - buffer_target
+                reduction_each = _round_down(deficit / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+                share -= reduction_each
+                if share <= 0:
+                    self.logger.warning("Second-admin share turned non-positive after fee adjustment – postponing payout.")
+                    return
+
+            # zip با SECOND_ADMIN_USER_IDS
+            for idx, (w, user_id) in enumerate(zip(SECOND_ADMIN_PERSONAL_WALLETS, SECOND_ADMIN_USER_IDS), 1):
+                try:
+                    tx_hash = await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
+                    payout_period = (
+                        f"{period_start} ~ {period_end}"
+                        if period_start and period_end
+                        else datetime.utcnow().strftime("%Y-%m-%d")
+                    )
+                    await self.db.store_leader_payment(
+                        user_id=user_id,
+                        amount=float(share),
+                        token="USDT",
+                        wallet=w,
+                        tx_hash=tx_hash,
+                        pool_type="SECOND_ADMIN_POOL",
+                        payout_period=payout_period,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        f"Error in second admin payout for user {user_id} (wallet {w}): {e}"
+                    )
+                    continue
+        except Exception as e:
+            self.logger.error(f"Error in _split_second_admin_pool: {e}")
+            
+    ###------------------------------------------------------------------------------------
+    async def _split_first_admin_pool(self, period_start=None, period_end=None):
+        """
+        پرداخت اتوماتیک به مدیران رده اول و ثبت گزارش هر تراکنش
+        """
+        from datetime import datetime
+
+        try:
+            bal = Decimal(str(await self.crypto_handler.get_wallet_balance(
+                "tron", WALLET_FIRST_ADMIN_POOL, "USDT", 6
+            )))
+            if bal == 0:
+                return
+
+            share = _round_down(bal / Decimal(len(FIRST_ADMIN_PERSONAL_WALLETS)))
+
+            # ترتیب zip باید با MAIN_LEADER_IDS یکی باشد
+            for idx, (w, user_id) in enumerate(zip(FIRST_ADMIN_PERSONAL_WALLETS, MAIN_LEADER_IDS), 1):
+                try:
+                    tx_hash = await self._transfer_wallet(w, share, f"1stadmin‑{idx}")
+                    payout_period = (
+                        f"{period_start} ~ {period_end}"
+                        if period_start and period_end
+                        else datetime.utcnow().strftime("%Y-%m-%d")
+                    )
+                    await self.db.store_leader_payment(
+                        user_id=user_id,
+                        amount=float(share),
+                        token="USDT",
+                        wallet=w,
+                        tx_hash=tx_hash,
+                        pool_type="FIRST_ADMIN_POOL",
+                        payout_period=payout_period,
+                    )
+                except Exception as e:
+                    self.logger.error(
+                        f"Error in first admin payout for user {user_id} (wallet {w}): {e}"
+                    )
+                    continue
+        except Exception as e:
+            self.logger.error(f"Error in _split_first_admin_pool: {e}")
 
     # ────────────────────────────────────────────────────────────
     # 30‑day member payouts
@@ -556,6 +620,46 @@ class ReferralManager:
         return chain
 
 
+
+####################################################################################################### 
+    # async def _split_second_admin_pool(self):
+    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_SECOND_ADMIN_POOL, "USDT", 6)))
+    #     if bal == 0:
+    #         return
+
+    #     # 95 % (19×5) to admins, 5 % stays as fee buffer
+    #     buffer_target = _round_down(bal * Decimal("0.05"))
+    #     distributable = bal - buffer_target
+    #     share = _round_down(distributable / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+
+    #     # Real‑time fee estimate to ensure we don’t overdraw
+    #     total_estimated_fees = Decimal("0")
+    #     for w in SECOND_ADMIN_PERSONAL_WALLETS:
+    #         total_estimated_fees += await self._estimate_fee(w, _dec_to_micro(share))
+
+    #     if total_estimated_fees > buffer_target:
+    #         deficit = total_estimated_fees - buffer_target
+    #         """Reduce each share equally so that buffer covers fees."""
+    #         reduction_each = _round_down(deficit / Decimal(len(SECOND_ADMIN_PERSONAL_WALLETS)))
+    #         share -= reduction_each
+    #         if share <= 0:
+    #             logger.warning("Second‑admin share turned non‑positive after fee adjustment – postponing payout.")
+    #             return
+
+    #     # Execute transfers
+    #     for idx, w in enumerate(SECOND_ADMIN_PERSONAL_WALLETS, 1):
+    #         await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
+    #     # any residue (including buffer) stays in pool for next round
+
+    # async def _split_first_admin_pool(self):
+    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_FIRST_ADMIN_POOL, "USDT", 6)))
+    #     if bal == 0:
+    #         return
+    #     share = _round_down(bal / Decimal(len(FIRST_ADMIN_PERSONAL_WALLETS)))
+    #     for idx, w in enumerate(FIRST_ADMIN_PERSONAL_WALLETS, 1):
+    #         await self._transfer_wallet(w, share, f"1stadmin‑{idx}")
+    #     # residue automatically stays to cover future fees
+#####################################################################################################
     # async def _payout_every_30_days(self):
         
     #     now = datetime.utcnow()
@@ -577,7 +681,6 @@ class ReferralManager:
     #         await self._transfer_wallet(wallet, amt, "monthly‑member", from_uid=uid)
     #         await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
     #         await self._refresh_eligibility(uid)  # may become ineligible if children were removed
-
 
 
 #######################################################################################################

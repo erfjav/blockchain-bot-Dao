@@ -682,6 +682,10 @@ class BotManager:
             self.application.add_handler(
                 CallbackQueryHandler( self.profile_handler.show_profile, pattern=r'^profile_page_\\d+$'), group=0)
 
+            self.application.add_handler(
+                CallbackQueryHandler(self.profile_handler.handle_view_all_payouts, pattern=r"^view_all_payouts_"), group=0)
+
+
             ############---------------------------------------------------------------------------------------######
 
             self.application.add_handler(

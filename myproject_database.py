@@ -9,8 +9,8 @@ from typing import Optional, Dict, Any, List
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError, DuplicateKeyError
-from pymongo import ReturnDocument, ASCENDING
-
+from pymongo import ReturnDocument, DESCENDING, ASCENDING
+from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
 
 class Database:
     def __init__(self):
@@ -38,10 +38,10 @@ class Database:
             self.collection_orders            =     self.db["orders"]        # NEW  (سفارش‌های خرید/فروش)
             self.collection_counters          =     self.db["counters"]      # NEW
             self.collection_wallet_events     =     self.db["wallet_events"]
-            # در __init__ بعد از تعریف بقیه‌ی collection_*
-            self.collection_slots     = self.db["slots"]
-            self.collection_schedules = self.db["schedules"]
-
+            self.collection_slots             =     self.db["slots"]
+            self.collection_schedules         =     self.db["schedules"]
+            
+            self.collection_leader_payments   =     self.db["leader_payments"]
 
             self.logger.info("✅ Database connected successfully.")
 
@@ -99,6 +99,12 @@ class Database:
             )
 
             # Removed index creation on _id for schedules since _id is unique by default
+            
+            # ایندکس مخصوص leader_payments (ترکیبی از user_id و date برای سریع‌تر پیدا کردن گزارش)
+            await self.collection_leader_payments.create_index(
+                [("leader_user_id", ASCENDING), ("date", DESCENDING)],
+                name="leader_user_id_date_index"
+            )            
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
@@ -316,10 +322,59 @@ class Database:
         return await self.collection_payments.count_documents({"txid": txid}) > 0
 
 ############################################################################################################
+
+
+    # ذخیره گزارش پرداخت لیدر (user_id به عنوان شناسه)
+    async def store_leader_payment(
+        self,
+        user_id: int,          # اینجا دیگر leader_user_id نیست، user_id است
+        amount: float,
+        token: str,
+        wallet: str,
+        tx_hash: str,
+        pool_type: str,
+        payout_period: str,
+        date: Optional[datetime] = None
+    ):
+        """ذخیره گزارش پرداخت جدید برای لیدر (مدیر)"""
+        
+        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
+        if not is_manager:
+            self.logger.warning(f"store_leader_payment: user_id {user_id} is not a manager/leader, skipping store!")
+            return  # اگر مدیر نبود، گزارش ذخیره نشود
+        
+        record = {
+            "user_id": user_id,            # کلید اصلی باید user_id باشد
+            "amount": amount,
+            "token": token,
+            "wallet": wallet,
+            "tx_hash": tx_hash,
+            "pool_type": pool_type,
+            "payout_period": payout_period,
+            "date": date or datetime.utcnow()
+        }
+        await self.collection_leader_payments.insert_one(record)
+
+    # خواندن پرداخت‌های یک لیدر (۵ مورد آخر)
+    async def get_leader_payments(
+        self,
+        user_id: int,           # اینجا دیگر leader_user_id نیست، user_id است
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """دریافت آخرین پرداخت‌های یک لیدر"""
+        
+        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
+        if not is_manager:
+            return []  # اگر مدیر نبود، چیزی برنگرداند
+        cursor = self.collection_leader_payments.find(
+            {"user_id": user_id}
+        ).sort("date", -1).limit(limit)
+        return await cursor.to_list(length=limit)
+
+
     # ------------------------------------------------------------------
     
     async def _generate_member_no(self, user_id: int) -> str:
-        from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
 
         is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
 
