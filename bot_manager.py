@@ -28,7 +28,7 @@ from bot_ui.language_Manager import TranslationManager
 from error_handler import ErrorHandler
 from bot_ui.keyboards import TranslatedKeyboards
 from bot_ui.Translated_Inline_Keyboards import TranslatedInlineKeyboards
-from HelpHandler import HelpHandler
+from help_and_support.HelpHandler import HelpHandler
 from Referral_logic_code import ReferralManager
 from Profile import ProfileHandler
 from trade_handler import TradeHandler
@@ -37,11 +37,11 @@ from core.price_provider import DynamicPriceProvider          # ← NEW
 from trade_handler import TradeHandler            # ← NEW
 
 from token_price_handler import TokenPriceHandler
-from convert_token_handler import ConvertTokenHandler
-from earn_money_handler import EarnMoneyHandler
+from rewards_and_conversion.convert_token_handler import ConvertTokenHandler
+from rewards_and_conversion.earn_money_handler import EarnMoneyHandler
 from withdraw_handler import WithdrawHandler
 from payment_handler import PaymentHandler
-from support_handler import SupportHandler
+from help_and_support.support_handler import SupportHandler
 from core.crypto_handler import CryptoHandler
 from core.blockchain_client import BlockchainClient
 # from core.safe_client import SafeClient
@@ -260,7 +260,8 @@ class BotManager:
             
             self.admin_handler = AdminHandler(
                         price_provider=self.price_provider,
-                        translation_manager=self.translation_manager
+                        translation_manager=self.translation_manager,
+                        keyboards=self.keyboards,
                     )            
 
             # ⬇️  این دو خط را دقیقاً همین‌جا اضافه کنید  ⬇️
@@ -681,9 +682,6 @@ class BotManager:
             self.application.add_handler(
                 CallbackQueryHandler( self.profile_handler.show_profile, pattern=r'^profile_page_\\d+$'), group=0)
 
-            # self.application.add_handler(
-            #     CommandHandler("set_price", self.admin_handler.set_price_cmd), group=0)
-
             ############---------------------------------------------------------------------------------------######
 
             self.application.add_handler(
@@ -800,6 +798,19 @@ class BotManager:
                 return await self.handle_language_button(update, context)  # ← اضافه کردن return  
             #######-------------------------------------------------------------------------------------
 
+            elif text_lower == '🛠 admin panel':
+                return await self.admin_handler.show_admin_panel(update, context)
+
+            elif text_lower == '📸 price snapshot':
+                return await self.admin_handler.price_snapshot_cmd(update, context)
+
+            elif text_lower == '💾 set total supply':
+                return await self.admin_handler.set_total_supply_cmd(update, context)
+
+            elif text_lower == '🗑 flush price cache':
+                return await self.admin_handler.flush_price_cache_cmd(update, context)
+
+#############################################################################################################
             elif text_lower == '👤 profile':   
                 return await self.profile_handler.show_profile_menu(update, context)  # ← اضافه کردن return        
 
@@ -1033,9 +1044,15 @@ class BotManager:
             "awaiting_sub_txid":           self.payment_handler.prompt_for_txid,
             "sub_txid_received":           self.payment_handler.handle_txid,
             ###################-------------------------------------------------------------------------
-            "withdraw_menu":       self.withdraw_handler.show_withdraw_menu,   # ← NEW
+            "withdraw_menu":               self.withdraw_handler.show_withdraw_menu,   # ← NEW
             ###################-------------------------------------------------------------------------
 
+            "admin_panel_menu":             self.admin_handler.show_admin_panel,  # ← جدید
+            "admin_price_snapshot":         self.admin_handler.price_snapshot_cmd,
+            "admin_set_total_supply":       self.admin_handler.set_total_supply_cmd,
+            "admin_flush_price_cache":      self.admin_handler.flush_price_cache_cmd,            
+            
+            #--------------------------------------------------------------------------------------
             # ــ Trade
             "trade_menu":                  self.trade_handler.trade_menu,
             "awaiting_sell_amount":        self.trade_handler.sell_start,
@@ -1076,6 +1093,12 @@ class BotManager:
             "💳 payment":                   "showing_payment",
             "🎧 support":                   "support_menu",
             "🌐 language":                  "awaiting_language_detection",
+            
+            "🛠 admin panel":                "admin_panel_menu",
+            "📸 price snapshot":            "admin_price_snapshot",
+            "💾 set total supply":          "admin_set_total_supply",
+            "🗑 flush price cache":          "admin_flush_price_cache",            
+            
             
             # Wallet buttons
             "👤 profile":                   "profile_menu",

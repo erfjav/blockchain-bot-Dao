@@ -92,6 +92,26 @@ class TranslatedKeyboards:
         if chat_id == ADMIN_USER_IDS:
             raw_buttons.append(["🛠 Admin Panel"])
         return await self.build_keyboard_for_user(raw_buttons, chat_id, resize, one_time)
+    
+#######################################################################################
+    def admin_panel_keyboard(self) -> List[List[str]]:
+        """برگرداندن لیست دوبعدی از متن دکمه‌های انتخاب مدل"""
+        
+        
+        return [
+            ["📸 Price Snapshot", "💾 Set Total Supply"],
+            ["🗑 Flush Price Cache"],
+            ["⬅️ Back", "➡️ Exit"]
+        ]       
+        
+    async def build_admin_panel_keyboard(self, user_lang: str) -> ReplyKeyboardMarkup:
+        """
+        بازگرداندن کیبورد انتخاب مدل ترجمه‌شده به زبان کاربر.
+        مطابق original: resize_keyboard=True, one_time_keyboard=True
+        """
+        raw_buttons = self.admin_panel_keyboard()
+        return await self.build_keyboard_for_user(raw_buttons, user_lang, resize=True, one_time=True)   
+    
 ##################################################################################################################
 
     def trade_menu_keyboard(self) -> List[List[str]]:

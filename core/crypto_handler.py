@@ -9,23 +9,28 @@ from typing import Any, Literal
 import config
 from .blockchain_client import BlockchainClient, DECIMALS
 
-DEFAULT_USDT_CONTRACT        = config.USDT_CONTRACT
+DEFAULT_USDT_CONTRACT                =     config.USDT_CONTRACT
 
 # بارگذاری کلیدهای خصوصی جدید
 # Private key for the join-pool wallet (collects membership fees)
-WALLET_JOIN_POOL_PRIVATE_KEY = config.WALLET_JOIN_POOL_PRIVATE_KEY
+WALLET_JOIN_POOL_PRIVATE_KEY         =     config.WALLET_JOIN_POOL_PRIVATE_KEY
 
 # Private key for the trade wallet (handles buy/sell payments)
-TRADE_WALLET_PRIVATE_KEY = config.TRADE_WALLET_PRIVATE_KEY
+TRADE_WALLET_PRIVATE_KEY             =     config.TRADE_WALLET_PRIVATE_KEY
 
 # Private key for first admin pool (receives first admin’s share)
-WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY = config.WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY
+WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY  =     config.WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY
 
 # Private key for second admin pool (receives second admin’s share)
-WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY = config.WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY
+WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY =     config.WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY
 
 # Private key for the 70% split pool (upstream rewards)
-WALLET_SPLIT_70_PRIVATE_KEY = config.WALLET_SPLIT_70_PRIVATE_KEY
+WALLET_SPLIT_70_PRIVATE_KEY          =     config.WALLET_SPLIT_70_PRIVATE_KEY
+
+# ────────────────────────────────────────────────
+# Add new wallet private keys at the top (if not already):
+WALLET_SPLIT_20_PRIVATE_KEY =              config.WALLET_SPLIT_20_PRIVATE_KEY
+WALLET_SPLIT_10_PRIVATE_KEY =              config.WALLET_SPLIT_10_PRIVATE_KEY
 
 # Define the ERC20 ABI manually since it's not available in this tronpy version
 ERC20_ABI = [
@@ -167,34 +172,14 @@ class CryptoHandler:
             )
         data = r.json()
         return Decimal(str(data.get(symbol, {}).get("usd", "0")))
-##################################################################################################
-
-    # async def transfer(self, chain, to, amount, token_symbol="USDT", decimals=6):
-    #     if chain.lower() != "tron":
-    #         raise NotImplementedError("Only Tron is supported.")
-
-    #     if token_symbol != "USDT":
-    #         raise NotImplementedError("Only USDT token is currently supported.")
-
-    #     # مقدار amount فرض کن integer میکروUSDT است (مثلاً 1000000 یعنی 1 USDT)
-    #     float_amount = amount / (10 ** decimals)
-    #     private_key = config.TREASURY_PRIVATE_KEY
-
-    #     return await self.blockchain.transfer_trc20(
-    #         from_private_key=private_key,
-    #         to_address=to,
-    #         amount=float_amount,
-    #         token_contract=DEFAULT_USDT_CONTRACT,
-    #         decimals=decimals,
-    #     )
-
-
+    
+    #------------------------------------------------------------------------------------------------------
     async def transfer(
         self,
         chain: str,
         to: str,
         amount: int,                   # integer micro-USDT
-        from_wallet: Literal["join","trade","admin1","admin2","split70"],
+        from_wallet: Literal["join","trade","admin1","admin2","split70","split20","split10"],
         token_symbol: str = "USDT",
         token_contract: str = DEFAULT_USDT_CONTRACT,
         decimals: int = DECIMALS,
@@ -214,6 +199,9 @@ class CryptoHandler:
             "admin1":config.WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY,
             "admin2":config.WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY,
             "split70":config.WALLET_SPLIT_70_PRIVATE_KEY,
+            "split20": config.WALLET_SPLIT_20_PRIVATE_KEY,   # ← جدید
+            "split10": config.WALLET_SPLIT_10_PRIVATE_KEY,   # ← جدید            
+            
         }
         private_key = key_map[from_wallet]
 

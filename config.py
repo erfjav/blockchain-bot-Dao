@@ -55,8 +55,6 @@ WEBHOOK_URL: str = os.getenv("WEBHOOK_URL")
 # Database
 MONGODB_URI: str = os.getenv("MONGODB_URI")
 
-##############################################################################################################
-
 # ────────────────────────────── Blockchain / Tron (EndPoints) ───────────────────────────────
 TRON_PROVIDERS: list[str] = [
     url.strip() for url in os.getenv("TRON_PROVIDERS", "https://api.trongrid.io").split(",") if url.strip()
@@ -100,7 +98,6 @@ SECOND_ADMIN_USER_IDS: list[int] = [
 ]  # ادمین‌های دوم که باید دو نفر جذب کنند
 
 ##############################################################################################################
-
 # Support / Admin
 # اعدادی که به int باید تبدیل شوند
 TRADE_CHANNEL_ID: int = int(os.getenv("TRADE_CHANNEL_ID"))
@@ -108,7 +105,6 @@ TRADE_CHANNEL_ID: int = int(os.getenv("TRADE_CHANNEL_ID"))
 ADMIN_USER_IDS: List[int] = [int(uid.strip()) for uid in os.getenv("ADMIN_USER_IDS").split(",")]
 
 # ────────────────────────────── اختیاری‌ها ─────────────────────────────
-
 # Blockchain / Tron
 TRON_NETWORK: str = os.getenv("TRON_NETWORK", "mainnet")                # mainnet | nile | URL
 
@@ -123,10 +119,8 @@ USDT_CONTRACT: str = os.getenv(
 )
 
 #----------------------------------------------------------------------------
-
 # Trading & Pool
 TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
-
 TRADE_WALLET_PRIVATE_KEY: str = os.getenv("TRADE_WALLET_PRIVATE_KEY")
 
 SUPPORT_USER_USERNAME: str = os.getenv("SUPPORT_USER_USERNAME")
@@ -145,11 +139,11 @@ __all__ = [
     "TELEGRAM_BOT_TOKEN",
     "WEBHOOK_URL",
     "MONGODB_URI",
-    ##########################################################
+    #---------------------------------------
     "TRON_PROVIDERS",
     "WALLET_JOIN_POOL",
     "WALLET_JOIN_POOL_PRIVATE_KEY",
-    #------------------------------- 
+    #--------------------------------------- 
     "WALLET_SPLIT_70",
     "WALLET_SPLIT_70_PRIVATE_KEY",
     
@@ -158,8 +152,8 @@ __all__ = [
     
     "WALLET_SPLIT_10",
     "WALLET_SPLIT_10_PRIVATE_KEY"
-    #-------------------------------
     
+    #---------------------------------------
     "WALLET_FIRST_ADMIN_POOL",
     "WALLET_SECOND_ADMIN_POOL",
     
@@ -169,17 +163,15 @@ __all__ = [
     "FIRST_ADMIN_PERSONAL_WALLETS",
     
     "SECOND_ADMIN_PERSONAL_WALLETS",
-    #-------------------------------
+    #----------------------------------------
     
     "MAIN_LEADER_IDS",
     "SECOND_ADMIN_USER_IDS",    
-#######################################################################################################
-    
+    #----------------------------------------
     # Wallets / Payments
-    
     "TRADE_WALLET_ADDRESS",
     "TRADE_WALLET_PRIVATE_KEY",  
-###############---------------------------------------------------------------
+    #----------------------------------------
     # Trading / Support
     "TRADE_CHANNEL_ID",
     "SUPPORT_USER_USERNAME",
@@ -192,8 +184,7 @@ __all__ = [
     "TRONSCAN_API_KEY",
     "USDT_CONTRACT",
     
-#######################-----------------------------------------------------------------
-  
+    #----------------------------------------
     # Pricing / Misc
     "STATIC_TOKEN_PRICE",
     "PRICE_CACHE_TTL",
