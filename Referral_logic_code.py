@@ -240,8 +240,8 @@ class ReferralManager:
             "eligible":       False,
             "joined":         False,             # ← اضافه شد
             "tokens":         0,                 # ← اضافه شد
-            "balance_usd":    Decimal("0"),
-            "commission_usd": Decimal("0"),      # ← اضافه شد
+            "balance_usd":    0.0,
+            "commission_usd": 0.0,      # ← اضافه شد
             "created_at":     datetime.utcnow(),
         }
         await self.col_users.insert_one(new_doc)
@@ -483,7 +483,7 @@ class ReferralManager:
         if delta < timedelta(days=interval_days):
             return interval_days - delta.days
         return 0
-    #------------------------------------------------------------------------------------
+    
     async def _payout_every_30_days(self):
         now = datetime.utcnow()
         async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
