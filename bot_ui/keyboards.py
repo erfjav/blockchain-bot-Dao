@@ -71,11 +71,10 @@ class TranslatedKeyboards:
         لیست دکمه‌های منوی اصلی به زبان انگلیسی (برای ترجمه شدن خودکار)
         """
         return [
-            ["📊 Token Price", ],
-            ["💵 Withdraw", "💳 Payment"],
-            ["💰 Trade"], 
-            ["🔄 Convert Token", "💸 Earn Money"],
+            ["💳 Payment", "💵 Withdraw"],
+            ["💰 Trade","📊 Token Price", ],
             ["🧭 Help & Support" ],
+            ["🔄 Convert Token", "💸 Earn Money"],
             ["👤 Profile", "🌐 Language"]
         ]
         
