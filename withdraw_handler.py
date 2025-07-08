@@ -22,7 +22,7 @@ import config
 # ───── پیکربندی ثابت‌ها ────────────────────────────────────────────
 
 WALLET_SPLIT_70      = config.WALLET_SPLIT_70.lower()
-SPLIT_WALLET_A_PRIV = config.SPLIT_WALLET_A_PRIV
+WALLET_SPLIT_70_PRIVATE_KEY = config.WALLET_SPLIT_70_PRIVATE_KEY
 
 WITHDRAW_AMOUNT_USD   = 50               # مبلغ ثابت عضویت
 REQUIRED_REFERRALS    = 2                # حداقل زیرمجموعهٔ مستقیم
@@ -98,22 +98,44 @@ class WithdrawHandler:
                 await self._reply(update, context, text, chat_id)
                 return
 
+            # ── ۳) فاصله‌ی ۳۰ روز (دفاعی) با استفاده از ReferralManager
+            days_left = await self.referral_manager.days_until_next_monthly_payout(
+                chat_id,
+                WITHDRAW_INTERVAL_DAYS
+            )
+            if days_left:
+                # تعیین تاریخ مرجع: آخرین درخواست برداشت یا دومین زیرمجموعه
+                last_req = await self.db.get_last_withdraw_request(chat_id)
+                if last_req and last_req.get("created_at"):
+                    last_date = last_req["created_at"]
+                else:
+                    last_date = await self.referral_manager._second_child_date(chat_id)
 
-            # ۳) فاصلهٔ ۳۰ روز بین برداشت‌ها
-            last_req = await self.db.get_last_withdraw_request(chat_id)
-            if last_req and last_req.get("created_at"):
-                last_date = last_req["created_at"]
-                delta = datetime.utcnow() - last_date
-                if delta < timedelta(days=WITHDRAW_INTERVAL_DAYS):
-                    days_left = WITHDRAW_INTERVAL_DAYS - delta.days
-                    next_date = (last_date + timedelta(days=WITHDRAW_INTERVAL_DAYS)).strftime("%Y-%m-%d")
-                    text = (
-                        "❌ <b>Withdrawal not available yet.</b>\n"
-                        f"Your last withdrawal was on <b>{last_date.strftime('%Y-%m-%d')}</b>.\n"
-                        f"Next withdrawal available in <b>{days_left} day(s)</b> (on {next_date})."
-                    )
-                    await self._reply(update, context, text, chat_id)
-                    return
+                next_date = (last_date + timedelta(days=WITHDRAW_INTERVAL_DAYS)).strftime("%Y-%m-%d")
+                text = (
+                    "❌ <b>Withdrawal not available yet.</b>\n"
+                    f"Your last withdrawal was on <b>{last_date.strftime('%Y-%m-%d')}</b>.\n"
+                    f"Next withdrawal available in <b>{days_left} day(s)</b> (on {next_date})."
+                )
+                await self._reply(update, context, text, chat_id)
+                return
+
+
+            # # ۳) فاصلهٔ ۳۰ روز بین برداشت‌ها
+            # last_req = await self.db.get_last_withdraw_request(chat_id)
+            # if last_req and last_req.get("created_at"):
+            #     last_date = last_req["created_at"]
+            #     delta = datetime.utcnow() - last_date
+            #     if delta < timedelta(days=WITHDRAW_INTERVAL_DAYS):
+            #         days_left = WITHDRAW_INTERVAL_DAYS - delta.days
+            #         next_date = (last_date + timedelta(days=WITHDRAW_INTERVAL_DAYS)).strftime("%Y-%m-%d")
+            #         text = (
+            #             "❌ <b>Withdrawal not available yet.</b>\n"
+            #             f"Your last withdrawal was on <b>{last_date.strftime('%Y-%m-%d')}</b>.\n"
+            #             f"Next withdrawal available in <b>{days_left} day(s)</b> (on {next_date})."
+            #         )
+            #         await self._reply(update, context, text, chat_id)
+            #         return
 
 
             # ── ۳) وجود آدرس کیف‌پول
@@ -183,19 +205,32 @@ class WithdrawHandler:
                 await query.edit_message_text(text, parse_mode="HTML")
                 return
 
+            # ─── ➋ فاصله‌ی ۳۰ روز (دفاعی) با استفاده از ReferralManager
+            days_left = await self.referral_manager.days_until_next_monthly_payout(
+                chat_id,
+                WITHDRAW_INTERVAL_DAYS
+            )
+            if days_left:
+                await query.edit_message_text(
+                    "❌ Withdrawal not available yet.\n"
+                    f"Next withdrawal in <b>{days_left}</b> day(s).",
+                    parse_mode="HTML"
+                )
+                return
 
-            # ➋′ تکرار چک فاصلهٔ ۳۰ روز (defensive re-check)
-            last_req = await self.db.get_last_withdraw_request(chat_id)
-            if last_req and last_req.get("created_at"):
-                last_date = last_req["created_at"]
-                if datetime.utcnow() - last_date < timedelta(days=WITHDRAW_INTERVAL_DAYS):
-                    days_left = WITHDRAW_INTERVAL_DAYS - (datetime.utcnow() - last_date).days
-                    await query.edit_message_text(
-                        "❌ Withdrawal not available yet.\n"
-                        f"Next withdrawal in <b>{days_left}</b> day(s).",
-                        parse_mode="HTML"
-                    )
-                    return
+
+            # # ➋′ تکرار چک فاصلهٔ ۳۰ روز (defensive re-check)
+            # last_req = await self.db.get_last_withdraw_request(chat_id)
+            # if last_req and last_req.get("created_at"):
+            #     last_date = last_req["created_at"]
+            #     if datetime.utcnow() - last_date < timedelta(days=WITHDRAW_INTERVAL_DAYS):
+            #         days_left = WITHDRAW_INTERVAL_DAYS - (datetime.utcnow() - last_date).days
+            #         await query.edit_message_text(
+            #             "❌ Withdrawal not available yet.\n"
+            #             f"Next withdrawal in <b>{days_left}</b> day(s).",
+            #             parse_mode="HTML"
+            #         )
+            #         return
 
 
             # ➊ ثبت درخواست در DB (status=pending)
@@ -207,7 +242,7 @@ class WithdrawHandler:
 
             # ➌ انتقال آنی روی بلاک‌چین (از SPLIT_WALLET_A)
             tx_id: str = await self.blockchain.transfer_trc20(
-                from_private_key=SPLIT_WALLET_A_PRIV,
+                from_private_key=WALLET_SPLIT_70_PRIVATE_KEY,
                 to_address=wallet,
                 amount=WITHDRAW_AMOUNT_USD,
                 memo=f"withdraw-{chat_id}",
@@ -258,62 +293,3 @@ class WithdrawHandler:
 
 
 
-###########################################################################################################
-    # # ─────────────────────────────── تأیید نهایی ───────────────────────────────
-    # async def confirm_withdraw_callback(
-    #     self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    # ) -> None:
-    #     """
-    #     کاربر دکمهٔ «Confirm Withdraw» را می‌زند.
-    #     • درخواست در DB ثبت می‌شود
-    #     • زیرمجموعه‌ها حذف و عضویت به حالت «withdrawn» می‌رود
-    #     • پیام موفقیت و زمان‌بندی پرداخت ارسال می‌شود
-    #     """
-    #     query = update.callback_query
-    #     await query.answer()
-    #     chat_id = query.from_user.id
-
-    #     try:
-    #         wallet = await self.db.get_wallet_address(chat_id)
-    #         downline_cnt = await self.db.get_downline_count(chat_id)
-
-    #         # آخرین چک سریع
-    #         if downline_cnt < REQUIRED_REFERRALS:
-    #             text = (
-    #                 "❌ Withdrawal conditions are no longer satisfied.\n"
-    #                 "Please refresh the page and try again."
-    #             )
-    #             await query.edit_message_text(text, parse_mode="HTML")
-    #             return
-
-    #         # ➊ ثبت درخواست برداشت در DB
-    #         await self.db.create_withdraw_request(
-    #             chat_id,
-    #             wallet,
-    #             WITHDRAW_AMOUNT_USD,
-    #         )
-
-    #         # ➋ پاک‌سازی زیرمجموعه‌ها + تغییر وضعیت عضویت
-    #         await self.db.clear_downline(chat_id)
-    #         await self.db.mark_membership_withdrawn(chat_id)
-
-    #         # ➌ (اختیاری) انتقال آنی روی بلاک‌چین
-    #         # tx_id = await self.blockchain.transfer_usdt(wallet, WITHDRAW_AMOUNT_USD)
-
-    #         # ➍ پیام موفقیت
-    #         translated = await self.translation_manager.translate_for_user(
-    #             f"✅ Withdrawal request registered.\n{PROCESSING_NOTE}", chat_id
-    #         )
-    #         await query.edit_message_text(translated, parse_mode="HTML")
-
-    #         # ➎ Reply-keyboard Back/Exit
-    #         await context.bot.send_message(
-    #             chat_id,
-    #             text="🏠 Returning to main menu…",
-    #             reply_markup=await self.keyboards.build_main_menu_keyboard_v2(chat_id),
-    #         )
-
-    #         self.logger.info(f"[withdraw] user {chat_id} requested withdrawal of ${WITHDRAW_AMOUNT_USD}")
-
-    #     except Exception as exc:
-    #         await self.error_handler.handle(update, context, exc, "confirm_withdraw_callback")

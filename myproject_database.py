@@ -317,18 +317,45 @@ class Database:
 
 ############################################################################################################
     # ------------------------------------------------------------------
-    async def _generate_member_no(self) -> int:
-        """
-        یک شمارهٔ عضویت یکتا و افزایشی برمی‌گرداند.
-        از کالکشنی به نام 'counters' استفاده می‌کند.
-        """
-        counter = await self.collection_counters.find_one_and_update(
-            {"_id": "member_no"},             # این سند فقط یک رکورد است
-            {"$inc": {"seq": 1}},             # مقدار seq را +۱ می‌کند
-            upsert=True,                      # اگر وجود نداشت می‌سازد
-            return_document=ReturnDocument.AFTER,
-        )
-        return counter["seq"]
+    
+    async def _generate_member_no(self, user_id: int) -> str:
+        from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
+
+        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
+
+        if is_manager:
+            counter = await self.collection_counters.find_one_and_update(
+                {"_id": "manager_member_no"},
+                {"$inc": {"seq": 1}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+            member_no = f"00{2000 + counter['seq']}"  # خروجی: 002001, 002002, ...
+        else:
+            counter = await self.collection_counters.find_one_and_update(
+                {"_id": "normal_member_no"},
+                {"$inc": {"seq": 1}},
+                upsert=True,
+                return_document=ReturnDocument.AFTER,
+            )
+            member_no = f"{1000 + counter['seq']}"  # خروجی: 1001, 1002, ...
+
+        return member_no
+
+    
+    
+    # async def _generate_member_no(self) -> int:
+    #     """
+    #     یک شمارهٔ عضویت یکتا و افزایشی برمی‌گرداند.
+    #     از کالکشنی به نام 'counters' استفاده می‌کند.
+    #     """
+    #     counter = await self.collection_counters.find_one_and_update(
+    #         {"_id": "member_no"},             # این سند فقط یک رکورد است
+    #         {"$inc": {"seq": 1}},             # مقدار seq را +۱ می‌کند
+    #         upsert=True,                      # اگر وجود نداشت می‌سازد
+    #         return_document=ReturnDocument.AFTER,
+    #     )
+    #     return counter["seq"]
        
     # ------------------- Profile & Referral helpers -----------------------
 

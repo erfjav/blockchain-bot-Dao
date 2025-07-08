@@ -452,23 +452,59 @@ class ReferralManager:
     # ────────────────────────────────────────────────────────────
     # 30‑day member payouts
     # -----------------------------------------------------------
+    async def days_until_next_monthly_payout(self, user_id: int, interval_days: int = 30) -> int:
+        """
+        محاسبه می‌کند چند روز تا زمان پاداش ماهانه (یا برداشت مجاز) باقی مانده:
+        - ملاک اول: تاریخ دومین زیرمجموعه‌ی کاربر
+        - ملاک دوم: تاریخ آخرین برداشت (در صورت وجود)
+        اگر هیچ‌کدام نبود یا بیش از interval_days گذشته، عدد 0 برمی‌گرداند.
+        """
+        from datetime import datetime, timedelta
+
+        # ۱) تاریخ دومین زیرمجموعه
+        second_date = await self._second_child_date(user_id)
+
+        # ۲) تاریخ آخرین درخواست برداشت
+        last_req = await self.db.get_last_withdraw_request(user_id)
+        last_withdraw_date = last_req.get("created_at") if last_req else None
+
+        # انتخاب قدیمی‌ترین تاریخِ مؤثر
+        effective_date = None
+        if second_date and last_withdraw_date:
+            effective_date = max(second_date, last_withdraw_date)
+        else:
+            effective_date = second_date or last_withdraw_date
+
+        if not effective_date:
+            # اگر هیچ‌کدام وجود ندارد، کاربر هنوز واجد دریافت اولین برداشت نیست → فاصله‌ی کامل
+            return interval_days
+
+        delta = datetime.utcnow() - effective_date
+        if delta < timedelta(days=interval_days):
+            return interval_days - delta.days
+        return 0
+    #------------------------------------------------------------------------------------
     async def _payout_every_30_days(self):
         now = datetime.utcnow()
         async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
             uid = user["user_id"]
             if uid in MAIN_LEADER_IDS + SECOND_ADMIN_USER_IDS:
                 continue  # admins handled separately
-            second_date = await self._second_child_date(uid)
-            if not second_date or (now - second_date) < timedelta(days=30):
-                continue  # not yet eligible for payout
+
+            # ← استفاده از helper
+            days_left = await self.days_until_next_monthly_payout(uid, 30)
+            if days_left:
+                continue  # هنوز ماه کامل نشده
+
             amt = Decimal(user["balance_usd"])
             wallet = user.get("tron_wallet")
             if not wallet:
-                continue  # user has no withdrawal wallet on file
-            await self._transfer_wallet(wallet, amt, "monthly‑member", from_uid=uid)
-            await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
-            await self._refresh_eligibility(uid)  # may become ineligible if children were removed
+                continue
 
+            await self._transfer_wallet(wallet, amt, "monthly-member", from_uid=uid)
+            await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
+            await self._refresh_eligibility(uid)    
+    
     async def _second_child_date(self, uid: int) -> Optional[datetime]:
         doc = await self.col_users.find_one({"user_id": uid}, {"direct_dates": 1})
         dates = doc.get("direct_dates", []) if doc else []
@@ -520,6 +556,27 @@ class ReferralManager:
         return chain
 
 
+    # async def _payout_every_30_days(self):
+        
+    #     now = datetime.utcnow()
+    #     async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
+    #         uid = user["user_id"]
+    #         if uid in MAIN_LEADER_IDS + SECOND_ADMIN_USER_IDS:
+    #             continue  # admins handled separately
+            
+    #         second_date = await self._second_child_date(uid)
+    #         if not second_date or (now - second_date) < timedelta(days=30):
+    #             continue  # not yet eligible for payout
+            
+    #         amt = Decimal(user["balance_usd"])
+    #         wallet = user.get("tron_wallet")
+            
+    #         if not wallet:
+    #             continue  # user has no withdrawal wallet on file
+            
+    #         await self._transfer_wallet(wallet, amt, "monthly‑member", from_uid=uid)
+    #         await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
+    #         await self._refresh_eligibility(uid)  # may become ineligible if children were removed
 
 
 

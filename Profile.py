@@ -37,6 +37,9 @@ import base58
 from web3 import Web3
 from pymongo.errors import DuplicateKeyError
 
+from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
+
+
 def valid_tron_address(address: str) -> bool:
     """
     اعتبارسنجی آدرس Tron (USDT-TRC20 و هر توکن دیگری روی Tron):
@@ -247,10 +250,15 @@ class ProfileHandler:
             downline_count: int = profile.get("downline_count", 0)
             wallet_address = await self.db.get_wallet_address(chat_id)
             
+            is_manager = chat_id in MAIN_LEADER_IDS or chat_id in SECOND_ADMIN_USER_IDS
+            star_tag = "⭐" if is_manager else ""
+            
+            username = update.effective_user.username if update.effective_user and update.effective_user.username else "—"            
+            
             # 5) Compose message body
             placeholder = "—"
             lines: List[str] = [
-                f"<b>{('Member No')}:</b> {member_no}",
+                f"<b>{('Member No')}:</b> {member_no}{star_tag}",
                 f"<b>{('Referral Code')}:</b> <code>{referral_code}</code>",
                 f"<b>Wallet Address:</b> <code>{wallet_address or placeholder}</code>",
                 "─────────────",
@@ -265,6 +273,11 @@ class ProfileHandler:
                 f"Your personal referral link will be automatically sent to the selected contact. 🚀",                
                             
             ]
+
+            if is_manager:
+                # اول User ID، بعد Username اضافه میشه
+                lines.insert(0, f"<b>User ID:</b> <code>{chat_id}</code>")
+                lines.insert(1, f"<b>Username:</b> @{username}" if username != "—" else "<b>Username:</b> <i>Not set</i>")
 
             if not joined:
                 lines += [

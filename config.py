@@ -25,7 +25,9 @@ REQUIRED_VARS = [
 
     "WALLET_JOIN_POOL_PRIVATE_KEY",  
     
-    "SPLIT_WALLET_A_PRIV",     
+    "WALLET_SPLIT_20_PRIVATE_KEY", 
+        
+    "WALLET_SPLIT_10_PRIVATE_KEY",
     
     "TRADE_WALLET_ADDRESS", 
     "TRADE_WALLET_PRIVATE_KEY",  
@@ -69,7 +71,10 @@ WALLET_SPLIT_70: str  = os.getenv("WALLET_SPLIT_70")       # 70% تقسیم
 WALLET_SPLIT_70_PRIVATE_KEY: str = os.getenv("WALLET_SPLIT_70_PRIVATE_KEY")
 
 WALLET_SPLIT_20: str  = os.getenv("WALLET_SPLIT_20")       # 20% تقسیم
+WALLET_SPLIT_20_PRIVATE_KEY: str = os.getenv("WALLET_SPLIT_20_PRIVATE_KEY")
+
 WALLET_SPLIT_10: str  = os.getenv("WALLET_SPLIT_10")       # 10% تقسیم
+WALLET_SPLIT_10_PRIVATE_KEY: str = os.getenv("WALLET_SPLIT_10_PRIVATE_KEY")
 
 # ────────────────────────────── Admin Pools (TronLink) ───────────────────────────────
 WALLET_FIRST_ADMIN_POOL: str  = os.getenv("WALLET_FIRST_ADMIN_POOL")
@@ -119,11 +124,6 @@ USDT_CONTRACT: str = os.getenv(
 
 #----------------------------------------------------------------------------
 
-# Wallets
-
-SPLIT_WALLET_A_PRIV: str = os.getenv("SPLIT_WALLET_A_PRIV")
-#----------------------------------------------------------------------------
-
 # Trading & Pool
 TRADE_WALLET_ADDRESS: str = os.getenv("TRADE_WALLET_ADDRESS")      # Escrow for P2P trades  ← NEW
 
@@ -149,12 +149,16 @@ __all__ = [
     "TRON_PROVIDERS",
     "WALLET_JOIN_POOL",
     "WALLET_JOIN_POOL_PRIVATE_KEY",
-      
+    #------------------------------- 
     "WALLET_SPLIT_70",
     "WALLET_SPLIT_70_PRIVATE_KEY",
     
     "WALLET_SPLIT_20",
+    "WALLET_SPLIT_20_PRIVATE_KEY",
+    
     "WALLET_SPLIT_10",
+    "WALLET_SPLIT_10_PRIVATE_KEY"
+    #-------------------------------
     
     "WALLET_FIRST_ADMIN_POOL",
     "WALLET_SECOND_ADMIN_POOL",
@@ -163,14 +167,15 @@ __all__ = [
     "WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY",
     
     "FIRST_ADMIN_PERSONAL_WALLETS",
+    
     "SECOND_ADMIN_PERSONAL_WALLETS",
+    #-------------------------------
     
     "MAIN_LEADER_IDS",
     "SECOND_ADMIN_USER_IDS",    
 #######################################################################################################
     
     # Wallets / Payments
-    "SPLIT_WALLET_A_PRIV",
     
     "TRADE_WALLET_ADDRESS",
     "TRADE_WALLET_PRIVATE_KEY",  
