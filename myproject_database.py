@@ -43,6 +43,10 @@ class Database:
             
             self.collection_leader_payments   =     self.db["leader_payments"]
 
+            self.collection_user_payments     =     self.db["user_payments"]
+            # در init دیتابیس اضافه کن مثل بقیه
+
+
             self.logger.info("✅ Database connected successfully.")
 
         except Exception as e:
@@ -105,6 +109,13 @@ class Database:
                 [("leader_user_id", ASCENDING), ("date", DESCENDING)],
                 name="leader_user_id_date_index"
             )            
+                        
+            # ایندکس مخصوص user_payments (بر اساس user_id و تاریخ نزولی)
+            await self.collection_user_payments.create_index(
+                [("user_id", ASCENDING), ("date", DESCENDING)],
+                name="user_id_date_index"
+            )
+            
             
             self.logger.info("All database connections initialized and verified")
         except Exception as e:
@@ -370,6 +381,28 @@ class Database:
             {"user_id": user_id}
         ).sort("date", -1).limit(limit)
         return await cursor.to_list(length=limit)
+
+#-------------------------------------------------------------------------------------
+    async def store_user_payment(
+        self,
+        user_id: int,
+        amount: float,
+        token: str,
+        wallet: str,
+        tx_hash: str,
+        payment_type: str = "WITHDRAW",  # یا "REWARD" یا غیره
+        date: datetime = None,
+    ):
+        doc = {
+            "user_id": user_id,
+            "amount": amount,
+            "token": token,
+            "wallet": wallet,
+            "tx_hash": tx_hash,
+            "payment_type": payment_type,
+            "date": date or datetime.utcnow(),
+        }
+        await self.collection_user_payments.insert_one(doc)
 
 
     # ------------------------------------------------------------------

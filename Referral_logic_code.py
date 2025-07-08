@@ -372,7 +372,8 @@ class ReferralManager:
                     "note":      note,
                     "timestamp": datetime.utcnow(),
                 })
-                return
+                # return
+                return tx_hash
             except Exception as exc:
                 logger.warning("Transfer attempt %d failed (%s): %s", attempt + 1, note, exc)
                 await asyncio.sleep(1.5)
@@ -387,7 +388,8 @@ class ReferralManager:
             "note":      note,
             "timestamp": datetime.utcnow(),
         })
-
+        
+        return None  # ← این خط اضافه شد
     async def _estimate_fee(self, wallet: str, micros: int) -> Decimal:
         try:
             return Decimal(str(await self.crypto_handler.estimate_fee("tron", wallet, micros, token_symbol="USDT", decimals=6)))
@@ -548,6 +550,7 @@ class ReferralManager:
             return interval_days - delta.days
         return 0
     
+    ###---------------------------------------------------------------------------------
     async def _payout_every_30_days(self):
         now = datetime.utcnow()
         async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
@@ -565,10 +568,25 @@ class ReferralManager:
             if not wallet:
                 continue
 
-            await self._transfer_wallet(wallet, amt, "monthly-member", from_uid=uid)
+            # await self._transfer_wallet(wallet, amt, "monthly-member", from_uid=uid)
+            # await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
+            # await self._refresh_eligibility(uid)   
+             
+            tx_hash = await self._transfer_wallet(wallet, amt, "monthly-member", from_uid=uid)
             await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
-            await self._refresh_eligibility(uid)    
-    
+            await self._refresh_eligibility(uid)
+
+            # ثبت لاگ پرداخت در دیتابیس
+            await self.db.store_user_payment(
+                user_id=uid,
+                amount=float(amt),
+                token="USDT",
+                wallet=wallet,
+                tx_hash=tx_hash,
+                payment_type="MONTHLY_PAYOUT"
+            )             
+                        
+    ###---------------------------------------------------------------------------------
     async def _second_child_date(self, uid: int) -> Optional[datetime]:
         doc = await self.col_users.find_one({"user_id": uid}, {"direct_dates": 1})
         dates = doc.get("direct_dates", []) if doc else []

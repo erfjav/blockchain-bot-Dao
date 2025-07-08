@@ -308,7 +308,9 @@ class ProfileHandler:
             # اینجا دکمه گزارش پرداخت رو فقط برای لیدرها اضافه کن:
             if is_manager:
                 rows.append([InlineKeyboardButton("📋 View All Payouts", callback_data="view_all_payouts_1")])
-                
+            else:
+                rows.append([InlineKeyboardButton("📑 View My Payments", callback_data="view_my_payments_1")])
+              
             #---------------------------------------------------------------------------------------------------------
             # 7) Down‑line list (only if joined & has referrals)
             if joined and downline_count:
@@ -402,12 +404,18 @@ class ProfileHandler:
         ).sort("date", -1).skip(skip).limit(page_size)
         payouts = await cursor.to_list(length=page_size)
 
+        # if not payouts:
+        #     await query.edit_message_text(
+        #         "No payouts recorded yet.",
+        #         parse_mode="HTML"
+        #     )
+        #     return
         if not payouts:
-            await query.edit_message_text(
-                "No payouts recorded yet.",
-                parse_mode="HTML"
-            )
+            await query.answer("No payouts recorded yet.", show_alert=True)
+            # بازگشت به پروفایل
+            await self.show_profile(update, context)
             return
+
 
         # ساخت پیام گزارش
         lines = ["<b>Your Payout History</b>\n"]
@@ -436,6 +444,60 @@ class ProfileHandler:
         buttons.append(InlineKeyboardButton("Exit", callback_data="exit"))
         
         keyboard = InlineKeyboardMarkup([buttons]) if buttons else None
+
+        await query.edit_message_text(
+            msg,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+    #------------------------------------------------------------------------------------
+    async def handle_view_my_payments(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        chat_id = query.from_user.id
+
+        # استخراج شماره صفحه از کال‌بک دیتا
+        data = query.data  # مثل: view_my_payments_1
+        try:
+            page = int(data.split('_')[-1])
+        except Exception:
+            page = 1
+
+        page_size = 5
+        skip = (page - 1) * page_size
+
+        # واکشی رکوردها از دیتابیس
+        total_count = await self.db.collection_user_payments.count_documents({"user_id": chat_id})
+        cursor = self.db.collection_user_payments.find(
+            {"user_id": chat_id}
+        ).sort("date", -1).skip(skip).limit(page_size)
+        payments = await cursor.to_list(length=page_size)
+
+        if not payments:
+            await query.answer("No payments recorded yet.", show_alert=True)
+            await self.show_profile(update, context)
+            return
+
+        lines = ["<b>Your Payment History</b>\n"]
+        for p in payments:
+            date_str = p.get("date")
+            if isinstance(date_str, datetime):
+                date_str = date_str.strftime("%Y-%m-%d")
+            elif isinstance(date_str, str):
+                date_str = date_str[:10]
+            lines.append(
+                f"• <b>{date_str}</b> — "
+                f"{p['amount']} {p['token']} (<code>{p['tx_hash'][:10]}…</code>)"
+            )
+        msg = "\n".join(lines)
+
+        buttons = []
+        if page > 1:
+            buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data=f"view_my_payments_{page - 1}"))
+        if skip + page_size < total_count:
+            buttons.append(InlineKeyboardButton("Next ➡️", callback_data=f"view_my_payments_{page + 1}"))
+        buttons.append(InlineKeyboardButton("⬅️ Back", callback_data="back"))
+        buttons.append(InlineKeyboardButton("Exit", callback_data="exit"))
+        keyboard = InlineKeyboardMarkup([buttons])
 
         await query.edit_message_text(
             msg,
