@@ -378,7 +378,7 @@ class Database:
 
         # اگر member_no هنوز ست نشده باشد
         if "member_no" not in doc:
-            doc["member_no"] = await self._generate_member_no()
+            doc["member_no"] = await self._generate_member_no(user_id)
             await self.collection_users.update_one(
                 {"user_id": user_id},
                 {"$set": {"member_no": doc["member_no"]}}
