@@ -410,12 +410,22 @@ class ProfileHandler:
         #         parse_mode="HTML"
         #     )
         #     return
-        if not payouts:
-            await query.answer("No payouts recorded yet.", show_alert=True)
-            # بازگشت به پروفایل
-            await self.show_profile(update, context)
-            return
+        # if not payouts:
+        #     await query.answer("No payouts recorded yet.", show_alert=True)
+        #     # بازگشت به پروفایل
+        #     await self.show_profile(update, context)
+        #     return
 
+        if not payouts:
+            try:
+                # نمایش یک alert مختصر که پرداختی وجود ندارد
+                await query.answer("No payouts recorded yet.", show_alert=True)
+                # بازگشت به صفحه پروفایل با دکمه‌های کامل
+                await self.show_profile(update, context)
+            except Exception as e:
+                # اگر اروری خورد (مثلاً پیام پروفایل هم تکراری بود)، فقط لاگ کن یا نادیده بگیر
+                self.logger.warning(f"Error while returning to profile after no payouts: {e}")
+            return
 
         # ساخت پیام گزارش
         lines = ["<b>Your Payout History</b>\n"]
@@ -472,10 +482,19 @@ class ProfileHandler:
         ).sort("date", -1).skip(skip).limit(page_size)
         payments = await cursor.to_list(length=page_size)
 
+        # if not payments:
+        #     await query.answer("No payments recorded yet.", show_alert=True)
+        #     await self.show_profile(update, context)
+        #     return
+
         if not payments:
-            await query.answer("No payments recorded yet.", show_alert=True)
-            await self.show_profile(update, context)
+            try:
+                await query.answer("No payments recorded yet.", show_alert=True)
+                await self.show_profile(update, context)
+            except Exception as e:
+                self.logger.warning(f"Error while returning to profile after no payments: {e}")
             return
+
 
         lines = ["<b>Your Payment History</b>\n"]
         for p in payments:
