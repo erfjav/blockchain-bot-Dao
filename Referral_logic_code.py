@@ -75,29 +75,29 @@ from config import (
                                 # Covers additional costs or reserves.
 
     # Admin pools (TronLink)
-    WALLET_FIRST_ADMIN_POOL,    # 🪙 WALLET_FIRST_ADMIN_POOL
+    WALLET_FIRST_LEADER_POOL,    # 🪙 WALLET_FIRST_LEADER_POOL
                                 # Pool for first-level admin commissions.
                                 # Accumulates funds allocated to MAIN_LEADER_IDS.
                                 # Every 10 days, split equally among FIRST_ADMIN_PERSONAL_WALLETS.
     
-    WALLET_SECOND_ADMIN_POOL,   # 🪪 WALLET_SECOND_ADMIN_POOL
+    WALLET_SECOND_LEADER_POOL,   # 🪪 WALLET_SECOND_LEADER_POOL
                                 # Pool for second-level admin commissions.
-                                # Receives upstream commission shares for SECOND_ADMIN_USER_IDS.
+                                # Receives upstream commission shares for SECOND_LEADER_USER_IDS.
                                 # Every 10 days, 95% is split among 5 personal wallets;
                                 # 5% is kept as buffer for covering transaction fees.
 
     # Personal wallets (Trust Wallet)
     FIRST_ADMIN_PERSONAL_WALLETS,   # 👤 FIRST_ADMIN_PERSONAL_WALLETS
                                     # List of personal wallets for top-tier admins (Trust Wallet).
-                                    # Each receives equal share from WALLET_FIRST_ADMIN_POOL.      
+                                    # Each receives equal share from WALLET_FIRST_LEADER_POOL.      
     
     SECOND_ADMIN_PERSONAL_WALLETS,  # 👥 SECOND_ADMIN_PERSONAL_WALLETS
                                     # Exactly 5 personal wallets for second-tier admins (Trust Wallet).
-                                    # Each receives equal share (after buffer deduction) from WALLET_SECOND_ADMIN_POOL.
+                                    # Each receives equal share (after buffer deduction) from WALLET_SECOND_LEADER_POOL.
 
     # Staff / role IDs
     MAIN_LEADER_IDS,        # “first‑admins” – always eligible
-    SECOND_ADMIN_USER_IDS,  # “second‑admins” – must still bring 2
+    SECOND_LEADER_USER_IDS,  # “second‑admins” – must still bring 2
 )
 from core.crypto_handler import CryptoHandler
 
@@ -339,9 +339,9 @@ class ReferralManager:
     # Credit helper – routes to the correct corporate/admin pool or user balance
     async def _credit_user(self, uid: int, amount: Decimal, note: str):
         if uid in MAIN_LEADER_IDS:
-            await self._transfer_wallet(WALLET_FIRST_ADMIN_POOL, amount, f"1stadmin‑{note}", from_uid=uid)
-        elif uid in SECOND_ADMIN_USER_IDS:
-            await self._transfer_wallet(WALLET_SECOND_ADMIN_POOL, amount, f"2ndadmin‑{note}", from_uid=uid)
+            await self._transfer_wallet(WALLET_FIRST_LEADER_POOL, amount, f"1stadmin‑{note}", from_uid=uid)
+        elif uid in SECOND_LEADER_USER_IDS:
+            await self._transfer_wallet(WALLET_SECOND_LEADER_POOL, amount, f"2ndadmin‑{note}", from_uid=uid)
         else:
             await self.col_users.update_one({"user_id": uid}, {"$inc": {"balance_usd": amount}})
             await self.col_payments.insert_one({
@@ -426,7 +426,7 @@ class ReferralManager:
 
         try:
             bal = Decimal(str(await self.crypto_handler.get_wallet_balance(
-                "tron", WALLET_SECOND_ADMIN_POOL, "USDT", 6
+                "tron", WALLET_SECOND_LEADER_POOL, "USDT", 6
             )))
             if bal == 0:
                 return
@@ -447,8 +447,8 @@ class ReferralManager:
                     self.logger.warning("Second-admin share turned non-positive after fee adjustment – postponing payout.")
                     return
 
-            # zip با SECOND_ADMIN_USER_IDS
-            for idx, (w, user_id) in enumerate(zip(SECOND_ADMIN_PERSONAL_WALLETS, SECOND_ADMIN_USER_IDS), 1):
+            # zip با SECOND_LEADER_USER_IDS
+            for idx, (w, user_id) in enumerate(zip(SECOND_ADMIN_PERSONAL_WALLETS, SECOND_LEADER_USER_IDS), 1):
                 try:
                     tx_hash = await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
                     payout_period = (
@@ -482,7 +482,7 @@ class ReferralManager:
 
         try:
             bal = Decimal(str(await self.crypto_handler.get_wallet_balance(
-                "tron", WALLET_FIRST_ADMIN_POOL, "USDT", 6
+                "tron", WALLET_FIRST_LEADER_POOL, "USDT", 6
             )))
             if bal == 0:
                 return
@@ -555,7 +555,7 @@ class ReferralManager:
         now = datetime.utcnow()
         async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
             uid = user["user_id"]
-            if uid in MAIN_LEADER_IDS + SECOND_ADMIN_USER_IDS:
+            if uid in MAIN_LEADER_IDS + SECOND_LEADER_USER_IDS:
                 continue  # admins handled separately
 
             # ← استفاده از helper
@@ -641,7 +641,7 @@ class ReferralManager:
 
 ####################################################################################################### 
     # async def _split_second_admin_pool(self):
-    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_SECOND_ADMIN_POOL, "USDT", 6)))
+    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_SECOND_LEADER_POOL, "USDT", 6)))
     #     if bal == 0:
     #         return
 
@@ -670,7 +670,7 @@ class ReferralManager:
     #     # any residue (including buffer) stays in pool for next round
 
     # async def _split_first_admin_pool(self):
-    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_FIRST_ADMIN_POOL, "USDT", 6)))
+    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_FIRST_LEADER_POOL, "USDT", 6)))
     #     if bal == 0:
     #         return
     #     share = _round_down(bal / Decimal(len(FIRST_ADMIN_PERSONAL_WALLETS)))
@@ -683,7 +683,7 @@ class ReferralManager:
     #     now = datetime.utcnow()
     #     async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
     #         uid = user["user_id"]
-    #         if uid in MAIN_LEADER_IDS + SECOND_ADMIN_USER_IDS:
+    #         if uid in MAIN_LEADER_IDS + SECOND_LEADER_USER_IDS:
     #             continue  # admins handled separately
             
     #         second_date = await self._second_child_date(uid)

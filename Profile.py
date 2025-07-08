@@ -37,7 +37,7 @@ import base58
 from web3 import Web3
 from pymongo.errors import DuplicateKeyError
 
-from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
+from config import MAIN_LEADER_IDS, SECOND_LEADER_USER_IDS
 
 
 def valid_tron_address(address: str) -> bool:
@@ -250,7 +250,7 @@ class ProfileHandler:
             downline_count: int = profile.get("downline_count", 0)
             wallet_address = await self.db.get_wallet_address(chat_id)
             
-            is_manager = chat_id in MAIN_LEADER_IDS or chat_id in SECOND_ADMIN_USER_IDS
+            is_manager = chat_id in MAIN_LEADER_IDS or chat_id in SECOND_LEADER_USER_IDS
             star_tag = "⭐" if is_manager else ""
             
             username = update.effective_user.username if update.effective_user and update.effective_user.username else "—"            
@@ -381,8 +381,7 @@ class ProfileHandler:
         chat_id = query.from_user.id
 
         # بررسی فقط لیدرها ببینند
-        from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
-        is_manager = chat_id in MAIN_LEADER_IDS or chat_id in SECOND_ADMIN_USER_IDS
+        is_manager = chat_id in MAIN_LEADER_IDS or chat_id in SECOND_LEADER_USER_IDS
         if not is_manager:
             await query.answer("You are not authorized.")
             return
@@ -403,18 +402,6 @@ class ProfileHandler:
             {"user_id": chat_id}
         ).sort("date", -1).skip(skip).limit(page_size)
         payouts = await cursor.to_list(length=page_size)
-
-        # if not payouts:
-        #     await query.edit_message_text(
-        #         "No payouts recorded yet.",
-        #         parse_mode="HTML"
-        #     )
-        #     return
-        # if not payouts:
-        #     await query.answer("No payouts recorded yet.", show_alert=True)
-        #     # بازگشت به پروفایل
-        #     await self.show_profile(update, context)
-        #     return
 
         if not payouts:
             try:
@@ -481,11 +468,6 @@ class ProfileHandler:
             {"user_id": chat_id}
         ).sort("date", -1).skip(skip).limit(page_size)
         payments = await cursor.to_list(length=page_size)
-
-        # if not payments:
-        #     await query.answer("No payments recorded yet.", show_alert=True)
-        #     await self.show_profile(update, context)
-        #     return
 
         if not payments:
             try:

@@ -75,10 +75,10 @@ WALLET_SPLIT_10: str  = os.getenv("WALLET_SPLIT_10")       # 10% تقسیم
 WALLET_SPLIT_10_PRIVATE_KEY: str = os.getenv("WALLET_SPLIT_10_PRIVATE_KEY")
 
 # ────────────────────────────── Admin Pools (TronLink) ───────────────────────────────
-WALLET_FIRST_ADMIN_POOL: str  = os.getenv("WALLET_FIRST_ADMIN_POOL")
+WALLET_FIRST_LEADER_POOL: str  = os.getenv("WALLET_FIRST_LEADER_POOL")
 WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY:   str = os.getenv("WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY")
 
-WALLET_SECOND_ADMIN_POOL: str = os.getenv("WALLET_SECOND_ADMIN_POOL")
+WALLET_SECOND_LEADER_POOL: str = os.getenv("WALLET_SECOND_LEADER_POOL")
 WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY:  str = os.getenv("WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY")
 
 # ────────────────────────────── Personal Wallets (TrustWallet) ───────────────────────────────
@@ -93,8 +93,8 @@ SECOND_ADMIN_PERSONAL_WALLETS: list[str] = [
 MAIN_LEADER_IDS: list[int] = [
     int(uid.strip()) for uid in os.getenv("MAIN_LEADER_IDS", "").split(",") if uid.strip()
 ]  # ادمین‌های اصلی
-SECOND_ADMIN_USER_IDS: list[int] = [
-    int(uid.strip()) for uid in os.getenv("SECOND_ADMIN_USER_IDS", "").split(",") if uid.strip()
+SECOND_LEADER_USER_IDS: list[int] = [
+    int(uid.strip()) for uid in os.getenv("SECOND_LEADER_USER_IDS", "").split(",") if uid.strip()
 ]  # ادمین‌های دوم که باید دو نفر جذب کنند
 
 ##############################################################################################################
@@ -154,8 +154,8 @@ __all__ = [
     "WALLET_SPLIT_10_PRIVATE_KEY"
     
     #---------------------------------------
-    "WALLET_FIRST_ADMIN_POOL",
-    "WALLET_SECOND_ADMIN_POOL",
+    "WALLET_FIRST_LEADER_POOL",
+    "WALLET_SECOND_LEADER_POOL",
     
     "WALLET_FIRST_ADMIN_POOL_PRIVATE_KEY",
     "WALLET_SECOND_ADMIN_POOL_PRIVATE_KEY",
@@ -166,7 +166,7 @@ __all__ = [
     #----------------------------------------
     
     "MAIN_LEADER_IDS",
-    "SECOND_ADMIN_USER_IDS",    
+    "SECOND_LEADER_USER_IDS",    
     #----------------------------------------
     # Wallets / Payments
     "TRADE_WALLET_ADDRESS",

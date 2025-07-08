@@ -10,7 +10,7 @@ from typing import Optional, Dict, Any, List
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import PyMongoError, DuplicateKeyError
 from pymongo import ReturnDocument, DESCENDING, ASCENDING
-from config import MAIN_LEADER_IDS, SECOND_ADMIN_USER_IDS
+from config import MAIN_LEADER_IDS, SECOND_LEADER_USER_IDS
 
 class Database:
     def __init__(self):
@@ -349,7 +349,7 @@ class Database:
     ):
         """ذخیره گزارش پرداخت جدید برای لیدر (مدیر)"""
         
-        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
+        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_LEADER_USER_IDS
         if not is_manager:
             self.logger.warning(f"store_leader_payment: user_id {user_id} is not a manager/leader, skipping store!")
             return  # اگر مدیر نبود، گزارش ذخیره نشود
@@ -374,7 +374,7 @@ class Database:
     ) -> List[Dict[str, Any]]:
         """دریافت آخرین پرداخت‌های یک لیدر"""
         
-        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
+        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_LEADER_USER_IDS
         if not is_manager:
             return []  # اگر مدیر نبود، چیزی برنگرداند
         cursor = self.collection_leader_payments.find(
@@ -409,7 +409,7 @@ class Database:
     
     async def _generate_member_no(self, user_id: int) -> str:
 
-        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_ADMIN_USER_IDS
+        is_manager = user_id in MAIN_LEADER_IDS or user_id in SECOND_LEADER_USER_IDS
 
         if is_manager:
             counter = await self.collection_counters.find_one_and_update(
