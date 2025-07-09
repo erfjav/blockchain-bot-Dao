@@ -5,11 +5,16 @@ from __future__ import annotations
 import httpx
 from decimal import Decimal
 from typing import Any, Literal
+from tronpy.keys import to_hex_address
 
 import config
-from .blockchain_client import BlockchainClient, DECIMALS
+from .blockchain_client import BlockchainClient
+
+DECIMALS = 6
 
 DEFAULT_USDT_CONTRACT                =     config.USDT_CONTRACT
+
+TRON_NODE_URL        = config.TRON_PROVIDER_URL   # e.g. https://api.trongrid.io
 
 # بارگذاری کلیدهای خصوصی جدید
 # Private key for the join-pool wallet (collects membership fees)
@@ -31,6 +36,7 @@ WALLET_SPLIT_70_PRIVATE_KEY          =     config.WALLET_SPLIT_70_PRIVATE_KEY
 # Add new wallet private keys at the top (if not already):
 WALLET_SPLIT_20_PRIVATE_KEY =              config.WALLET_SPLIT_20_PRIVATE_KEY
 WALLET_SPLIT_10_PRIVATE_KEY =              config.WALLET_SPLIT_10_PRIVATE_KEY
+
 
 # Define the ERC20 ABI manually since it's not available in this tronpy version
 ERC20_ABI = [
@@ -96,62 +102,127 @@ class CryptoHandler:
         chain: str,
         address: str,
         token_contract: str | None = None,
-        decimals: int = 6,
+        decimals: int = DECIMALS,
     ) -> Decimal:
         """
-        برمی‌گرداند موجودی توکن در ولت به‌صورت Decimal
-        (برای USDT-TRC20 با ۶ رقم اعشار به‌صورت پیش‌فرض).
+        Return the TRC-20 token balance of `address` as a Decimal.
+        Supports only Tron + USDT by default.
         """
         if chain.lower() != "tron":
-            raise NotImplementedError("Only Tron network is implemented.")
+            raise NotImplementedError("Only Tron network is implemented")
 
-        # استفاده از قرارداد توکن پیش‌فرض در صورت عدم ارسال
+        # 1) choose contract
         token_contract = token_contract or DEFAULT_USDT_CONTRACT
 
+        # 2) convert base58 T-address → hex 41… form
         try:
-            # تبدیل آدرس Tron به هگز
+            hex_address = to_hex_address(address)          # safe helper
+        except Exception:
+            # fallback: simple replace for already-hex strings
             if address.startswith("T"):
-                hex_address = address.replace("T", "41", 1)
+                hex_address = "41" + address[1:]
             else:
                 hex_address = address
-            # اطمینان از طول ۴۲ کاراکتری (۲ حرف ۰x + 40 کاراکتر)
-            hex_address = hex_address.rjust(42, "0")
+        # ensure 0x prefix for TronGrid API
+        if not hex_address.startswith("0x"):
+            hex_address = "0x" + hex_address
 
-            # آماده‌سازی داده برای فراخوانی تابع balanceOf(address)
-            function_selector = "balanceOf(address)"
-            parameter = hex_address[2:].ljust(64, "0")  # حذف پیشوند 0x و padding تا 64 کاراکتر
+        # 3) build payload for balanceOf(address)
+        function_selector = "balanceOf(address)"
+        parameter = hex_address[2:].rjust(64, "0")        # strip 0x, pad to 32-byte
 
-            # ارسال درخواست به TronGrid
-            url = f"{config.TRON_PROVIDER_URL}/wallet/triggerconstantcontract"
-            payload = {
-                "owner_address": hex_address,         # بهتر owner را همان آدرس hex کاربر بگذارید
-                "contract_address": token_contract,
-                "function_selector": function_selector,
-                "parameter": parameter,
-                "visible": True
-            }
-            headers = {}
-            if getattr(config, "TRON_PRO_API_KEY", None):
-                headers["TRON-PRO-API-KEY"] = config.TRON_PRO_API_KEY
+        url = f"{TRON_NODE_URL}/wallet/triggerconstantcontract"
+        payload = {
+            "owner_address":  hex_address,
+            "contract_address": token_contract,
+            "function_selector": function_selector,
+            "parameter": parameter,
+            "visible": True,
+        }
+        headers = {}
+        if getattr(config, "TRON_PRO_API_KEY", None):
+            headers["TRON-PRO-API-KEY"] = config.TRON_PRO_API_KEY
 
+        try:
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.post(url, json=payload, headers=headers)
+                resp.raise_for_status()
                 data = resp.json()
+        except Exception as exc:
+            # network or API error → return zero
+            print(f"Error querying balance: {exc}")
+            return Decimal("0")
 
-            # در صورت پاسخ موفق و وجود constant_result
-            results = data.get("constant_result") or []
-            if data.get("result", {}).get("result") and results:
-                raw_hex = results[0]
-                raw_balance = int(raw_hex, 16)
-                # تقسیم با توجه به دقت (decimals)
-                return Decimal(raw_balance) / (Decimal(10) ** decimals)
-            else:
-                return Decimal("0")
+        # 4) parse result
+        const_res = data.get("constant_result", [])
+        if data.get("result", {}).get("result") and const_res:
+            raw_balance = int(const_res[0], 16)
+            return Decimal(raw_balance) / (Decimal(10) ** decimals)
 
-        except Exception as e:
-            # در صورت هر خطا، صفر برگردان
-            print(f"Error getting balance: {e}")
-            return Decimal("0")    
+        return Decimal("0")     # default when no result    
+    
+    
+    # async def get_wallet_balance(
+    #     self,
+    #     chain: str,
+    #     address: str,
+    #     token_contract: str | None = None,
+    #     decimals: int = 6,
+    # ) -> Decimal:
+    #     """
+    #     برمی‌گرداند موجودی توکن در ولت به‌صورت Decimal
+    #     (برای USDT-TRC20 با ۶ رقم اعشار به‌صورت پیش‌فرض).
+    #     """
+    #     if chain.lower() != "tron":
+    #         raise NotImplementedError("Only Tron network is implemented.")
+
+    #     # استفاده از قرارداد توکن پیش‌فرض در صورت عدم ارسال
+    #     token_contract = token_contract or DEFAULT_USDT_CONTRACT
+
+    #     try:
+    #         # تبدیل آدرس Tron به هگز
+    #         if address.startswith("T"):
+    #             hex_address = address.replace("T", "41", 1)
+    #         else:
+    #             hex_address = address
+    #         # اطمینان از طول ۴۲ کاراکتری (۲ حرف ۰x + 40 کاراکتر)
+    #         hex_address = hex_address.rjust(42, "0")
+
+    #         # آماده‌سازی داده برای فراخوانی تابع balanceOf(address)
+    #         function_selector = "balanceOf(address)"
+    #         parameter = hex_address[2:].ljust(64, "0")  # حذف پیشوند 0x و padding تا 64 کاراکتر
+
+    #         # ارسال درخواست به TronGrid
+    #         url = f"{config.TRON_PROVIDER_URL}/wallet/triggerconstantcontract"
+    #         payload = {
+    #             "owner_address": hex_address,         # بهتر owner را همان آدرس hex کاربر بگذارید
+    #             "contract_address": token_contract,
+    #             "function_selector": function_selector,
+    #             "parameter": parameter,
+    #             "visible": True
+    #         }
+    #         headers = {}
+    #         if getattr(config, "TRON_PRO_API_KEY", None):
+    #             headers["TRON-PRO-API-KEY"] = config.TRON_PRO_API_KEY
+
+    #         async with httpx.AsyncClient(timeout=10) as client:
+    #             resp = await client.post(url, json=payload, headers=headers)
+    #             data = resp.json()
+
+    #         # در صورت پاسخ موفق و وجود constant_result
+    #         results = data.get("constant_result") or []
+    #         if data.get("result", {}).get("result") and results:
+    #             raw_hex = results[0]
+    #             raw_balance = int(raw_hex, 16)
+    #             # تقسیم با توجه به دقت (decimals)
+    #             return Decimal(raw_balance) / (Decimal(10) ** decimals)
+    #         else:
+    #             return Decimal("0")
+
+    #     except Exception as e:
+    #         # در صورت هر خطا، صفر برگردان
+    #         print(f"Error getting balance: {e}")
+    #         return Decimal("0")    
     
     def asset_is_stable(self, chain: str = "tron") -> bool:
         """

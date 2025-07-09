@@ -39,19 +39,6 @@ MAX_ATTEMPTS    = 15                            # ≈ 7.5 دقیقه
 # WALLET_JOIN_POOL: Address where membership fees are collected
 WALLET_JOIN_POOL = config.WALLET_JOIN_POOL
 
-# # WALLET_JOIN_POOL_PRIVATE_KEY: Private key used to sign outbound transactions from the WALLET_JOIN_POOL address
-# WALLET_JOIN_POOL_PRIVATE_KEY = config.WALLET_JOIN_POOL_PRIVATE_KEY
-
-
-# SPLIT_WALLETS = [
-#     (config.WALLET_SPLIT_70, 0.70),
-#     (config.WALLET_SPLIT_20, 0.20),
-#     (config.WALLET_SPLIT_10, 0.10),
-# ]
-
-# # This variable defines the **smart contract address** of the USDT token on the TRON blockchain (TRC-20 standard).
-# USDT_CONTRACT        = config.USDT_CONTRACT
-
 
 TRADE_CHANNEL_ID = config.TRADE_CHANNEL_ID
 

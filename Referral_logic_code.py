@@ -102,7 +102,6 @@ from config import (
 )
 from core.crypto_handler import CryptoHandler
 
-logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Business constants
@@ -114,6 +113,8 @@ INVITER_DIRECT_USD  = Decimal("5")              # Paid immediately to inviter
 COMPANY_MAIN_RATE   = Decimal("0.20")            # 9 USDT
 COMPANY_ALT_RATE    = Decimal("0.10")            # 4.5 USDT
 UPSTREAM_RATE       = Decimal("0.70")            # 31.5 USDT
+
+_DECIMALS = 6
 
 MICRO = Decimal("1000000")  # 1e6 (USDT has 6 decimals)
 
@@ -356,41 +357,117 @@ class ReferralManager:
     # ────────────────────────────────────────────────────────────
     # Safe blockchain transfer (3 retries)
     # -----------------------------------------------------------
-    async def _transfer_wallet(self, wallet: str, amount: Decimal, note: str, *, from_uid: Optional[int] = None):
+    
+    async def _transfer_wallet(
+        self,
+        wallet: str,
+        amount: Decimal,
+        note: str,
+        *,
+        from_uid: Optional[int] = None,
+    ):
+        """Send `amount` USDT (Decimal) from the correct pool to `wallet` on Tron."""
         micros = _dec_to_micro(amount)
-        fee_estimate = await self._estimate_fee(wallet, micros)
-        logger.debug("Transfer %s → %s (%.6f USDT) fee≈%.4f", note, wallet, amount, fee_estimate)
 
+        # 1) rough fee estimate (optional – can be 0)
+        fee_estimate = await self._estimate_fee(wallet, micros)
+        logger.debug(
+            "Transfer %s → %s (%.6f USDT) fee≈%.4f",
+            note,
+            wallet,
+            amount,
+            fee_estimate,
+        )
+
+        # 2) map destination wallet ⇒ source key name for CryptoHandler.transfer()
+        source_map = {
+            WALLET_JOIN_POOL:              "join",
+            WALLET_FIRST_LEADER_POOL:      "admin1",
+            WALLET_SECOND_LEADER_POOL:     "admin2",
+            WALLET_SPLIT_70:               "split70",
+            WALLET_SPLIT_20:               "split20",
+            WALLET_SPLIT_10:               "split10",
+        }
+        from_wallet = source_map.get(wallet, "join")  # default to join-pool key
+
+        # 3) try up to three times
         for attempt in range(3):
             try:
-                tx_hash = await self.crypto_handler.transfer("tron", wallet, micros, token_symbol="USDT", decimals=6)
-                await self.col_payments.insert_one({
-                    "user_id":   from_uid,
-                    "wallet":    wallet,
-                    "amount_usd": str(amount),
-                    "tx_hash":   tx_hash,
-                    "status":    "success",
-                    "note":      note,
-                    "timestamp": datetime.utcnow(),
-                })
-                # return
+                tx_hash = await self.crypto_handler.transfer(
+                    "tron",
+                    wallet,
+                    micros,
+                    from_wallet,           # ← fourth positional argument (required)
+                    token_symbol="USDT",
+                    decimals=_DECIMALS,
+                )
+                await self.col_payments.insert_one(
+                    {
+                        "user_id":    from_uid,
+                        "wallet":     wallet,
+                        "amount_usd": str(amount),
+                        "tx_hash":    tx_hash,
+                        "status":     "success",
+                        "note":       note,
+                        "timestamp":  datetime.utcnow(),
+                    }
+                )
                 return tx_hash
             except Exception as exc:
-                logger.warning("Transfer attempt %d failed (%s): %s", attempt + 1, note, exc)
+                logger.warning(
+                    "Transfer attempt %d failed (%s): %s", attempt + 1, note, exc
+                )
                 await asyncio.sleep(1.5)
 
-        # after 3 failed attempts – mark as pending
-        await self.col_payments.insert_one({
-            "user_id":   from_uid,
-            "wallet":    wallet,
-            "amount_usd": str(amount),
-            "tx_hash":   None,
-            "status":    "pending_retry",
-            "note":      note,
-            "timestamp": datetime.utcnow(),
-        })
+        # 4) after 3 failures mark as pending
+        await self.col_payments.insert_one(
+            {
+                "user_id":    from_uid,
+                "wallet":     wallet,
+                "amount_usd": str(amount),
+                "tx_hash":    None,
+                "status":     "pending_retry",
+                "note":       note,
+                "timestamp":  datetime.utcnow(),
+            }
+        )
+        return None  # explicit fallback    
+    
+    # async def _transfer_wallet(self, wallet: str, amount: Decimal, note: str, *, from_uid: Optional[int] = None):
+    #     micros = _dec_to_micro(amount)
+    #     fee_estimate = await self._estimate_fee(wallet, micros)
+    #     logger.debug("Transfer %s → %s (%.6f USDT) fee≈%.4f", note, wallet, amount, fee_estimate)
+
+    #     for attempt in range(3):
+    #         try:
+    #             tx_hash = await self.crypto_handler.transfer("tron", wallet, micros, token_symbol="USDT", decimals=6)
+    #             await self.col_payments.insert_one({
+    #                 "user_id":   from_uid,
+    #                 "wallet":    wallet,
+    #                 "amount_usd": str(amount),
+    #                 "tx_hash":   tx_hash,
+    #                 "status":    "success",
+    #                 "note":      note,
+    #                 "timestamp": datetime.utcnow(),
+    #             })
+    #             # return
+    #             return tx_hash
+    #         except Exception as exc:
+    #             logger.warning("Transfer attempt %d failed (%s): %s", attempt + 1, note, exc)
+    #             await asyncio.sleep(1.5)
+
+    #     # after 3 failed attempts – mark as pending
+    #     await self.col_payments.insert_one({
+    #         "user_id":   from_uid,
+    #         "wallet":    wallet,
+    #         "amount_usd": str(amount),
+    #         "tx_hash":   None,
+    #         "status":    "pending_retry",
+    #         "note":      note,
+    #         "timestamp": datetime.utcnow(),
+    #     })
         
-        return None  # ← این خط اضافه شد
+        # return None  # ← این خط اضافه شد
     async def _estimate_fee(self, wallet: str, micros: int) -> Decimal:
         try:
             return Decimal(str(await self.crypto_handler.estimate_fee("tron", wallet, micros, token_symbol="USDT", decimals=6)))

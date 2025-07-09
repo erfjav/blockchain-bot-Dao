@@ -44,10 +44,11 @@ class TradeHandler:
             # ───➤ متن خوش‌آمدگویی و اطلاع‌رسانی
             msg_en = (
                 "<b>🪙 Welcome to the Trade Menu!</b>\n\n"
+                "<b>This section will be fully implemented soon.</b> \n\n"
                 "You are now in the <b>Trading Section</b> of the bot. Here you can:\n\n"
                 "• <b>🛒 Buy</b> tokens at the current market price\n\n"
                 "• <b>💸 Sell</b> tokens from your balance\n\n"
-                "This section will be fully implemented soon."
+                
             )
 
             await update.message.reply_text(
