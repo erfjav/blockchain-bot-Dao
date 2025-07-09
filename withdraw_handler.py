@@ -120,24 +120,6 @@ class WithdrawHandler:
                 await self._reply(update, context, text, chat_id)
                 return
 
-
-            # # ۳) فاصلهٔ ۳۰ روز بین برداشت‌ها
-            # last_req = await self.db.get_last_withdraw_request(chat_id)
-            # if last_req and last_req.get("created_at"):
-            #     last_date = last_req["created_at"]
-            #     delta = datetime.utcnow() - last_date
-            #     if delta < timedelta(days=WITHDRAW_INTERVAL_DAYS):
-            #         days_left = WITHDRAW_INTERVAL_DAYS - delta.days
-            #         next_date = (last_date + timedelta(days=WITHDRAW_INTERVAL_DAYS)).strftime("%Y-%m-%d")
-            #         text = (
-            #             "❌ <b>Withdrawal not available yet.</b>\n"
-            #             f"Your last withdrawal was on <b>{last_date.strftime('%Y-%m-%d')}</b>.\n"
-            #             f"Next withdrawal available in <b>{days_left} day(s)</b> (on {next_date})."
-            #         )
-            #         await self._reply(update, context, text, chat_id)
-            #         return
-
-
             # ── ۳) وجود آدرس کیف‌پول
             if not wallet:
                 text = (
@@ -217,21 +199,6 @@ class WithdrawHandler:
                     parse_mode="HTML"
                 )
                 return
-
-
-            # # ➋′ تکرار چک فاصلهٔ ۳۰ روز (defensive re-check)
-            # last_req = await self.db.get_last_withdraw_request(chat_id)
-            # if last_req and last_req.get("created_at"):
-            #     last_date = last_req["created_at"]
-            #     if datetime.utcnow() - last_date < timedelta(days=WITHDRAW_INTERVAL_DAYS):
-            #         days_left = WITHDRAW_INTERVAL_DAYS - (datetime.utcnow() - last_date).days
-            #         await query.edit_message_text(
-            #             "❌ Withdrawal not available yet.\n"
-            #             f"Next withdrawal in <b>{days_left}</b> day(s).",
-            #             parse_mode="HTML"
-            #         )
-            #         return
-
 
             # ➊ ثبت درخواست در DB (status=pending)
             await self.db.create_withdraw_request(chat_id, wallet, WITHDRAW_AMOUNT_USD)

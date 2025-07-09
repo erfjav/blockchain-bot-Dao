@@ -824,18 +824,4 @@ class Database:
             self.client.close()
             self.logger.info("✅ Database connection closed.")        
             
-            
-
     
-    # async def _generate_member_no(self) -> int:
-    #     """
-    #     یک شمارهٔ عضویت یکتا و افزایشی برمی‌گرداند.
-    #     از کالکشنی به نام 'counters' استفاده می‌کند.
-    #     """
-    #     counter = await self.collection_counters.find_one_and_update(
-    #         {"_id": "member_no"},             # این سند فقط یک رکورد است
-    #         {"$inc": {"seq": 1}},             # مقدار seq را +۱ می‌کند
-    #         upsert=True,                      # اگر وجود نداشت می‌سازد
-    #         return_document=ReturnDocument.AFTER,
-    #     )
-    #     return counter["seq"]

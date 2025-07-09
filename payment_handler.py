@@ -272,39 +272,6 @@ class PaymentHandler:
                 reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id)
             )
 
-    # # ─────────────────────────────────────────────────────────────
-    # # ➊ متد جدید: تقسیم وجه بین سه کیف‌پول
-    # # ─────────────────────────────────────────────────────────────
-    # async def _split_funds(self, amount_usdt: float) -> None:
-    #     """
-    #     انتقال خودکار USDT به سه کیف‌پول طبق نسبت تعریف‌شده.
-    #     """
-    #     if not WALLET_JOIN_POOL_PRIVATE_KEY:
-    #         self.logger.error("[_split_funds] WALLET_JOIN_POOL_PRIVATE_KEY not set – aborting split.")
-    #         return
-
-    #     for addr, ratio in SPLIT_WALLETS:
-    #         if not addr:
-    #             continue  # این کیف‌پول تعریف نشده است
-    #         share = round(amount_usdt * ratio, DECIMALS)
-    #         if share <= 0:
-    #             continue
-
-    #         try:
-    #             txid = await self.blockchain.transfer_trc20(
-    #                 from_private_key=WALLET_JOIN_POOL_PRIVATE_KEY,
-    #                 to_address=addr,
-    #                 amount=share,
-    #                 token_contract=USDT_CONTRACT,
-    #                 decimals=DECIMALS,
-    #                 memo="membership split",
-    #             )
-    #             self.logger.info(f"[split] → {addr[-6:]}  {share} USDT  txid={txid}")
-    #         except Exception as e:
-    #             # در صورت خطا، فقط لاگ کنید؛ می‌توانید هشدار تلگرام/ایمیل اضافه کنید
-    #             self.logger.error(f"[split] transfer to {addr} failed: {e}", exc_info=True)
-
-
     # ─────────────────────────────────────────────────────────────
     # ➋ پایش تراکنش روی بلاک‌چین و تخصیص توکن
     # ─────────────────────────────────────────────────────────────
@@ -429,125 +396,6 @@ class PaymentHandler:
         )
         self.logger.warning(f"[monitor_payment] FAILED after {MAX_ATTEMPTS} for {chat_id}")
 
-
-    # # ─────────────────────────────────────────────────────────────
-    # # ➋ پایش تراکنش روی بلاک‌چین و تخصیص توکن
-    # # ─────────────────────────────────────────────────────────────
-    # async def monitor_payment(
-    #     self,
-    #     chat_id: int,
-    #     txid: str,
-    #     bot,
-    #     context: ContextTypes.DEFAULT_TYPE,
-    # ) -> None:
-    #     """
-    #     هر ۳۰ ثانیه وضعیت تراکنش TRC-20 را چک می‌کند تا تأیید شود.
-    #     پس از تأیید:
-    #       1) تقسیم مبلغ بین سه کیف‌پول
-    #       2) ثبت/فعال‌سازی پروفایل کاربر
-    #       3) ارسال پیام موفق
-    #     در غیر این صورت پس از ۱۵ تلاش → failed
-    #     """
-    #     user_wallet = await self.db.get_wallet_address(chat_id)  # ممکن است None باشد
-    #     tron_api = f"https://api.trongrid.io/wallet/gettransactionbyid?value={txid}"
-
-    #     for attempt in range(1, MAX_ATTEMPTS + 1):
-    #         try:
-    #             async with httpx.AsyncClient(timeout=10) as client:
-    #                 data = (await client.get(tron_api)).json()
-
-    #             # ───── بررسی وضعیت و شروط ───────────────────────────
-    #             status_ok = (
-    #                 data.get("ret")
-    #                 and data["ret"][0].get("contractRet") == "SUCCESS"
-    #             )
-
-    #             prm_value = data["raw_data"]["contract"][0]["parameter"]["value"]
-    #             to_addr   = prm_value.get("to_address", "").lower()
-    #             owner_addr = prm_value.get("owner_address", "").lower()
-
-    #             to_ok    = to_addr == self.wallet_address
-    #             owner_ok = True if user_wallet is None else owner_addr == user_wallet.lower()
-
-    #             token_ok = data.get("tokenInfo", {}).get("symbol") == TOKEN_SYMBOL
-    #             amount   = int(data.get("amount_str", "0")) / 10**DECIMALS
-    #             amount_ok = amount >= JOIN_FEE_USDT
-
-    #             if status_ok and to_ok and owner_ok and token_ok and amount_ok:
-    #                 # ➊ ذخیره وضعیت پرداخت
-    #                 await self.db.update_payment_status(txid, "confirmed")
-
-    #                 # ➋ تقسیم مبلغ بین سه کیف‌پول
-    #                 await self._split_funds(amount)
-
-    #                 # ➌ ایجاد/به‌روزرسانی پروفایل و تخصیص توکن
-    #                 profile = await self.referral_manager.ensure_user(
-    #                     chat_id,
-    #                     inviter_code=context.user_data.get("inviter_code"),
-    #                     first_name=bot.get_chat(chat_id).first_name,
-    #                 )
-
-    #                 # ➍ پیام موفقیت
-    #                 success_msg = (
-    #                     "✅ Payment confirmed!\n\n"
-    #                     f"• Member No: <b>{profile['member_no']}</b>\n"
-    #                     f"• Referral Code: <code>{profile['referral_code']}</code>\n"
-    #                     f"• Tokens Allocated: <b>{profile['tokens']:.0f}</b>"
-    #                 )
-    #                 translated = await self.translation_manager.translate_for_user(
-    #                     success_msg, chat_id
-    #                 )
-    #                 await bot.send_message(
-    #                     chat_id,
-    #                     translated,
-    #                     parse_mode="HTML",
-    #                     reply_markup=await self.keyboards.build_main_menu_keyboard_v2(
-    #                         chat_id
-    #                     ),
-    #                 )
-    #                 self.logger.info(f"[monitor_payment] ✅ confirmed for {chat_id}")
-    #                 return
-
-    #             # اگر تراکنش یافت شد ولی شروط کامل نبود
-    #             if status_ok and (not to_ok or not token_ok or not amount_ok or not owner_ok):
-    #                 await self.db.update_payment_status(txid, "failed")
-    #                 warn_msg = (
-    #                     "❌ TxID is valid but does not match the required criteria "
-    #                     "(destination, amount, or your wallet). Please verify and try again."
-    #                 )
-    #                 translated_warn = await self.translation_manager.translate_for_user(
-    #                     warn_msg, chat_id
-    #                 )
-    #                 await bot.send_message(
-    #                     chat_id,
-    #                     translated_warn,
-    #                     parse_mode="HTML",
-    #                     reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #                 )
-    #                 return
-
-    #         except Exception as e:
-    #             self.logger.warning(f"[monitor_payment] attempt {attempt}: {e}")
-
-    #         await asyncio.sleep(POLL_INTERVAL)
-
-    #     # ───── پس از بی‌نتیجه ماندن تلاش‌ها ─────────────────────────
-    #     await self.db.update_payment_status(txid, "failed")
-    #     error_msg = (
-    #         "❌ <b>Payment was not confirmed within the expected time.</b>\n"
-    #         "If you already paid, please contact support with your TxID."
-    #     )
-    #     translated_error = await self.translation_manager.translate_for_user(
-    #         error_msg, chat_id
-    #     )
-    #     await bot.send_message(
-    #         chat_id,
-    #         translated_error,
-    #         parse_mode="HTML",
-    #         reply_markup=await self.keyboards.build_back_exit_keyboard(chat_id),
-    #     )
-    #     self.logger.warning(f"[monitor_payment] FAILED after {MAX_ATTEMPTS} for {chat_id}")
- 
     # =========================================================================
     #  ب) دریافت و تأیید TxID خریدار
     # =========================================================================
@@ -651,7 +499,7 @@ class PaymentHandler:
             # 🧼 پاک‌سازی state
             context.user_data.clear()
     
-###################################################################################################################
+
 
 
 

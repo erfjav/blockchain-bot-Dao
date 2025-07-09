@@ -202,24 +202,41 @@ class BotManager:
                 blockchain_client=self.blockchain   # فقط اگر تسویهٔ آنی دارید
             )
             self.logger.info("WithdrawHandler initialized.")
-
+            
+            #---------------------------------------------------------------------####
+            
+            # در بخشی از BotManager یا کلاس اصلی که TradeHandler راه‌اندازی می‌شود:
             self.trade_handler = TradeHandler(
-                bot=self.bot, 
                 keyboards=self.keyboards,
                 translation_manager=self.translation_manager,
-                db=self.db,
-                price_provider=self.price_provider,  # باید متد async def get_price() داشته باشد
-                referral_manager=self.referral_manager,
                 error_handler=self.error_handler,
-                blockchain=self.blockchain,          # ← جدید
             )
             # لاگِ راه‌اندازی TradeHandler
             self.logger.info(
-                "TradeHandler initialized (price_provider=%s, referral_manager=%s)",
-                type(self.price_provider).__name__,
-                type(self.referral_manager).__name__
+                "TradeHandler initialized (keyboards=%s, translation_manager=%s, error_handler=%s)",
+                type(self.keyboards).__name__,
+                type(self.translation_manager).__name__,
+                type(self.error_handler).__name__,
             )
-  
+            
+            
+            # self.trade_handler = TradeHandler(
+            #     bot=self.bot, 
+            #     keyboards=self.keyboards,
+            #     translation_manager=self.translation_manager,
+            #     db=self.db,
+            #     price_provider=self.price_provider,  # باید متد async def get_price() داشته باشد
+            #     referral_manager=self.referral_manager,
+            #     error_handler=self.error_handler,
+            #     blockchain=self.blockchain,          # ← جدید
+            # )
+            # # لاگِ راه‌اندازی TradeHandler
+            # self.logger.info(
+            #     "TradeHandler initialized (price_provider=%s, referral_manager=%s)",
+            #     type(self.price_provider).__name__,
+            #     type(self.referral_manager).__name__
+            # )
+            #---------------------------------------------------------------------###
             self.token_price_handler = TokenPriceHandler(
                 price_provider=self.price_provider,
                 keyboards=self.keyboards,
@@ -688,32 +705,33 @@ class BotManager:
             self.application.add_handler(
                 CallbackQueryHandler(self.profile_handler.handle_view_my_payments, pattern=r"^view_my_payments_"), group=0)
 
-            ############---------------------------------------------------------------------------------------######
+            ########################################################################################################
 
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.buy_order_callback, pattern=r"^buy_order_\d+$"), group=0 )
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.buy_order_callback, pattern=r"^buy_order_\d+$"), group=0 )
 
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"), group=0)
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.prompt_trade_txid, pattern=r"^paid_\d+$"), group=0)
            
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.cancel_order_callback, pattern=r"^cancel_\d+$"), group=0)           
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.cancel_order_callback, pattern=r"^cancel_\d+$"), group=0)           
             
-            ###########------------------------------------------------------------------------------------------------
+            # ###########------------------------------------------------------------------------------------------------
             
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"), group=0)            
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.sell_order_callback, pattern=r"^sell_order_\d+$"), group=0)            
             
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.seller_confirm_callback, pattern=r"^confirm_sell_\d+$"), group=0)
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.seller_confirm_callback, pattern=r"^confirm_sell_\d+$"), group=0)
             
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.seller_cancel_callback,  pattern=r"^cancel_sell_\d+$"), group=0)
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.seller_cancel_callback,  pattern=r"^cancel_sell_\d+$"), group=0)
             
-            self.application.add_handler(
-                CallbackQueryHandler(self.trade_handler.prompt_buy_payment,     pattern=r"^(paid|cancel_payment)_\d+$"), group=0)            
+            # self.application.add_handler(
+            #     CallbackQueryHandler(self.trade_handler.prompt_buy_payment,     pattern=r"^(paid|cancel_payment)_\d+$"), group=0)            
             
-            #######-------------------------------------------------------------------------------------------########
+            ########################################################################################################
+            
             self.application.add_handler(
                 CallbackQueryHandler(self.check_join_callback, pattern="^check_join$"), group=1)
 
@@ -785,11 +803,13 @@ class BotManager:
                 return await self.help_handler.show_help_command(update, context)  # ← اضافه کردن return
 
             elif text_lower == '📬 customer support':
-                return await self.support_handler.show_support_info(update, context)  # ← اضافه کردن return        
-            #--------------------------------------------------------------------------------
+                return await self.support_handler.show_support_info(update, context)  # ← اضافه کردن return   
+                 
+            ########################################################################################################
             elif text_lower == '💰 trade':
                 return await self.trade_handler.trade_menu(update, context)  # ← اضافه کردن return
-                
+            ########################################################################################################
+              
             elif text_lower == '💳 payment':
                 return await self.payment_handler.show_payment_instructions(update, context)  # ← اضافه کردن return
             #-------------------------------------------------------------------------------------------    
@@ -853,31 +873,35 @@ class BotManager:
 
             elif text_lower == '💸 earn money':
                 return await self.earn_money_handler.coming_soon(update, context)  # ← اضافه کردن return
-
-            # ─── Trade Menu Sub-Options ──────────────────────
-            elif text_lower == '🛒 buy':
-                return await self.trade_handler.buy_start(update, context)
-
-            elif text_lower == '💸 sell':
-                return await self.trade_handler.sell_start(update, context)
-
-            # ─── مدیریت ورودی عددی در فلو خرید/فروش ───────────────
-            elif current_state == 'awaiting_buy_amount':
-                return await self.trade_handler.buy_amount(update, context)
-
-            elif current_state == 'awaiting_buy_price':
-                return await self.trade_handler.buy_price(update, context)
-
-            elif current_state == 'awaiting_sell_amount':
-                return await self.trade_handler.sell_amount(update, context)
             
-            elif current_state == 'awaiting_sell_price':
-                return await self.trade_handler.sell_price(update, context)
+            ########################################################################################################
 
-            elif current_state == 'awaiting_txid':
-                # پیام کاربر را به همان متد می‌فرستیم تا تأیید شود
-                return await self.trade_handler.prompt_trade_txid(update, context)            
+            # # ─── Trade Menu Sub-Options ──────────────────────
+            # elif text_lower == '🛒 buy':
+            #     return await self.trade_handler.buy_start(update, context)
+
+            # elif text_lower == '💸 sell':
+            #     return await self.trade_handler.sell_start(update, context)
+
+            # # ─── مدیریت ورودی عددی در فلو خرید/فروش ───────────────
+            # elif current_state == 'awaiting_buy_amount':
+            #     return await self.trade_handler.buy_amount(update, context)
+
+            # elif current_state == 'awaiting_buy_price':
+            #     return await self.trade_handler.buy_price(update, context)
+
+            # elif current_state == 'awaiting_sell_amount':
+            #     return await self.trade_handler.sell_amount(update, context)
             
+            # elif current_state == 'awaiting_sell_price':
+            #     return await self.trade_handler.sell_price(update, context)
+
+            # elif current_state == 'awaiting_txid':
+            #     # پیام کاربر را به همان متد می‌فرستیم تا تأیید شود
+            #     return await self.trade_handler.prompt_trade_txid(update, context)     
+                   
+            ########################################################################################################
+
             elif current_state == 'awaiting_sub_txid':                             # Subscription
                 return await self.payment_handler.handle_txid(update, context)     # ← شاخهٔ جدید            
             
@@ -1058,14 +1082,16 @@ class BotManager:
             "admin_set_total_supply":       self.admin_handler.set_total_supply_cmd,
             "admin_flush_price_cache":      self.admin_handler.flush_price_cache_cmd,            
             
-            #--------------------------------------------------------------------------------------
+            ########################################################################################################
             # ــ Trade
             "trade_menu":                  self.trade_handler.trade_menu,
-            "awaiting_sell_amount":        self.trade_handler.sell_start,
-            "awaiting_sell_price":         self.trade_handler.sell_price,
-            "awaiting_buy_amount":         self.trade_handler.buy_start,
-            "awaiting_buy_price":          self.trade_handler.buy_price,
-            "awaiting_txid":               self.trade_handler.prompt_trade_txid,
+            
+            # "awaiting_sell_amount":        self.trade_handler.sell_start,
+            # "awaiting_sell_price":         self.trade_handler.sell_price,
+            # "awaiting_buy_amount":         self.trade_handler.buy_start,
+            # "awaiting_buy_price":          self.trade_handler.buy_price,
+            # "awaiting_txid":               self.trade_handler.prompt_trade_txid,
+            ########################################################################################################
 
             # ــ Profile & Wallet
             "profile_menu":                self.profile_handler.show_profile_menu,
