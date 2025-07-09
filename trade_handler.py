@@ -39,7 +39,7 @@ class TradeHandler:
             chat_id = update.effective_chat.id
             
             # ───➤ کیبورد Back و Exit
-            kb: ReplyKeyboardMarkup = await self.keyboards.back_exit_keyboard(chat_id)
+            kb: ReplyKeyboardMarkup = await self.keyboards.build_back_exit_keyboard(chat_id)
 
             # ───➤ متن خوش‌آمدگویی و اطلاع‌رسانی
             msg_en = (
