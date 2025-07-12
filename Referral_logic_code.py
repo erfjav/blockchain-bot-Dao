@@ -717,65 +717,6 @@ class ReferralManager:
 
 
 
-####################################################################################################### 
-    # async def _split_second_admin_pool(self):
-    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_SECOND_LEADER_POOL, "USDT", 6)))
-    #     if bal == 0:
-    #         return
 
-    #     # 95 % (19×5) to admins, 5 % stays as fee buffer
-    #     buffer_target = _round_down(bal * Decimal("0.05"))
-    #     distributable = bal - buffer_target
-    #     share = _round_down(distributable / Decimal(len(SECOND_LEADER_PERSONAL_WALLETS)))
-
-    #     # Real‑time fee estimate to ensure we don’t overdraw
-    #     total_estimated_fees = Decimal("0")
-    #     for w in SECOND_LEADER_PERSONAL_WALLETS:
-    #         total_estimated_fees += await self._estimate_fee(w, _dec_to_micro(share))
-
-    #     if total_estimated_fees > buffer_target:
-    #         deficit = total_estimated_fees - buffer_target
-    #         """Reduce each share equally so that buffer covers fees."""
-    #         reduction_each = _round_down(deficit / Decimal(len(SECOND_LEADER_PERSONAL_WALLETS)))
-    #         share -= reduction_each
-    #         if share <= 0:
-    #             logger.warning("Second‑admin share turned non‑positive after fee adjustment – postponing payout.")
-    #             return
-
-    #     # Execute transfers
-    #     for idx, w in enumerate(SECOND_LEADER_PERSONAL_WALLETS, 1):
-    #         await self._transfer_wallet(w, share, f"2ndadmin‑{idx}")
-    #     # any residue (including buffer) stays in pool for next round
-
-    # async def _split_first_admin_pool(self):
-    #     bal = Decimal(str(await self.crypto_handler.get_wallet_balance("tron", WALLET_FIRST_LEADER_POOL, "USDT", 6)))
-    #     if bal == 0:
-    #         return
-    #     share = _round_down(bal / Decimal(len(FIRST_LEADER_PERSONAL_WALLETS)))
-    #     for idx, w in enumerate(FIRST_LEADER_PERSONAL_WALLETS, 1):
-    #         await self._transfer_wallet(w, share, f"1stadmin‑{idx}")
-    #     # residue automatically stays to cover future fees
-#####################################################################################################
-    # async def _payout_every_30_days(self):
-        
-    #     now = datetime.utcnow()
-    #     async for user in self.col_users.find({"balance_usd": {"$gt": 0}}):
-    #         uid = user["user_id"]
-    #         if uid in MAIN_LEADER_IDS + SECOND_LEADER_USER_IDS:
-    #             continue  # admins handled separately
-            
-    #         second_date = await self._second_child_date(uid)
-    #         if not second_date or (now - second_date) < timedelta(days=30):
-    #             continue  # not yet eligible for payout
-            
-    #         amt = Decimal(user["balance_usd"])
-    #         wallet = user.get("tron_wallet")
-            
-    #         if not wallet:
-    #             continue  # user has no withdrawal wallet on file
-            
-    #         await self._transfer_wallet(wallet, amt, "monthly‑member", from_uid=uid)
-    #         await self.col_users.update_one({"user_id": uid}, {"$set": {"balance_usd": Decimal("0")}})
-    #         await self._refresh_eligibility(uid)  # may become ineligible if children were removed
 
 
